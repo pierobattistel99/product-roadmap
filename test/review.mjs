@@ -38,7 +38,7 @@ const Q = (s) => p.evaluate(s);
 
 // ---------- 1. boot ----------
 check('boot: slide rendered', (await Q(`document.querySelectorAll('.brow--data').length`)) === 9);
-check('boot: library loaded', (await Q(`document.getElementById('libCount').textContent`)) === '10 iniziative');
+check('boot: library loaded', (await Q(`document.getElementById('libCount').textContent`)) === '10 initiatives');
 check('boot: undo starts disabled', await Q(`document.getElementById('btnUndo').disabled`));
 
 // ---------- 2. ERASER (the reported bug) ----------
@@ -153,8 +153,8 @@ await p.waitForTimeout(400);
 const rowsAfter = await Q(`(m=>m.endRow)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones[0])`);
 check('milestone: grip stretches the line', rowsAfter === 7, `endRow ${rowsBefore} -> ${rowsAfter}`);
 // add + delete
-await p.click('#btnAddMsTop'); await p.waitForTimeout(300);
-check('milestone: + Milestone adds one', (await Q(`document.querySelectorAll('.ms').length`)) === 2);
+await p.click('#glDrag'); await p.waitForTimeout(350);
+check('milestone: clicking Go-live (no drag) adds one', (await Q(`document.querySelectorAll('.ms').length`)) === 2);
 await p.hover('.ms[data-ms="1"]');
 await p.click('.ms[data-ms="1"] .msdel'); await p.waitForTimeout(300);
 check('milestone: × deletes it', (await Q(`document.querySelectorAll('.ms').length`)) === 1);
@@ -248,6 +248,93 @@ const persisted = await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1'))
 check('persistence: writes to localStorage', persisted === 6);
 await p.reload(); await p.waitForTimeout(900);
 check('persistence: survives reload', (await Q(`document.querySelectorAll('.sprint').length`)) === 6);
+
+
+// ---------- 11b. LEGEND, NOTE, HALF SPRINT, AREA, TOOLTIP, REORDER, GO-LIVE ----------
+await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
+await p.reload(); await p.waitForTimeout(900);
+
+check('legend: printed on the slide', (await Q(`document.querySelectorAll('.legend .lg').length`)) === 2);
+check('legend: names both categories',
+  (await Q(`[...document.querySelectorAll('.legend .lg')].map(e=>e.textContent).join('|')`)) === 'Legal obligation|Other initiatives');
+
+check('note: hidden by default', await Q(`document.getElementById('slideNote').hidden`));
+await p.click('#btnNote'); await p.waitForTimeout(300);
+check('note: + Note brings it back', !(await Q(`document.getElementById('slideNote').hidden`)));
+await p.click('#slideNoteText'); await p.keyboard.press('Control+a'); await p.keyboard.type('Pending CPO sign-off');
+await p.waitForTimeout(500);
+check('note: text is editable and saved',
+  (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].note.text`)) === 'Pending CPO sign-off');
+await p.hover('#slideNote'); await p.click('#noteDel'); await p.waitForTimeout(300);
+check('note: × removes it again', await Q(`document.getElementById('slideNote').hidden`));
+
+// half sprint
+await p.click('.brush[data-brush="delivery"]');
+await p.click('#btnHalf'); await p.waitForTimeout(150);
+check('half: toggle turns on', (await Q(`document.getElementById('btnHalf').getAttribute('aria-pressed')`)) === 'true');
+const hb = await p.locator('.cell[data-row="5"][data-col="6"]').boundingBox();
+await p.mouse.click(hb.x + hb.width * 0.25, hb.y + hb.height / 2); await p.waitForTimeout(300);
+check('half: left half paints one chip + one empty slot',
+  (await Q(`(c=>c.querySelectorAll('.chip').length+'/'+c.querySelectorAll('.chip--ph').length)(document.querySelector('.cell[data-row="5"][data-col="6"]'))`)) === '1/1',
+  await Q(`JSON.stringify(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.rows[5].cells['6'])`));
+check('half: model stores an empty slot',
+  (await Q(`JSON.stringify(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.rows[5].cells['6'])`)) === '["delivery",null]');
+await p.mouse.click(hb.x + hb.width * 0.78, hb.y + hb.height / 2); await p.waitForTimeout(300);
+check('half: right half fills the other slot',
+  (await Q(`document.querySelectorAll('.cell[data-row="5"][data-col="6"] .chip').length`)) === 2);
+await p.click('#btnHalf'); await p.waitForTimeout(150);
+check('half: toggle turns off', (await Q(`document.getElementById('btnHalf').getAttribute('aria-pressed')`)) === 'false');
+
+// row reorder (was broken: the buttons sat outside the row's hover box)
+const firstBefore = await Q(`document.querySelector('.brow--data .pill span').textContent`);
+await p.hover('.brow--data[data-row="1"]');
+await p.click('.brow--data[data-row="1"] .rowtools button[data-act="up"]'); await p.waitForTimeout(350);
+const firstAfter = await Q(`document.querySelector('.brow--data .pill span').textContent`);
+check('reorder: ▲ on the slide moves the row up', firstAfter !== firstBefore, firstBefore + ' -> ' + firstAfter);
+await p.hover('.brow--data[data-row="0"]');
+await p.click('.brow--data[data-row="0"] .rowtools button[data-act="down"]'); await p.waitForTimeout(350);
+check('reorder: ▼ puts it back',
+  (await Q(`document.querySelector('.brow--data .pill span').textContent`)) === firstBefore);
+
+// description + area
+await p.click('.lib-item:nth-child(3) .nm'); await p.waitForTimeout(250);
+await p.fill('#iArea', 'Finance'); await p.waitForTimeout(400);
+check('area: saved on the initiative',
+  (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.find(i=>i.name==='One-step checkout').area`)) === 'Finance');
+check('area: shown next to that initiative in the library',
+  (await Q(`[...document.querySelectorAll('.lib-item')].some(li=>li.querySelector('.nm').textContent==='One-step checkout' && li.querySelector('.lk').textContent==='Finance')`)));
+await p.fill('#iDesc', 'Collapse purchase into one reviewable step.'); await p.waitForTimeout(400);
+check('description: saved on the initiative',
+  (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.find(i=>i.name==='One-step checkout').desc`)) === 'Collapse purchase into one reviewable step.');
+await p.fill('#libSearch', 'finance'); await p.waitForTimeout(300);
+check('area: library search matches it', (await Q(`document.querySelectorAll('.lib-item').length`)) === 2,
+  'Plans and billing + One-step checkout');
+await p.fill('#libSearch', ''); await p.waitForTimeout(300);
+
+await p.hover('.label[data-labelrow="0"]'); await p.waitForTimeout(400);
+const tip = await Q(`({hidden:document.getElementById('tip').hidden, text:document.getElementById('tip').textContent})`);
+check('tooltip: description shows on hover', tip.hidden === false && tip.text.length > 10, JSON.stringify(tip).slice(0,110));
+await p.hover('.slide-title'); await p.waitForTimeout(300);
+check('tooltip: hides when the pointer leaves', await Q(`document.getElementById('tip').hidden`));
+
+// go-live dragged from the toolbar
+const msBefore = await Q(`document.querySelectorAll('.ms').length`);
+const src = await p.locator('#glDrag').boundingBox();
+const tgt = await p.locator('.cell[data-row="4"][data-col="6"]').boundingBox();
+await p.mouse.move(src.x + src.width/2, src.y + src.height/2);
+await p.mouse.down();
+await p.mouse.move(tgt.x, tgt.y + tgt.height/2, { steps: 15 });
+const ghostVisible = !(await Q(`document.getElementById('glGhost').hidden`));
+await p.mouse.up(); await p.waitForTimeout(400);
+check('go-live: ghost follows the pointer while dragging', ghostVisible);
+check('go-live: dropping on the grid creates a line',
+  (await Q(`document.querySelectorAll('.ms').length`)) === msBefore + 1);
+check('go-live: it lands on the sprint you dropped it over',
+  (await Q(`(m=>m[m.length-1].col)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`)) === 6);
+
+// accent colour
+check('theme: editor accent is #2151FF',
+  (await Q(`getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim().toLowerCase()`)) === '#2151ff');
 
 // ---------- 12. RESPONSIVE ----------
 await p.setViewportSize({ width: 620, height: 900 }); await p.waitForTimeout(600);

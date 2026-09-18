@@ -1,162 +1,194 @@
 # Roadmap Snapshot Studio
 
-Tool per costruire le due slide di roadmap che servono a ogni fine quarter,
-senza ridisegnarle a mano ogni volta:
+**Production: https://roadmap-snapshot-studio.vercel.app**
 
-- **Vista Prodotto** — `Quarter roadmap snapshot (Qx)`, per CPO, head of business
-  unit e stakeholder. Fasi: Discovery → Specs → Delivery.
-- **Vista Design** — `Quarter design roadmap snapshot (Qx)`, per il team di
-  design. Fasi: Experience Conception → Delivery.
+A tool for building the two roadmap slides that come round every quarter,
+instead of redrawing them by hand:
 
-Le due viste condividono gli stessi sprint e la stessa libreria di iniziative,
-ma hanno righe, ordine, etichette, colori di categoria e milestone indipendenti:
-la vista design può mostrare un sottoinsieme delle iniziative e accorpare due
-righe in una sola, dandole un'etichetta valida solo lì.
+- **Product view** — `Quarter roadmap snapshot (Qx)`, for the CPO, heads of
+  business unit and stakeholders. Phases: Discovery → Specs → Delivery.
+- **Design view** — `Quarter design roadmap snapshot (Qx)`, for the design
+  team. Phases: Experience Conception → Delivery.
 
-## Come si usa
+Both views share the same sprints and the same initiative library, but keep
+their own rows, ordering, labels, category bars and milestones: the design view
+can show a subset of the initiatives and merge two rows into one, giving it a
+label that applies only there.
 
-La slide **è** l'editor: quello che vedi è esattamente quello che esporti.
+## Using it
 
-| Gesto | Effetto |
+The slide **is** the editor: what you see is exactly what you export.
+
+| Gesture | Effect |
 | --- | --- |
-| clic su una cella | applica la fase selezionata nella barra in alto |
-| trascinamento | riempie più sprint di fila |
-| `Shift` + clic | stende l'intera sequenza (Discovery, Specs, Delivery) da quello sprint in poi |
-| `Alt` + clic | affianca una seconda fase nella stessa colonna (rende le `D` `S` mezze colonne) |
-| tasto destro | cancella la cella |
-| `1`–`4` / `0` | cambiano la fase attiva / gomma |
-| clic sul titolo, sul post-it, sulle intestazioni sprint | modifica diretta del testo |
-| clic sull'etichetta di riga | apre il dettaglio nel pannello di sinistra |
-| `↗` sull'etichetta | apre il link alla documentazione |
-| `−` `+` in alto a destra | zoom; `Adatta` torna alla larghezza della finestra |
-| `☰` in alto a sinistra | mostra o nasconde il pannello laterale |
-| `Ctrl/Cmd+Z` | annulla; con `Shift` ripristina |
-| `?` | elenco delle scorciatoie |
+| click a cell | applies the phase selected in the toolbar |
+| drag | fills several sprints in a row |
+| `Shift` + click | lays the whole sequence (Discovery, Specs, Delivery) from that sprint on |
+| `Alt` + click | puts a second phase beside the first in the same sprint |
+| right-click | erases the cell — drag to erase a run |
+| `½ Half sprint` / `H` | paints only the half of the sprint you click |
+| `1`–`4` / `0` | pick a phase / the eraser |
+| click the title, the sticky note, a sprint header | edit the text in place |
+| click a row label | opens the detail in the left panel |
+| `↗` on a label | opens the documentation link |
+| hover a row label | shows the initiative's area and short description |
+| `−` `+` top right | zoom; `Fit` goes back to the window width |
+| `☰` top left | show or hide the side panel |
+| `Ctrl/Cmd+Z` | undo; with `Shift`, redo |
+| `?` | list of every shortcut |
 
-### Milestone
+The slide never scales below 62%: past that, sprint cells become ~40×21 px
+targets and clicking them is a lottery. In a narrow window the canvas scrolls
+horizontally instead of shrinking, the side panel starts folded, and the zoom
+and panel state are remembered.
 
-La linea verde di go-live si modifica direttamente sulla slide: si scrive
-sull'etichetta, si trascina il corpo della linea per spostarla tra gli sprint,
-si tirano i due pallini ai capi per allungarla sulle righe e la `×` la elimina.
-`+ Milestone` nella barra degli strumenti ne aggiunge una.
+### Category bars and the legend
 
-### Presentazione
+The coloured bar down the left of each row says **why** the initiative is on the
+roadmap:
 
-`▶ Presenta` (o `P`) apre il deck a schermo intero: niente editor, solo le
-slide del quarter. `←` `→` scorrono le viste, `↑` `↓` cambiano quarter, `Esc`
-esce. Le iniziative con un link restano cliccabili durante la presentazione,
-così apri la documentazione mentre parli.
+- **yellow** — a legal obligation
+- **green** — every other reason
 
-La slide non scende mai sotto il 62%: sotto quella soglia le celle degli sprint
-diventano bersagli da ~40×21 px e cliccarle è un terno al lotto. In una finestra
-stretta il canvas scorre in orizzontale invece di rimpicciolirsi, il pannello
-laterale parte chiuso e zoom e stato del pannello restano memorizzati.
+The legend is printed at the bottom of the slide and only lists the colours
+actually in use. Turn it off under `•••` → `Show legend on the slide`, or in the
+Sprints panel.
 
-### Pannello laterale
+That is separate from **Area** (Finance, Operations, Business, Legal, Growth,
+Tech…), which says who owns the initiative. Area shows up beside each name in
+the library, is searchable, and appears in the hover card.
 
-- **Iniziative** — la libreria persistente. La spunta dice se l'iniziativa è
-  nella vista aperta; il dettaglio contiene nome, **link alla documentazione**,
-  etichetta alternativa valida solo in quella vista, colore della barra di
-  categoria (verde / lime "da validare" / nessuna) e riquadro di evidenza.
-- **Sprint** — genera le intestazioni da una data di inizio, una durata e un
-  numero di sprint; numerazione e quarter avanzano da soli. Le fasi già dipinte
-  restano dove sono.
-- **Milestone** — la linea verticale verde con l'etichetta di go-live: sprint di
-  ancoraggio e righe coperte.
+### Milestones and go-live lines
 
-### Esportare
+A milestone is the green vertical line with a caption: a go-live that happens on
+its own date, independent of any initiative's delivery.
 
-`Scarica PNG` produce un file 3200×1800 (2×) pronto da incollare in Google
-Slides o Keynote; `Copia PNG` mette la stessa immagine negli appunti. Le
-affordance dell'editor (contorni tratteggiati, frecce di riordino, maniglie
-delle milestone) non finiscono mai nell'export.
+- Drag **⇥ Go-live** from the toolbar onto the grid to drop one where you want
+  it; click it without dragging to add one at a default spot.
+- Type on the caption to rename it.
+- Drag the body of the line to move it between sprints.
+- Drag the two dots at the ends to stretch it across rows.
+- `×` deletes it.
 
-Dal menu `•••`: `Esporta deck in PDF` mette entrambe le viste del quarter in un
-PDF orizzontale da mandare a chi non era in riunione; poi duplica il quarter
-successivo (mantiene righe e sprint, azzera le fasi), rinomina, elimina,
-esporta e importa tutto in JSON.
+### The sticky note
+
+The yellow "To validate" note is off by default. `+ Note` in the toolbar puts it
+back and focuses it so you can type; the `×` on it removes it again. The text
+is saved per quarter.
+
+### Presenting
+
+`▶ Present` (or `P`) opens the deck full screen: no editor, just the quarter's
+slides. `←` `→` move between views, `↑` `↓` between quarters, `Esc` exits.
+Initiatives with a link stay clickable while presenting, so the documentation
+opens while you talk.
+
+### Side panel
+
+- **Initiatives** — the persistent library. The checkbox says whether an
+  initiative is on the view you have open; the detail holds name, short
+  description, area, **documentation link**, an alternative label for that view
+  only, the category bar and the highlight box.
+- **Sprints** — generates the headers from a start date, a length and a number
+  of sprints; numbering and quarters advance on their own. Phases already
+  painted stay where they are.
+- **Milestones** — the same lines, editable with fields instead of dragging.
+
+### Exporting
+
+`Download PNG` produces a 3200×1800 (2×) file ready to paste into Google Slides
+or Keynote; `Copy PNG` puts the same image on the clipboard. Editor affordances
+(dashed outlines, reorder arrows, milestone handles) never end up in the export.
+
+From the `•••` menu: `Export deck as PDF` puts both views of the quarter into one
+landscape PDF for the people who were not in the room; then duplicate into the
+next quarter (keeps rows and sprints, clears phases), rename, delete, and export
+or import everything as JSON.
 
 ## Brand
 
-I colori della slide sono fissi e non seguono il tema chiaro/scuro, perché sono
-l'artwork che finisce nel deck:
+The slide's colours are fixed and do not follow the light/dark theme, because
+they are the artwork that lands in the deck:
 
-| Ruolo | Hex |
+| Role | Hex |
 | --- | --- |
-| Discovery, barra di categoria, milestone | `#17c3a2` |
+| Discovery, category bar, milestones | `#17c3a2` |
 | Specs, Experience Conception | `#f4a32a` |
 | Delivery | `#5b4ee8` |
-| Post-it "To validate", barra "da validare" | `#dcf223` |
-| Testo | `#101012` |
-| Pillola di riga | `#f0f0f1` |
+| Sticky note, "legal obligation" bar | `#dcf223` |
+| Text | `#101012` |
+| Row pill | `#f0f0f1` |
 | Link | `#1155cc` |
 
-Il carattere è **Figtree** (Google Fonts). Per sostituirlo con il font
-aziendale basta cambiare il `<link>` e la `font-family` in cima al file.
+The editor chrome around the slide uses `#2151ff` as its accent and does follow
+the viewer's theme.
 
-## Struttura del repository
+The typeface is **Figtree** (Google Fonts). To swap in the company font, change
+the `<link>` and the `font-family` at the top of the source file.
+
+## Repository layout
 
 ```
-src/roadmap-studio.html   sorgente (corpo pagina, senza skeleton)
-build.sh                  genera index.html dal sorgente (bash + awk, zero dipendenze)
-index.html                pagina servita e apribile da disco — output del build
-vercel.json               hosting statico: cache e header
-test/review.mjs           suite di verifica funzionale in Chromium
+src/roadmap-studio.html   source (page body, no skeleton)
+build.sh                  generates index.html from source (bash + awk, no dependencies)
+index.html                the page that is served, and opens from disk — build output
+vercel.json               static hosting: cache and security headers
+test/review.mjs           functional review suite, driven in Chromium
 ```
 
-Dopo ogni modifica al sorgente:
+After every change to the source:
 
 ```sh
 ./build.sh
 ```
 
-`index.html` è generato: non modificarlo a mano, le modifiche vanno in
+`index.html` is generated: do not edit it by hand, changes go in
 `src/roadmap-studio.html`.
 
-## Verifica
+## Review
 
 ```sh
 npm --prefix test install
 npm --prefix test test
 ```
 
-Apre `index.html` in Chromium ed esercita ogni comportamento del tool —
-pennelli, gomma (clic, trascinamento, tasto destro, tastiera), undo/redo,
-milestone trascinabili, presentazione, export PNG e PDF, generazione sprint,
-persistenza e regole per finestre strette. Esce con codice diverso da zero al
-primo fallimento o errore JavaScript di pagina.
+Opens `index.html` in Chromium and exercises every behaviour the tool promises —
+brushes, the eraser in all four ways, half sprints, undo/redo, draggable
+milestones and dropped go-live lines, the legend, the sticky note, area and
+description fields, the hover card, row reordering, presentation mode, PNG and
+PDF export, the sprint generator, persistence and narrow-window rules. It exits
+non-zero on the first failure or page JavaScript error.
 
-In ambienti senza accesso alle CDN, passa `H2C_PATH` e `JSPDF_PATH` con copie
-locali di html2canvas e jsPDF; `CHROMIUM` punta a un binario alternativo.
+Where the CDNs are unreachable, pass `H2C_PATH` and `JSPDF_PATH` pointing at
+local copies of html2canvas and jsPDF; `CHROMIUM` points at another binary and
+`PAGE_URL` at another build.
 
-## Hosting e persistenza
+## Hosting and persistence
 
-**Produzione: https://roadmap-snapshot-studio.vercel.app**
+Vercel project `roadmap-snapshot-studio`, linked to this repository: every push
+to the production branch (`claude/keen-ritchie-1wkx3v`) deploys automatically.
+The deploy is static — `index.html` is served as it is, with no build and no
+runtime — so run `./build.sh` and commit `index.html` along with the source
+change, or the previous page ships. `.vercelignore` keeps source, tests and
+documentation out.
 
-Progetto Vercel `roadmap-snapshot-studio`, collegato a questo repo: ogni push
-sul branch di produzione (`claude/keen-ritchie-1wkx3v`) fa un deploy
-automatico. Il deploy è statico — `index.html` viene servito così com'è, senza
-build e senza runtime — quindi esegui `./build.sh` e committa `index.html`
-insieme alle modifiche al sorgente, altrimenti va online la pagina precedente.
-`.vercelignore` tiene fuori sorgente, test e documentazione.
+The production URL is public: anyone with the link opens the tool, but not your
+data, which stays in the browser of whoever entered it.
 
-L'URL di produzione è pubblico: chi ha il link apre il tool, ma non i tuoi
-dati, che restano nel browser di chi li ha inseriti.
+- On Vercel (or opened from disk) data lives in the browser's `localStorage`: it
+  survives across sessions on that device and does not follow you elsewhere.
+  `Export everything (JSON)` is how you move it or keep a backup.
+- Published as an Artifact, data lives in the artifact database and follows the
+  user across devices. Read-only viewers can browse and export but not edit.
 
-- Su Vercel (o aperto da disco) i dati stanno nel `localStorage` del browser:
-  restano tra le sessioni su quel dispositivo, non seguono l'utente altrove.
-  `Esporta tutto (JSON)` è il modo per spostarli o tenerne un backup.
-- Pubblicato come Artifact, i dati stanno nel database dell'artifact e seguono
-  l'utente tra dispositivi. Chi ha accesso in sola lettura consulta ed esporta
-  ma non modifica.
+The tool opens on an example quarter, so the first session starts from a working
+board rather than an empty grid. To load your own roadmap use `•••` →
+`Import JSON`: it replaces the example and is saved in your browser.
 
-Il tool si apre su un quarter di esempio, così la prima sessione parte da una
-board funzionante e non da una griglia vuota. Per caricare la tua roadmap usa
-`•••` → `Importa JSON`: sostituisce l'esempio e resta salvata nel tuo browser.
+## Known limits
 
-## Limiti noti
-
-- Una cella tiene al massimo due fasi affiancate.
-- Il set di fasi è fisso per vista (tre per Prodotto, due per Design).
-- Il deck di presentazione è il quarter aperto: `↑` `↓` passano agli altri.
-- Export PNG e PDF usano `html2canvas` e `jsPDF` da CDN: senza rete quei due pulsanti non funzionano.
+- A sprint holds at most two phases side by side.
+- The phase set is fixed per view (three for Product, two for Design).
+- The presentation deck is the quarter you have open; `↑` `↓` reach the others.
+- PNG and PDF export use `html2canvas` and `jsPDF` from a CDN: with no network,
+  those two buttons do not work.

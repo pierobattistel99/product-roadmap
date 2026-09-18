@@ -35,50 +35,50 @@
   --pn-paper:#ffffff;
   --pn-muted:#6b6b72;
 
-  --ui-bg:#f2f6f5;
+  --ui-bg:#f4f6fb;
   --ui-panel:#ffffff;
-  --ui-sunk:#e9efed;
-  --ui-line:#dde5e3;
-  --ui-line-soft:#e9eeed;
-  --ui-text:#0f1614;
-  --ui-muted:#5c6b68;
-  --ui-faint:#8a9895;
-  --ui-accent:#0aa287;
+  --ui-sunk:#eaeef8;
+  --ui-line:#dde3f0;
+  --ui-line-soft:#e9edf6;
+  --ui-text:#0f1422;
+  --ui-muted:#5b6479;
+  --ui-faint:#8a92a6;
+  --ui-accent:#2151ff;
   --ui-accent-ink:#ffffff;
-  --ui-shadow:0 1px 2px rgba(16,32,29,.06),0 8px 24px -12px rgba(16,32,29,.18);
-  --ui-focus:#0aa287;
+  --ui-shadow:0 1px 2px rgba(17,25,50,.06),0 8px 24px -12px rgba(17,25,50,.20);
+  --ui-focus:#2151ff;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --ui-bg:#0d1312;
-    --ui-panel:#151d1c;
-    --ui-sunk:#101817;
-    --ui-line:#26312f;
-    --ui-line-soft:#1d2726;
-    --ui-text:#e7eeed;
-    --ui-muted:#93a4a0;
-    --ui-faint:#6d7d7a;
-    --ui-accent:#2fd6b4;
-    --ui-accent-ink:#06211c;
+    --ui-bg:#0c1017;
+    --ui-panel:#141a25;
+    --ui-sunk:#0f1420;
+    --ui-line:#252d3d;
+    --ui-line-soft:#1c2331;
+    --ui-text:#e7eaf3;
+    --ui-muted:#939bb0;
+    --ui-faint:#6d7589;
+    --ui-accent:#7b9bff;
+    --ui-accent-ink:#06102b;
     --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
-    --ui-focus:#2fd6b4;
+    --ui-focus:#7b9bff;
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --ui-bg:#0d1312;
-  --ui-panel:#151d1c;
-  --ui-sunk:#101817;
-  --ui-line:#26312f;
-  --ui-line-soft:#1d2726;
-  --ui-text:#e7eeed;
-  --ui-muted:#93a4a0;
-  --ui-faint:#6d7d7a;
-  --ui-accent:#2fd6b4;
-  --ui-accent-ink:#06211c;
+  --ui-bg:#0c1017;
+  --ui-panel:#141a25;
+  --ui-sunk:#0f1420;
+  --ui-line:#252d3d;
+  --ui-line-soft:#1c2331;
+  --ui-text:#e7eaf3;
+  --ui-muted:#939bb0;
+  --ui-faint:#6d7589;
+  --ui-accent:#7b9bff;
+  --ui-accent-ink:#06102b;
   --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
-  --ui-focus:#2fd6b4;
+  --ui-focus:#7b9bff;
   color-scheme:dark;
 }
 
@@ -101,7 +101,7 @@ button,input,select,textarea{font:inherit;color:inherit}
   padding:10px 16px;background:var(--ui-panel);border-bottom:1px solid var(--ui-line);
 }
 .brandmark{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:-.015em;font-size:15px;white-space:nowrap}
-.brandmark .dot{width:11px;height:11px;border-radius:3px;background:var(--pn-teal);box-shadow:0 0 0 3px color-mix(in srgb,var(--pn-teal) 22%,transparent)}
+.brandmark .dot{width:11px;height:11px;border-radius:3px;background:var(--ui-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-accent) 22%,transparent)}
 .topbar .spacer{flex:1 1 auto;min-width:0}
 
 .btn{
@@ -324,6 +324,9 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .label.is-boxed .pill{outline:1.5px solid #2e2e34;outline-offset:3px;border-radius:5px}
 
 .cell{display:flex;gap:4px;align-items:center;min-width:0}
+/* A cell holds one full-width chip, or two half-sprint slots where either
+   half may be empty — that is how a phase occupies half a sprint. */
+.chip--ph{flex:1;min-width:0;height:1px;background:transparent}
 .chip{
   flex:1;min-width:0;height:clamp(30px,calc(var(--row-h) - 26px),46px);border-radius:9px;color:#fff;
   font-size:14px;font-weight:700;letter-spacing:-.005em;line-height:1.1;
@@ -364,6 +367,55 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 }
 .slide.is-live .ms:hover .grip,.slide.is-live .ms:hover .msdel{display:block}
 .slide.is-export .ms::before,.slide.is-export .grip,.slide.is-export .msdel{display:none!important}
+
+/* legend — what the category rails mean, printed on the slide */
+.legend{
+  display:flex;gap:28px;align-items:center;flex-wrap:wrap;
+  margin-left:calc(var(--rail-w) + var(--rail-gap));padding-top:14px;
+}
+.legend[hidden]{display:none}
+.legend .lg{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:#3d3d44}
+.legend .sw{width:10px;height:18px;border-radius:2px;flex:none}
+.legend .sw--lime{background:var(--pn-lime)}
+.legend .sw--teal{background:var(--pn-teal)}
+
+/* note (the "to validate" sticky) is off by default and added on demand */
+.slide-note{position:relative}
+.notedel{
+  position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;
+  border:1.5px solid #8a8a2a;background:#fff;color:#4a4a12;font-size:12px;line-height:1;
+  cursor:pointer;display:none;padding:0;
+}
+.slide.is-live .slide-note:hover .notedel{display:block}
+.slide.is-export .notedel{display:none!important}
+
+/* hover card for an initiative's description and area */
+.tip{
+  position:fixed;z-index:120;max-width:320px;pointer-events:none;
+  background:var(--ui-text);color:var(--ui-bg);border-radius:10px;padding:9px 12px;
+  box-shadow:var(--ui-shadow);font-size:12.5px;line-height:1.45;
+}
+.tip[hidden]{display:none}
+.tip .tip-area{
+  display:inline-block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  opacity:.75;margin-bottom:3px;
+}
+.tip .tip-name{font-weight:700;margin-bottom:2px}
+
+/* go-live marker dragged from the toolbar onto the slide */
+.glsrc{cursor:grab;touch-action:none}
+.glsrc:active{cursor:grabbing}
+.glghost{
+  position:fixed;z-index:120;pointer-events:none;
+  background:var(--pn-teal);width:2px;height:120px;border-radius:1px;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--pn-teal) 25%,transparent);
+}
+.glghost[hidden]{display:none}
+.glghost::after{
+  content:"Go-live";position:absolute;bottom:calc(100% + 6px);left:6px;
+  font:600 13px "Figtree",sans-serif;color:var(--pn-teal);white-space:nowrap;
+}
+body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3px}
 
 /* presentation mode */
 .present{
@@ -426,10 +478,17 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .slide.is-live .cell:hover:empty::after{border-color:#c9c9d2;background:#fafafb}
 .slide.is-live .cell:hover:not(:empty){box-shadow:0 0 0 2px #c9c9d2}
 .slide.is-live .label{cursor:pointer}
-.slide.is-live .brow--data.is-sel .pill{box-shadow:0 0 0 2px var(--ui-accent,#0aa287)}
+.slide.is-live .brow--data.is-sel .pill{box-shadow:0 0 0 2px var(--ui-accent,#2151ff)}
 .rowtools{
   position:absolute;left:calc(var(--pad-l) * -1 + 4px);top:50%;transform:translateY(-50%);
-  display:none;flex-direction:column;gap:1px;
+  display:none;flex-direction:column;gap:1px;z-index:3;
+}
+/* The reorder buttons sit in the slide margin, OUTSIDE the row's own box, so
+   moving the pointer onto them used to drop :hover and hide them mid-reach.
+   This pad extends the row's hover area across that margin. */
+.slide.is-live .brow--data::before{
+  content:"";position:absolute;left:calc(var(--pad-l) * -1);top:0;bottom:0;
+  width:var(--pad-l);
 }
 .slide.is-live .brow--data:hover .rowtools{display:flex}
 .rowtools button{
@@ -488,135 +547,154 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 <body>
 <div class="app">
   <header class="topbar">
-    <button class="btn btn-ghost" id="btnPanel" title="Mostra o nascondi il pannello" aria-label="Mostra o nascondi il pannello" aria-expanded="true">☰</button>
+    <button class="btn btn-ghost" id="btnPanel" title="Show or hide the side panel" aria-label="Show or hide the side panel" aria-expanded="true">☰</button>
     <div class="brandmark"><span class="dot"></span><span class="word">Roadmap Snapshot Studio</span></div>
 
     <div class="boardpick">
       <label class="sr-only" for="boardSel">Quarter</label>
       <select id="boardSel"></select>
-      <button class="btn btn-ghost" id="btnNewBoard" title="Nuovo quarter" aria-label="Nuovo quarter">+</button>
+      <button class="btn btn-ghost" id="btnNewBoard" title="New quarter" aria-label="New quarter">+</button>
     </div>
 
-    <div class="viewtabs" role="tablist" aria-label="Vista">
-      <button class="vtab is-on" id="tabProduct" data-view="product" role="tab" aria-selected="true">Prodotto</button>
+    <div class="viewtabs" role="tablist" aria-label="View">
+      <button class="vtab is-on" id="tabProduct" data-view="product" role="tab" aria-selected="true">Product</button>
       <button class="vtab" id="tabDesign" data-view="design" role="tab" aria-selected="false">Design</button>
     </div>
 
-    <div class="histgroup" role="group" aria-label="Cronologia">
-      <button id="btnUndo" title="Annulla (Ctrl/Cmd+Z)" aria-label="Annulla" disabled>↶</button>
-      <button id="btnRedo" title="Ripristina (Ctrl/Cmd+Shift+Z)" aria-label="Ripristina" disabled>↷</button>
+    <div class="histgroup" role="group" aria-label="History">
+      <button id="btnUndo" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" disabled>↶</button>
+      <button id="btnRedo" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo" disabled>↷</button>
     </div>
 
     <div class="spacer"></div>
     <div class="sync" id="sync" data-state="idle" aria-live="polite"></div>
-    <button class="btn" id="btnPresent" title="Presenta a schermo intero (P)">▶ Presenta</button>
-    <button class="btn" id="btnCopy">Copia PNG</button>
-    <button class="btn btn-primary" id="btnPng">Scarica PNG</button>
-    <button class="btn btn-ghost" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="Altre azioni">•••</button>
+    <button class="btn" id="btnPresent" title="Present full screen (P)">▶ Present</button>
+    <button class="btn" id="btnCopy">Copy PNG</button>
+    <button class="btn btn-primary" id="btnPng">Download PNG</button>
+    <button class="btn btn-ghost" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="More actions">•••</button>
   </header>
 
   <div class="menu" id="menu" hidden role="menu">
-    <button id="mDuplicate" role="menuitem">Duplica quarter successivo</button>
-    <button id="mRename" role="menuitem">Rinomina quarter</button>
+    <button id="mDuplicate" role="menuitem">Duplicate into next quarter</button>
+    <button id="mRename" role="menuitem">Rename quarter</button>
+    <button id="mLegend" role="menuitem">Show legend on the slide</button>
     <hr>
-    <button id="mPdf" role="menuitem">Esporta deck in PDF</button>
-    <button id="mExport" role="menuitem">Esporta tutto (JSON)</button>
-    <button id="mImport" role="menuitem">Importa JSON</button>
+    <button id="mPdf" role="menuitem">Export deck as PDF</button>
+    <button id="mExport" role="menuitem">Export everything (JSON)</button>
+    <button id="mImport" role="menuitem">Import JSON</button>
     <hr>
-    <button id="mKeys" role="menuitem">Scorciatoie da tastiera</button>
+    <button id="mKeys" role="menuitem">Keyboard shortcuts</button>
     <hr>
-    <button id="mDelete" role="menuitem" class="danger">Elimina questo quarter</button>
+    <button id="mDelete" role="menuitem" class="danger">Delete this quarter</button>
   </div>
 
   <div class="workspace">
     <aside class="sidebar">
-      <div class="sidetabs" role="tablist" aria-label="Pannelli">
-        <button class="stab is-on" data-panel="init" role="tab" aria-selected="true">Iniziative</button>
-        <button class="stab" data-panel="sprint" role="tab" aria-selected="false">Sprint</button>
-        <button class="stab" data-panel="ms" role="tab" aria-selected="false">Milestone</button>
+      <div class="sidetabs" role="tablist" aria-label="Panels">
+        <button class="stab is-on" data-panel="init" role="tab" aria-selected="true">Initiatives</button>
+        <button class="stab" data-panel="sprint" role="tab" aria-selected="false">Sprints</button>
+        <button class="stab" data-panel="ms" role="tab" aria-selected="false">Milestones</button>
       </div>
 
-      <!-- INIZIATIVE -->
+      <!-- INITIATIVES -->
       <section class="panel" id="panel-init">
         <div class="field">
-          <label for="newName">Nuova iniziativa</label>
-          <input type="text" id="newName" placeholder="Es. Notifiche push">
-          <input type="url" id="newUrl" placeholder="Link alla documentazione (opzionale)">
-          <button class="btn btn-primary btn-sm" id="btnAddInit" style="align-self:flex-start">Aggiungi alla vista</button>
+          <label for="newName">New initiative</label>
+          <input type="text" id="newName" placeholder="e.g. Push notifications">
+          <input type="url" id="newUrl" placeholder="Link to the documentation (optional)">
+          <button class="btn btn-primary btn-sm" id="btnAddInit" style="align-self:flex-start">Add to this view</button>
         </div>
         <hr class="divider">
         <div class="field">
-          <label for="libSearch">Libreria · <span id="libCount"></span></label>
-          <input type="text" id="libSearch" placeholder="Cerca…">
+          <label for="libSearch">Library · <span id="libCount"></span></label>
+          <input type="text" id="libSearch" placeholder="Search name or area…">
         </div>
-        <p class="help">La spunta indica che l'iniziativa è presente nella vista aperta. Clicca il nome per modificarla.</p>
+        <p class="help">The checkbox says whether the initiative is on the view you have open. Click a name to edit it.</p>
         <ul class="lib" id="libList"></ul>
 
         <div id="inspector" hidden>
           <hr class="divider">
-          <p class="eyebrow">Dettaglio riga</p>
+          <p class="eyebrow">Row detail</p>
           <div class="panel">
             <div class="field">
-              <label for="iName">Nome</label>
+              <label for="iName">Name</label>
               <input type="text" id="iName">
             </div>
             <div class="field">
-              <label for="iUrl">Link documentazione</label>
+              <label for="iDesc">Short description <span style="font-weight:500">— shown on hover</span></label>
+              <textarea id="iDesc" rows="2" placeholder="One line on what this initiative delivers"></textarea>
+            </div>
+            <div class="field">
+              <label for="iArea">Area</label>
+              <input type="text" id="iArea" list="areaList" placeholder="Finance, Operations, Business, Legal…">
+              <datalist id="areaList">
+                <option value="Business"></option>
+                <option value="Finance"></option>
+                <option value="Growth"></option>
+                <option value="Legal"></option>
+                <option value="Operations"></option>
+                <option value="Tech"></option>
+              </datalist>
+            </div>
+            <div class="field">
+              <label for="iUrl">Documentation link</label>
               <input type="url" id="iUrl" placeholder="https://…">
             </div>
             <div class="field">
-              <label for="iLabel">Etichetta solo in questa vista</label>
-              <input type="text" id="iLabel" placeholder="Lascia vuoto per usare il nome">
+              <label for="iLabel">Label on this view only</label>
+              <input type="text" id="iLabel" placeholder="Leave empty to use the name">
             </div>
             <div class="field">
-              <label>Barra di categoria</label>
+              <label>Category bar</label>
               <div class="swatches">
-                <button class="sw sw-teal" data-accent="teal" aria-label="Verde" aria-pressed="false"></button>
-                <button class="sw sw-lime" data-accent="lime" aria-label="Lime (da validare)" aria-pressed="false"></button>
-                <button class="sw sw-none" data-accent="none" aria-label="Nessuna" aria-pressed="false"></button>
+                <button class="sw sw-teal" data-accent="teal" aria-label="Other initiatives" title="Other initiatives" aria-pressed="false"></button>
+                <button class="sw sw-lime" data-accent="lime" aria-label="Legal obligation" title="Legal obligation" aria-pressed="false"></button>
+                <button class="sw sw-none" data-accent="none" aria-label="No bar" title="No bar" aria-pressed="false"></button>
               </div>
+              <p class="help" id="accentHint"></p>
             </div>
-            <label class="check"><input type="checkbox" id="iBox"> Riquadro di evidenza</label>
+            <label class="check"><input type="checkbox" id="iBox"> Highlight box</label>
             <div class="rowline">
-              <button class="btn btn-sm" id="btnUp">↑ Su</button>
-              <button class="btn btn-sm" id="btnDown">↓ Giù</button>
-              <button class="btn btn-sm" id="btnClearRow">Svuota fasi</button>
+              <button class="btn btn-sm" id="btnUp">↑ Up</button>
+              <button class="btn btn-sm" id="btnDown">↓ Down</button>
+              <button class="btn btn-sm" id="btnClearRow">Clear phases</button>
             </div>
             <div class="rowline">
-              <button class="btn btn-sm btn-danger" id="btnRemoveRow">Togli dalla vista</button>
-              <button class="btn btn-sm btn-danger" id="btnDeleteInit">Elimina dalla libreria</button>
+              <button class="btn btn-sm btn-danger" id="btnRemoveRow">Remove from view</button>
+              <button class="btn btn-sm btn-danger" id="btnDeleteInit">Delete from library</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- SPRINT -->
+      <!-- SPRINTS -->
       <section class="panel" id="panel-sprint" hidden>
-        <p class="eyebrow">Genera la griglia</p>
+        <p class="eyebrow">Generate the grid</p>
         <div class="grid2">
-          <div class="field"><label for="genStart">Inizio 1° sprint</label><input type="date" id="genStart"></div>
-          <div class="field"><label for="genWeeks">Durata (settimane)</label><input type="number" id="genWeeks" min="1" max="8" value="2"></div>
-          <div class="field"><label for="genCount">Numero sprint</label><input type="number" id="genCount" min="2" max="12" value="8"></div>
-          <div class="field"><label for="genFrom">Parti da sprint n°</label><input type="number" id="genFrom" min="1" max="13" value="7"></div>
-          <div class="field"><label for="genQ">Quarter iniziale</label><select id="genQ"><option>Q1</option><option>Q2</option><option selected>Q3</option><option>Q4</option></select></div>
-          <div class="field"><label for="genPerQ">Sprint per quarter</label><input type="number" id="genPerQ" min="2" max="13" value="7"></div>
+          <div class="field"><label for="genStart">First sprint starts</label><input type="date" id="genStart"></div>
+          <div class="field"><label for="genWeeks">Length (weeks)</label><input type="number" id="genWeeks" min="1" max="8" value="2"></div>
+          <div class="field"><label for="genCount">Number of sprints</label><input type="number" id="genCount" min="2" max="12" value="8"></div>
+          <div class="field"><label for="genFrom">Start at sprint no.</label><input type="number" id="genFrom" min="1" max="13" value="7"></div>
+          <div class="field"><label for="genQ">First quarter</label><select id="genQ"><option>Q1</option><option>Q2</option><option selected>Q3</option><option>Q4</option></select></div>
+          <div class="field"><label for="genPerQ">Sprints per quarter</label><input type="number" id="genPerQ" min="2" max="13" value="7"></div>
         </div>
-        <button class="btn btn-primary btn-sm" id="btnGen" style="align-self:flex-start">Genera intestazioni</button>
-        <p class="help">Sovrascrive nomi e date di tutte le colonne; le fasi già dipinte restano dove sono.</p>
+        <button class="btn btn-primary btn-sm" id="btnGen" style="align-self:flex-start">Generate headers</button>
+        <p class="help">Overwrites every column's name and dates; phases already painted stay where they are.</p>
         <hr class="divider">
-        <p class="eyebrow">Colonne</p>
+        <p class="eyebrow">Columns</p>
         <div class="panel" id="sprintList"></div>
         <div class="rowline">
-          <button class="btn btn-sm" id="btnAddSprint">+ Colonna</button>
-          <button class="btn btn-sm" id="btnDelSprint">− Ultima colonna</button>
+          <button class="btn btn-sm" id="btnAddSprint">+ Column</button>
+          <button class="btn btn-sm" id="btnDelSprint">− Last column</button>
         </div>
         <hr class="divider">
-        <label class="check"><input type="checkbox" id="noteShow"> Mostra il post-it giallo</label>
+        <label class="check"><input type="checkbox" id="noteShow"> Show the sticky note</label>
+        <label class="check"><input type="checkbox" id="legendShow"> Show the legend</label>
       </section>
 
-      <!-- MILESTONE -->
+      <!-- MILESTONES -->
       <section class="panel" id="panel-ms" hidden>
-        <p class="help">Le milestone sono la linea verticale verde con l'etichetta: segnano un go-live dentro il trimestre. Valgono per la vista aperta.</p>
+        <p class="help">A milestone is the green vertical line with a caption: a go-live that happens on its own date, independent of any initiative's delivery. Drag <strong>⇥ Go-live</strong> from the toolbar onto the slide, or add one here.</p>
         <div class="panel" id="msList"></div>
         <button class="btn btn-primary btn-sm" id="btnAddMs" style="align-self:flex-start">+ Milestone</button>
       </section>
@@ -624,19 +702,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     <main class="stage">
       <div class="notice" id="roNotice" hidden>
-        <strong>Sola lettura.</strong> Puoi consultare ed esportare la roadmap, ma non modificarla.
+        <strong>Read only.</strong> You can browse and export this roadmap, but not change it.
       </div>
 
       <div class="brushbar">
-        <div class="brushes" id="brushes" role="group" aria-label="Fase da applicare"></div>
-        <button class="btn btn-sm" id="btnAddMsTop" title="Aggiunge una linea di go-live alla vista">+ Milestone</button>
+        <div class="brushes" id="brushes" role="group" aria-label="Phase to apply"></div>
+        <button class="btn btn-sm" id="btnHalf" aria-pressed="false" title="Paint only the half of the sprint you click">½ Half sprint</button>
+        <button class="btn btn-sm glsrc" id="glDrag" title="Drag this onto the slide to drop a go-live line">⇥ Go-live</button>
+        <button class="btn btn-sm" id="btnNote" title="Add the sticky note back to the slide">+ Note</button>
         <div class="spacer" style="flex:1"></div>
         <div class="zoom" role="group" aria-label="Zoom">
-          <button id="zoomOut" title="Riduci" aria-label="Riduci">−</button>
-          <button class="lvl" id="zoomLvl" title="Torna ad adattare alla finestra" aria-pressed="true">Adatta</button>
-          <button id="zoomIn" title="Ingrandisci" aria-label="Ingrandisci">+</button>
+          <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+          <button class="lvl" id="zoomLvl" title="Back to fitting the window" aria-pressed="true">Fit</button>
+          <button id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
         </div>
-        <button class="btn btn-sm" id="btnFitRows" title="Adatta l'altezza delle righe">Righe: auto</button>
+        <button class="btn btn-sm" id="btnFitRows" title="Row height">Rows: auto</button>
       </div>
 
       <div class="canvas-wrap" id="canvasWrap">
@@ -646,13 +726,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       </div>
 
       <p class="hint">
-        <kbd>clic</kbd> dipinge la fase scelta · <kbd>trascina</kbd> riempie più sprint ·
-        <kbd>Shift</kbd>+clic stende la sequenza completa da quello sprint in poi ·
-        <kbd>Alt</kbd>+clic affianca una seconda fase nella stessa colonna ·
-        <kbd>tasto destro</kbd> cancella · <kbd>1</kbd>–<kbd>4</kbd> cambiano fase, <kbd>0</kbd> è la gomma.
-        Titolo, post-it, intestazioni degli sprint ed etichette delle milestone si modificano scrivendoci sopra;
-        la linea verde si trascina tra gli sprint e i suoi capi si allungano sulle righe.
-        <kbd>P</kbd> apre la presentazione a schermo intero, <kbd>Ctrl/Cmd+Z</kbd> annulla, <kbd>?</kbd> elenca le scorciatoie.
+        <kbd>click</kbd> paints the selected phase · <kbd>drag</kbd> fills several sprints ·
+        <kbd>Shift</kbd>+click lays the whole sequence from that sprint on ·
+        <kbd>Alt</kbd>+click puts a second phase beside it in the same sprint ·
+        <kbd>right-click</kbd> erases · <kbd>1</kbd>–<kbd>4</kbd> pick a phase, <kbd>0</kbd> is the eraser.
+        Title, sticky note, sprint headers and milestone captions are edited by typing on them;
+        the green line drags between sprints and its ends stretch across rows.
+        <kbd>P</kbd> presents full screen, <kbd>Ctrl/Cmd+Z</kbd> undoes, <kbd>?</kbd> lists every shortcut.
       </p>
     </main>
   </div>
@@ -661,35 +741,39 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 <div class="present" id="present" hidden>
   <div class="present-stage"><div class="present-host" id="presentHost"></div></div>
   <div class="present-bar">
-    <button id="presentPrev" aria-label="Slide precedente">←</button>
+    <button id="presentPrev" aria-label="Previous slide">←</button>
     <span class="count" id="presentCount"></span>
-    <button id="presentNext" aria-label="Slide successiva">→</button>
+    <button id="presentNext" aria-label="Next slide">→</button>
     <span class="what" id="presentLabel"></span>
-    <button id="presentQuarter" title="Cambia quarter (↑ ↓)">Quarter ↑↓</button>
-    <button id="presentExit">Esci (Esc)</button>
+    <button id="presentQuarter" title="Change quarter (↑ ↓)">Quarter ↑↓</button>
+    <button id="presentExit">Exit (Esc)</button>
   </div>
 </div>
 
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="sheet-card">
-    <h2 id="sheetTitle">Scorciatoie</h2>
+    <h2 id="sheetTitle">Shortcuts</h2>
     <dl>
-      <dt><kbd>1</kbd>…<kbd>4</kbd></dt><dd>Sceglie la fase da dipingere</dd>
-      <dt><kbd>0</kbd> / <kbd>E</kbd></dt><dd>Gomma</dd>
-      <dt><kbd>clic</kbd> + <kbd>trascina</kbd></dt><dd>Dipinge una o più celle</dd>
-      <dt><kbd>Shift</kbd>+clic</dt><dd>Stende l'intera sequenza da quello sprint</dd>
-      <dt><kbd>Alt</kbd>+clic</dt><dd>Affianca una seconda fase nella colonna</dd>
-      <dt>tasto destro</dt><dd>Cancella la cella</dd>
-      <dt><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></dt><dd>Annulla · con <kbd>Shift</kbd> ripristina</dd>
-      <dt><kbd>P</kbd></dt><dd>Modalità presentazione</dd>
-      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>In presentazione: cambia slide</dd>
-      <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>In presentazione: cambia quarter</dd>
-      <dt><kbd>Esc</kbd></dt><dd>Esce da presentazione o deseleziona</dd>
-      <dt><kbd>?</kbd></dt><dd>Apre e chiude questo pannello</dd>
+      <dt><kbd>1</kbd>…<kbd>4</kbd></dt><dd>Pick the phase to paint</dd>
+      <dt><kbd>0</kbd> / <kbd>E</kbd></dt><dd>Eraser</dd>
+      <dt><kbd>click</kbd> + <kbd>drag</kbd></dt><dd>Paint one cell or a run of them</dd>
+      <dt><kbd>Shift</kbd>+click</dt><dd>Lay the whole sequence from that sprint</dd>
+      <dt><kbd>Alt</kbd>+click</dt><dd>Put a second phase beside it in the same sprint</dd>
+      <dt><kbd>H</kbd></dt><dd>Half-sprint mode: paint only the half you click</dd>
+      <dt>right-click</dt><dd>Erase the cell — drag to erase a run</dd>
+      <dt><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></dt><dd>Undo · with <kbd>Shift</kbd> redo</dd>
+      <dt><kbd>P</kbd></dt><dd>Presentation mode</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Presenting: change slide</dd>
+      <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Presenting: change quarter</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Leave presentation, or clear the selection</dd>
+      <dt><kbd>?</kbd></dt><dd>Open and close this panel</dd>
     </dl>
-    <button class="btn btn-primary btn-sm" id="sheetClose">Chiudi</button>
+    <button class="btn btn-primary btn-sm" id="sheetClose">Close</button>
   </div>
 </div>
+
+<div class="glghost" id="glGhost" hidden></div>
+<div class="tip" id="tip" hidden role="tooltip"></div>
 
 <div class="toast" id="toast" hidden></div>
 
@@ -710,10 +794,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     conception: { label: "Experience Conception", short: "EC", views: ["design"] }
   };
   var VIEWS = {
-    product: { name: "Prodotto", brushes: ["discovery", "specs", "delivery"], sequence: ["discovery", "specs", "delivery"] },
-    design:  { name: "Design",   brushes: ["conception", "delivery"],         sequence: ["conception", "delivery"] }
+    product: { name: "Product", brushes: ["discovery", "specs", "delivery"], sequence: ["discovery", "specs", "delivery"] },
+    design:  { name: "Design",  brushes: ["conception", "delivery"],         sequence: ["conception", "delivery"] }
   };
-  var ACCENTS = ["teal", "lime", "none"];
+  /* What the category rail down the left of the slide means. */
+  var ACCENT_META = {
+    lime: { label: "Legal obligation", hint: "Yellow: on the roadmap because of a legal obligation." },
+    teal: { label: "Other initiatives", hint: "Green: on the roadmap for every other reason." },
+    none: { label: "No bar", hint: "No bar: the initiative is left out of the legend." }
+  };
 
   function uid(p) { return (p || "x") + Math.random().toString(36).slice(2, 9); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -736,24 +825,35 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   var LIB = [
-    { id: "i-onb",    name: "Onboarding self-service",   url: "https://example.com/spec/onboarding" },
-    { id: "i-push",   name: "Notifiche push",            url: "" },
-    { id: "i-check",  name: "Checkout in un passaggio",  url: "" },
-    { id: "i-search", name: "Ricerca avanzata",          url: "" },
-    { id: "i-mob",    name: "App mobile — rilascio",     url: "" },
-    { id: "i-ref",    name: "Programma referral",        url: "" },
-    { id: "i-rep",    name: "Dashboard di reportistica", url: "" },
-    { id: "i-cal",    name: "Integrazione calendario",   url: "" },
-    { id: "i-exp",    name: "Esportazione dati",         url: "" },
-    { id: "i-bill",   name: "Piani e fatturazione",      url: "" }
+    { id: "i-onb",    name: "Onboarding self-service",   url: "https://example.com/spec/onboarding", area: "Growth",
+      desc: "Let new customers finish sign-up on their own, without an agent call." },
+    { id: "i-push",   name: "Push notifications",        url: "", area: "Growth",
+      desc: "Transactional and lifecycle pushes on mobile, driven by the same triggers as email." },
+    { id: "i-check",  name: "One-step checkout",         url: "", area: "Business",
+      desc: "Collapse the three-page purchase flow into a single reviewable step." },
+    { id: "i-search", name: "Advanced search",           url: "", area: "Legal",
+      desc: "Searchable contract archive required by the new record-keeping rules." },
+    { id: "i-mob",    name: "Mobile app — launch",       url: "", area: "Business",
+      desc: "First public release of the mobile client on both stores." },
+    { id: "i-ref",    name: "Referral programme",        url: "", area: "Growth",
+      desc: "Reward existing customers for invites that convert." },
+    { id: "i-rep",    name: "Reporting dashboard",       url: "", area: "Operations",
+      desc: "Self-serve operational reporting so the team stops exporting spreadsheets." },
+    { id: "i-cal",    name: "Calendar integration",      url: "", area: "Operations",
+      desc: "Two-way sync of appointments with the customer's own calendar." },
+    { id: "i-exp",    name: "Data export",               url: "", area: "Legal",
+      desc: "Portability export covering every record we hold on a customer." },
+    { id: "i-bill",   name: "Plans and billing",         url: "", area: "Finance",
+      desc: "Plan changes, proration and invoices handled in product." }
   ];
 
   function sp(n, q, d) { return { id: uid("s"), name: "Sprint " + n, quarter: q, dates: d }; }
 
   function starterBoards() {
     var demo = {
-      id: "b-demo", name: "Q4 esempio", createdAt: Date.now(), updatedAt: Date.now(),
-      note: { show: true, text: "To validate" },
+      id: "b-demo", name: "Q4 example", createdAt: Date.now(), updatedAt: Date.now(),
+      note: { show: false, text: "To validate" },
+      legend: { show: true },
       sprints: [
         sp(7, "Q3", "15/09 – 26/09"), sp(1, "Q4", "29/09 – 10/10"), sp(2, "Q4", "13/10 – 24/10"),
         sp(3, "Q4", "27/10 – 07/11"), sp(4, "Q4", "10/11 – 21/11"), sp(5, "Q4", "24/11 – 05/12"),
@@ -783,7 +883,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
             { iid: "i-push",   accent: "teal", box: false, label: "", cells: cells([1, "conception"], [2, "delivery"]) },
             { iid: "i-check",  accent: "teal", box: false, label: "", cells: cells([2, "conception"], [3, "delivery"]) },
             { iid: "i-search", accent: "lime", box: false, label: "", cells: cells([2, "conception"], [3, "delivery"]) },
-            { iid: "i-mob",    accent: "none", box: false, label: "App mobile & Programma referral", cells: cells([3, "conception"], [4, "delivery"]) },
+            { iid: "i-mob",    accent: "none", box: false, label: "Mobile app & Referral programme", cells: cells([3, "conception"], [4, "delivery"]) },
             { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([4, "conception"], [5, "delivery"]) }
           ]
         }
@@ -930,8 +1030,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           .then(function () { delete Store._dirty[board.id]; setSync("idle"); })
           .catch(function (e) {
             delete Store._dirty[board.id];
-            if (e && e.code === "invalid_argument") { Store.lockDown(); setSync("error", "sola lettura"); return; }
-            setSync("error", "non salvato");
+            if (e && e.code === "invalid_argument") { Store.lockDown(); setSync("error", "read only"); return; }
+            setSync("error", "not saved");
           });
       };
       if (now) write(); else Store._debounce("b:" + board.id, write);
@@ -945,7 +1045,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         setSync("saving");
         Store.db.doc("library/index").set({ items: Store.library, writer: CLIENT, updatedAt: Date.now() })
           .then(function () { delete Store._dirty.__lib; setSync("idle"); })
-          .catch(function () { delete Store._dirty.__lib; setSync("error", "non salvato"); });
+          .catch(function () { delete Store._dirty.__lib; setSync("error", "not saved"); });
       };
       if (now) write(); else Store._debounce("lib", write);
     },
@@ -961,7 +1061,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
      3. App state + small helpers
      ======================================================== */
 
-  var state = { boardId: null, view: "product", brush: null, sel: null, rowH: "auto", zoom: "fit" };
+  var state = { boardId: null, view: "product", brush: null, sel: null, rowH: "auto", zoom: "fit", half: false };
 
   function $(id) { return document.getElementById(id); }
   function board() {
@@ -985,7 +1085,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function setSync(stateName, text) {
     var el = $("sync");
     el.dataset.state = stateName;
-    el.textContent = text || (stateName === "saving" ? "salvo…" : (Store.mode === "db" ? "sincronizzato" : "salvato in locale"));
+    el.textContent = text || (stateName === "saving" ? "saving…" : (Store.mode === "db" ? "synced" : "saved locally"));
   }
   /* Undo history, per quarter. Edits are coalesced on a short pause so a burst
      of typing or a painted stroke is one step, not one step per keystroke. */
@@ -1038,7 +1138,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     },
     undo: function () {
       History.settle();
-      if (!History.past.length) { toast("Niente da annullare"); return; }
+      if (!History.past.length) { toast("Nothing to undo"); return; }
       var prev = History.past.pop();
       History.future.push(History.baseline);
       History.baseline = prev;
@@ -1046,7 +1146,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     },
     redo: function () {
       History.settle();
-      if (!History.future.length) { toast("Niente da ripristinare"); return; }
+      if (!History.future.length) { toast("Nothing to redo"); return; }
       var next = History.future.pop();
       History.past.push(History.baseline);
       History.baseline = next;
@@ -1092,13 +1192,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       "top:" + (r0 * rh + 6) + "px;height:" + ((r1 - r0 + 1) * rh - 12) + "px";
   }
 
+  /* A cell is an array of slots. One slot = a full-width chip. Two slots =
+     half sprints, and a null slot is an empty half — that is how a phase
+     occupies half a sprint. */
   function cellInner(row, c) {
     var ph = row.cells[String(c)] || [];
+    var half = ph.length > 1;
+    var both = ph.filter(Boolean).length > 1;
     var out = "";
     ph.forEach(function (p) {
+      if (!p) { out += '<span class="chip--ph"></span>'; return; }
       var def = PHASES[p]; if (!def) return;
-      out += '<span class="chip chip--' + p + (ph.length > 1 ? " is-tight" : "") + '">' +
-        esc(ph.length > 1 ? def.short : def.label) + "</span>";
+      /* Only a genuine two-phase split needs the short label; a lone
+         half-sprint chip still has room for the real one. */
+      out += '<span class="chip chip--' + p + (half ? " is-tight" : "") + '">' +
+        esc(both ? def.short : def.label) + "</span>";
     });
     return out;
   }
@@ -1123,7 +1231,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* head */
     html += '<div class="slide-head">';
     html += '<h1 class="slide-title" id="slideTitle" contenteditable="true" spellcheck="false">' + esc(v.title) + "</h1>";
-    html += '<div class="slide-note" id="slideNote" contenteditable="true" spellcheck="false"' + (b.note.show ? "" : " hidden") + ">" + esc(b.note.text) + "</div>";
+    html += '<div class="slide-note" id="slideNote"' + (b.note.show ? "" : " hidden") + ">" +
+      '<span id="slideNoteText" contenteditable="true" spellcheck="false">' + esc(b.note.text) + "</span>" +
+      '<button class="notedel" id="noteDel" title="Remove the note" aria-label="Remove the note">×</button></div>';
     html += "</div>";
 
     /* sprint header */
@@ -1148,11 +1258,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var sel = state.sel && state.sel.row === ri ? " is-sel" : "";
 
       html += '<div class="brow brow--data' + sel + '" data-row="' + ri + '">';
-      html += '<div class="rowtools"><button data-act="up" title="Sposta su" aria-label="Sposta su">▲</button><button data-act="down" title="Sposta giù" aria-label="Sposta giù">▼</button></div>';
+      html += '<div class="rowtools"><button data-act="up" title="Move up" aria-label="Move up">▲</button><button data-act="down" title="Move down" aria-label="Move down">▼</button></div>';
       html += '<div class="rail rail--' + row.accent + (first ? " is-first" : "") + (last ? " is-last" : "") + '"></div>';
       html += '<div class="label' + (row.box ? " is-boxed" : "") + '" data-labelrow="' + ri + '">' +
         '<div class="pill' + (ini.url ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + '"><span>' + esc(label) + "</span></div>" +
-        (ini.url ? '<button class="linkjump" data-open="' + ri + '" title="Apri la documentazione" aria-label="Apri la documentazione">↗</button>' : "") +
+        (ini.url ? '<button class="linkjump" data-open="' + ri + '" title="Open the documentation" aria-label="Open the documentation">↗</button>' : "") +
         "</div>";
       html += '<div class="track">';
       for (var c = 0; c < cols; c++) {
@@ -1167,12 +1277,22 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     (v.milestones || []).forEach(function (m, mi) {
       html += '<div class="ms" data-ms="' + mi + '" style="' + msStyle(m, v.rows.length, rh) + '">' +
         '<div class="cap" contenteditable="true" spellcheck="false" data-mscap="' + mi + '">' + esc(m.label) + "</div>" +
-        '<button class="msdel" data-msdel="' + mi + '" title="Elimina la milestone" aria-label="Elimina la milestone">×</button>' +
+        '<button class="msdel" data-msdel="' + mi + '" title="Delete this milestone" aria-label="Delete this milestone">×</button>' +
         '<span class="grip grip-top" data-msgrip="top"></span>' +
         '<span class="grip grip-bot" data-msgrip="bot"></span>' +
         "</div>";
     });
     html += "</div></div></div>";
+
+    var used = {};
+    v.rows.forEach(function (r) { if (r.accent !== "none") used[r.accent] = true; });
+    var legendOn = b.legend && b.legend.show && (used.lime || used.teal);
+    html += '<div class="legend"' + (legendOn ? "" : " hidden") + ">";
+    ["lime", "teal"].forEach(function (k) {
+      if (!used[k]) return;
+      html += '<span class="lg"><i class="sw sw--' + k + '"></i>' + esc(ACCENT_META[k].label) + "</span>";
+    });
+    html += "</div>";
 
     slide.innerHTML = html;
     if (present.on) fitPresent(); else fitSlide();
@@ -1192,7 +1312,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     inner.style.width = Math.round(SLIDE_W * k) + "px";
     inner.style.height = Math.round(SLIDE_H * k) + "px";
     var lvl = $("zoomLvl");
-    lvl.textContent = state.zoom === "fit" ? "Adatta" : Math.round(k * 100) + "%";
+    lvl.textContent = state.zoom === "fit" ? "Fit" : Math.round(k * 100) + "%";
     lvl.setAttribute("aria-pressed", String(state.zoom === "fit"));
   }
 
@@ -1228,7 +1348,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         "<kbd>" + (i + 1) + "</kbd></button>";
     });
     html += '<button class="brush" data-brush="" aria-pressed="' + (state.brush === "") + '">' +
-      '<span class="swatch" style="background:repeating-linear-gradient(45deg,#ccc,#ccc 3px,#eee 3px,#eee 6px)"></span>Gomma<kbd>0</kbd></button>';
+      '<span class="swatch" style="background:repeating-linear-gradient(45deg,#ccc,#ccc 3px,#eee 3px,#eee 6px)"></span>Eraser<kbd>0</kbd></button>';
     host.innerHTML = html;
   }
 
@@ -1244,20 +1364,23 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var v = view();
     var inView = {};
     v.rows.forEach(function (r, i) { inView[r.iid] = i; });
-    var items = Store.library.filter(function (it) { return !q || it.name.toLowerCase().indexOf(q) >= 0; });
-    $("libCount").textContent = Store.library.length + " iniziative";
+    var items = Store.library.filter(function (it) {
+      return !q || (it.name + " " + (it.area || "")).toLowerCase().indexOf(q) >= 0;
+    });
+    $("libCount").textContent = Store.library.length + " initiatives";
 
     if (!items.length) {
-      $("libList").innerHTML = '<li><p class="lib-empty">Nessun risultato.</p></li>';
+      $("libList").innerHTML = '<li><p class="lib-empty">Nothing matches.</p></li>';
       return;
     }
     $("libList").innerHTML = items.map(function (it) {
       var on = inView[it.id] !== undefined;
       var selected = state.sel && v.rows[state.sel.row] && v.rows[state.sel.row].iid === it.id;
-      return '<li class="lib-item' + (selected ? " is-sel" : "") + '" data-iid="' + esc(it.id) + '">' +
-        '<input type="checkbox" class="libchk"' + (on ? " checked" : "") + ' aria-label="Nella vista" style="accent-color:var(--ui-accent);width:15px;height:15px;margin:0">' +
+      return '<li class="lib-item' + (selected ? " is-sel" : "") + '" data-iid="' + esc(it.id) + '"' +
+        (it.desc ? ' title="' + esc(it.desc) + '"' : "") + ">" +
+        '<input type="checkbox" class="libchk"' + (on ? " checked" : "") + ' aria-label="On this view" style="accent-color:var(--ui-accent);width:15px;height:15px;margin:0">' +
         '<span class="nm' + (on ? "" : " is-off") + '">' + esc(it.name) + "</span>" +
-        '<span class="lk">' + (it.url ? "link" : "") + "</span></li>";
+        '<span class="lk">' + esc(it.area || (it.url ? "link" : "")) + "</span></li>";
     }).join("");
   }
 
@@ -1268,24 +1391,28 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     box.hidden = false;
     var ini = initiative(row.iid);
     $("iName").value = ini.name;
+    $("iDesc").value = ini.desc || "";
+    $("iArea").value = ini.area || "";
     $("iUrl").value = ini.url || "";
     $("iLabel").value = row.label || "";
     $("iBox").checked = !!row.box;
     Array.prototype.forEach.call(box.querySelectorAll(".sw"), function (sw) {
       sw.setAttribute("aria-pressed", String(sw.dataset.accent === row.accent));
     });
+    $("accentHint").textContent = (ACCENT_META[row.accent] || {}).hint || "";
   }
 
   function renderSprints() {
     var b = board();
     $("sprintList").innerHTML = b.sprints.map(function (s, i) {
       return '<div class="sprint-row" data-sprint="' + i + '">' +
-        '<input type="text" value="' + esc(s.name) + '" data-key="name" aria-label="Nome sprint ' + (i + 1) + '">' +
+        '<input type="text" value="' + esc(s.name) + '" data-key="name" aria-label="Sprint name ' + (i + 1) + '">' +
         '<input type="text" value="' + esc(s.quarter) + '" data-key="quarter" aria-label="Quarter">' +
-        '<input type="text" value="' + esc(s.dates) + '" data-key="dates" aria-label="Date">' +
+        '<input type="text" value="' + esc(s.dates) + '" data-key="dates" aria-label="Dates">' +
         "</div>";
     }).join("");
     $("noteShow").checked = !!b.note.show;
+    $("legendShow").checked = !!(b.legend && b.legend.show);
   }
 
   function renderMilestones() {
@@ -1299,18 +1426,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var rowLabels = v.rows.map(function (r, i) { return (i + 1) + ". " + rowLabel(r).slice(0, 22); });
 
     if (!v.milestones || !v.milestones.length) {
-      $("msList").innerHTML = '<p class="lib-empty">Nessuna milestone in questa vista.</p>';
+      $("msList").innerHTML = '<p class="lib-empty">No milestone on this view.</p>';
       return;
     }
     $("msList").innerHTML = v.milestones.map(function (m, i) {
       return '<div class="ms-card" data-ms="' + i + '">' +
-        '<textarea rows="2" data-key="label" aria-label="Testo milestone">' + esc(m.label) + "</textarea>" +
-        '<div class="field"><label>Prima dello sprint</label><select data-key="col">' + opts(b.sprints.length, m.col, sprintLabels) + "</select></div>" +
+        '<textarea rows="2" data-key="label" aria-label="Milestone caption">' + esc(m.label) + "</textarea>" +
+        '<div class="field"><label>Before sprint</label><select data-key="col">' + opts(b.sprints.length, m.col, sprintLabels) + "</select></div>" +
         '<div class="grid2">' +
-        '<div class="field"><label>Da riga</label><select data-key="row">' + opts(v.rows.length, m.row, rowLabels) + "</select></div>" +
-        '<div class="field"><label>A riga</label><select data-key="endRow">' + opts(v.rows.length, m.endRow, rowLabels) + "</select></div>" +
+        '<div class="field"><label>From row</label><select data-key="row">' + opts(v.rows.length, m.row, rowLabels) + "</select></div>" +
+        '<div class="field"><label>To row</label><select data-key="endRow">' + opts(v.rows.length, m.endRow, rowLabels) + "</select></div>" +
         "</div>" +
-        '<button class="btn btn-sm btn-danger" data-act="del-ms" style="align-self:flex-start">Elimina</button>' +
+        '<button class="btn btn-sm btn-danger" data-act="del-ms" style="align-self:flex-start">Delete</button>' +
         "</div>";
     }).join("");
   }
@@ -1366,7 +1493,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function enterPresent() {
     if (present.on) return;
     var deck = buildDeck();
-    if (!deck.length) { toast("Nessuna vista con iniziative da presentare"); return; }
+    if (!deck.length) { toast("No view with initiatives to present"); return; }
     present.deck = deck;
     present.savedView = state.view;
     present.on = true;
@@ -1415,7 +1542,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var prevId = state.boardId;
     state.boardId = ids[i];
     var deck = buildDeck();
-    if (!deck.length) { state.boardId = prevId; toast("Quarter senza iniziative"); return; }
+    if (!deck.length) { state.boardId = prevId; toast("That quarter has no initiatives"); return; }
     present.deck = deck;
     present.idx = Math.min(present.idx, deck.length - 1);
     History.reset();
@@ -1435,28 +1562,122 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     renderLibrary(); renderInspector(); renderSlide();
   }
 
-  function paint(ri, ci, mode) {
+  function halfIndex(cellEl, clientX) {
+    var r = cellEl.getBoundingClientRect();
+    return (clientX - r.left) > r.width / 2 ? 1 : 0;
+  }
+
+  /* `half` is the slot index (0 left, 1 right) when half-sprint mode is on. */
+  function paint(ri, ci, mode, half) {
     var v = view(), row = v.rows[ri];
     if (!row || !Store.canWrite) return;
-    var key = String(ci), touched = [ci];
+    var key = String(ci), touched = [ci], cur = row.cells[key];
+    var slot = half === 1 ? 1 : 0;
+
     if (mode === "erase" || state.brush === "") {
-      if (!row.cells[key]) return;
-      delete row.cells[key];
+      if (!cur) return;
+      if (state.half && cur.length === 2) {
+        var left = cur.slice();
+        if (!left[slot]) return;
+        left[slot] = null;
+        if (!left[0] && !left[1]) delete row.cells[key]; else row.cells[key] = left;
+      } else {
+        delete row.cells[key];
+      }
     } else if (mode === "add") {
-      var cur = row.cells[key] || [];
-      if (cur.indexOf(state.brush) >= 0) return;
-      row.cells[key] = cur.concat([state.brush]).slice(0, 2);
+      var have = cur || [];
+      if (have.indexOf(state.brush) >= 0) return;
+      row.cells[key] = have.filter(Boolean).concat([state.brush]).slice(0, 2);
     } else if (mode === "sequence") {
       touched = [];
-      VIEWS[state.view].sequence.forEach(function (p, k) {
-        if (ci + k < board().sprints.length) { row.cells[String(ci + k)] = [p]; touched.push(ci + k); }
+      VIEWS[state.view].sequence.forEach(function (ph, k) {
+        if (ci + k < board().sprints.length) { row.cells[String(ci + k)] = [ph]; touched.push(ci + k); }
       });
+    } else if (state.half) {
+      var slots = (cur && cur.length === 2) ? cur.slice() : [null, null];
+      if (slots[slot] === state.brush) return;
+      slots[slot] = state.brush;
+      row.cells[key] = slots;
     } else {
-      if ((row.cells[key] || []).join() === state.brush) return;
+      if ((cur || []).join() === state.brush) return;
       row.cells[key] = [state.brush];
     }
     commit();
     touched.forEach(function (c) { patchCell(ri, c); });
+  }
+
+  /* ---- hover card: what an initiative actually is ---------------------- */
+
+  function showTip(el, ini) {
+    if (!ini || (!ini.desc && !ini.area)) return;
+    var t = $("tip");
+    t.innerHTML = (ini.area ? '<span class="tip-area">' + esc(ini.area) + "</span><br>" : "") +
+      '<span class="tip-name">' + esc(ini.name) + "</span>" +
+      (ini.desc ? "<br>" + esc(ini.desc) : "");
+    t.hidden = false;
+    var r = el.getBoundingClientRect();
+    var w = t.offsetWidth, h = t.offsetHeight;
+    var left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+    var top = r.bottom + 8 + h > window.innerHeight ? r.top - h - 8 : r.bottom + 8;
+    t.style.left = left + "px";
+    t.style.top = Math.max(8, top) + "px";
+  }
+  function hideTip() { $("tip").hidden = true; }
+
+  /* ---- go-live line, dragged from the toolbar onto the slide ------------ */
+
+  var glDrag = null;
+
+  function glPointForDrop(e) {
+    var slide = $("slide");
+    var layer = slide.querySelector(".ms-layer");
+    var rowsEl = slide.querySelector(".brows");
+    if (!layer || !rowsEl) return null;
+    var lay = layer.getBoundingClientRect(), rr = rowsEl.getBoundingClientRect();
+    if (e.clientX < lay.left - 40 || e.clientX > lay.right + 40) return null;
+    if (e.clientY < rr.top - 60 || e.clientY > rr.bottom + 60) return null;
+    var cols = board().sprints.length, n = view().rows.length;
+    if (!n) return null;
+    var col = Math.max(0, Math.min(cols - 1, Math.round((e.clientX - lay.left) / lay.width * cols)));
+    var row = Math.max(0, Math.min(n - 1, Math.floor((e.clientY - rr.top) / (rr.height / n))));
+    return { col: col, row: row };
+  }
+
+  function startGlDrag(e) {
+    if (!Store.canWrite) return;
+    if (!view().rows.length) { toast("Add an initiative first"); return; }
+    glDrag = { x: e.clientX, y: e.clientY, moved: false };
+    document.body.classList.add("gl-arming");
+    e.preventDefault();
+  }
+
+  function moveGlGhost(e) {
+    if (!glDrag.moved &&
+        Math.abs(e.clientX - glDrag.x) + Math.abs(e.clientY - glDrag.y) < 6) return;
+    glDrag.moved = true;
+    var g = $("glGhost");
+    g.hidden = false;
+    g.style.left = e.clientX + "px";
+    g.style.top = (e.clientY - 20) + "px";
+  }
+
+  function dropGlDrag(e) {
+    var dragged = glDrag && glDrag.moved;
+    glDrag = null;
+    document.body.classList.remove("gl-arming");
+    $("glGhost").hidden = true;
+    /* A plain click on the button, with no drag, still adds one. */
+    if (!dragged) { addMilestone(); return; }
+    var at = glPointForDrop(e);
+    if (!at) { toast("Drop the line over the sprint grid"); return; }
+    var v = view();
+    v.milestones = v.milestones || [];
+    v.milestones.push({
+      id: uid("m"), label: "Go-live",
+      col: at.col, row: at.row, endRow: Math.min(at.row + 2, v.rows.length - 1)
+    });
+    commit(); renderMilestones(); renderSlide();
+    toast("Go-live line added — type on the caption to name it");
   }
 
   /* ---- milestones, dragged where they sit -------------------------------- */
@@ -1485,7 +1706,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function addMilestone() {
     var v = view();
-    if (!v.rows.length) { toast("Aggiungi prima almeno un'iniziativa"); return; }
+    if (!v.rows.length) { toast("Add an initiative first"); return; }
     v.milestones = v.milestones || [];
     var r0 = Math.min(1, v.rows.length - 1);
     v.milestones.push({
@@ -1494,7 +1715,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       row: r0, endRow: Math.min(r0 + 2, v.rows.length - 1)
     });
     commit(); renderMilestones(); renderSlide();
-    toast("Milestone aggiunta — trascina la linea o scrivi sull'etichetta");
+    toast("Milestone added — drag the line or type on the caption");
   }
 
   /* While a stroke is down this holds its mode ("set" or "erase"), never the
@@ -1511,6 +1732,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     slide.addEventListener("pointerdown", function (e) {
       if (!Store.canWrite) return;
 
+      if (e.target.id === "noteDel") {
+        board().note.show = false; commit(); renderSprints(); renderSlide();
+        e.preventDefault(); return;
+      }
       var del = e.target.closest("[data-msdel]");
       if (del) {
         view().milestones.splice(+del.dataset.msdel, 1);
@@ -1550,29 +1775,40 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var r = +cell.dataset.row, c = +cell.dataset.col;
       var mode = e.button === 2 ? "erase" : (e.shiftKey ? "sequence" : (e.altKey ? "add" : "set"));
       painting = (mode === "set" || mode === "erase") ? mode : null;
-      paintedLast = r + ":" + c;
-      paint(r, c, mode);
+      paintedLast = r + ":" + c + (state.half ? ":" + halfIndex(cell, e.clientX) : "");
+      paint(r, c, mode, halfIndex(cell, e.clientX));
     });
 
     slide.addEventListener("pointerover", function (e) {
       if (!painting) return;
       var cell = e.target.closest(".cell");
       if (!cell) return;
-      var id = cell.dataset.row + ":" + cell.dataset.col;
+      var hi = halfIndex(cell, e.clientX);
+      var id = cell.dataset.row + ":" + cell.dataset.col + (state.half ? ":" + hi : "");
       if (id === paintedLast) return;
       paintedLast = id;
-      paint(+cell.dataset.row, +cell.dataset.col, painting);
+      paint(+cell.dataset.row, +cell.dataset.col, painting, hi);
     });
 
     slide.addEventListener("contextmenu", function (e) {
       if (e.target.closest(".cell")) e.preventDefault();
     });
 
+    slide.addEventListener("pointerover", function (e) {
+      var lab = e.target.closest("[data-labelrow]");
+      if (!lab) return;
+      var row = view().rows[+lab.dataset.labelrow];
+      if (row) showTip(lab, initiative(row.iid));
+    });
+    slide.addEventListener("pointerout", function (e) {
+      if (e.target.closest("[data-labelrow]")) hideTip();
+    });
+
     /* contenteditable fields on the slide */
     slide.addEventListener("input", function (e) {
       var t = e.target;
       if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit(); return; }
-      if (t.id === "slideNote") { board().note.text = t.textContent.trim(); commit(); return; }
+      if (t.id === "slideNoteText") { board().note.text = t.textContent.trim(); commit(); return; }
       if (t.dataset && t.dataset.mscap !== undefined) {
         var m = view().milestones[+t.dataset.mscap];
         if (m) { m.label = t.textContent.trim(); commit(); renderMilestones(); }
@@ -1589,6 +1825,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   window.addEventListener("pointermove", function (e) {
+    if (glDrag) { moveGlGhost(e); return; }
     if (!msDrag) return;
     var v = view(), m = v.milestones && v.milestones[msDrag.i];
     if (!m) { msDrag = null; return; }
@@ -1597,7 +1834,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (el) el.setAttribute("style", msStyle(m, v.rows.length, autoRowHeight(v.rows.length)));
   });
 
-  window.addEventListener("pointerup", function () {
+  window.addEventListener("pointerup", function (e) {
+    if (glDrag) { dropGlDrag(e); return; }
     if (msDrag) { msDrag = null; commit(); renderMilestones(); }
     painting = null;
     paintedLast = null;
@@ -1647,7 +1885,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       $("newName").value = ""; $("newUrl").value = "";
       state.sel = { row: view().rows.length - 1 };
       renderAll();
-      toast("“" + name + "” aggiunta");
+      toast("“" + name + "” added");
     });
 
     $("libSearch").addEventListener("input", renderLibrary);
@@ -1675,6 +1913,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var row = curRow(); if (!row) return;
       initiative(row.iid).url = $("iUrl").value.trim();
       Store.saveLibrary(); renderSlide(); renderLibrary();
+    });
+    $("iDesc").addEventListener("input", function () {
+      var row = curRow(); if (!row) return;
+      initiative(row.iid).desc = $("iDesc").value;
+      Store.saveLibrary(); renderLibrary();
+    });
+    $("iArea").addEventListener("input", function () {
+      var row = curRow(); if (!row) return;
+      initiative(row.iid).area = $("iArea").value.trim();
+      Store.saveLibrary(); renderLibrary();
     });
     $("iLabel").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
@@ -1707,7 +1955,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var row = curRow(); if (!row) return;
       var iid = row.iid;
       var ini = initiative(iid);
-      if (!confirm("Eliminare “" + ini.name + "” dalla libreria e da tutti i quarter?")) return;
+      if (!confirm("Delete “" + ini.name + "” from the library and from every quarter?")) return;
       Store.library = Store.library.filter(function (x) { return x.id !== iid; });
       Store.boards.forEach(function (b) {
         Object.keys(b.views).forEach(function (k) {
@@ -1774,7 +2022,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function generateSprints() {
     var start = $("genStart").value;
-    if (!start) { toast("Scegli la data di inizio"); return; }
+    if (!start) { toast("Pick the start date"); return; }
     var weeks = Math.max(1, +$("genWeeks").value || 2);
     var count = Math.max(2, Math.min(12, +$("genCount").value || 8));
     var from = Math.max(1, +$("genFrom").value || 1);
@@ -1804,7 +2052,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
     b.sprints = out;
     commit(); renderSprints(); renderMilestones(); renderSlide();
-    toast("Intestazioni rigenerate");
+    toast("Headers regenerated");
   }
 
   /* ---- top bar wiring ---- */
@@ -1827,7 +2075,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
 
     $("btnNewBoard").addEventListener("click", function () {
-      var name = prompt("Nome del nuovo quarter", "Q1 2026");
+      var name = prompt("Name of the new quarter", "Q1 2026");
       if (!name) return;
       var b = {
         id: uid("b"), name: name, createdAt: Date.now(), updatedAt: Date.now(),
@@ -1855,7 +2103,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     $("mDuplicate").addEventListener("click", function () {
       var src = board();
-      var name = prompt("Nome del quarter duplicato", nextQuarterName(src.name));
+      var name = prompt("Name of the duplicated quarter", nextQuarterName(src.name));
       if (!name) return;
       var copy = clone(src);
       copy.id = uid("b"); copy.name = name; copy.createdAt = Date.now();
@@ -1871,20 +2119,20 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Store.saveBoard(copy, true);
       $("menu").hidden = true;
       renderAll();
-      toast("Duplicato: righe e sprint mantenuti, fasi da ridipingere");
+      toast("Duplicated — rows and sprints kept, phases cleared");
     });
 
     $("mRename").addEventListener("click", function () {
       var b = board();
-      var name = prompt("Nome del quarter", b.name);
+      var name = prompt("Quarter name", b.name);
       if (!name) return;
       b.name = name; commit(); renderBoardSel(); $("menu").hidden = true;
     });
 
     $("mDelete").addEventListener("click", function () {
-      if (Store.boards.length <= 1) { toast("Serve almeno un quarter"); return; }
+      if (Store.boards.length <= 1) { toast("You need at least one quarter"); return; }
       var b = board();
-      if (!confirm("Eliminare “" + b.name + "”?")) return;
+      if (!confirm("Delete “" + b.name + "”?")) return;
       Store.removeBoard(b.id);
       state.boardId = Store.boards[0].id; state.sel = null;
       $("menu").hidden = true;
@@ -1922,9 +2170,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           Store.boards.forEach(function (b) { Store.saveBoard(b, true); });
           Store.saveLibrary(true);
           renderAll();
-          toast("Importati " + Store.boards.length + " quarter");
+          toast("Imported " + Store.boards.length + " quarters");
         }).catch(function () {
-          toast("File non valido");
+          toast("That file is not valid");
         }).then(function () { input.remove(); });
       });
       input.click();
@@ -1935,7 +2183,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var opts = ["auto", 78, 64, 52, 42];
       var i = opts.indexOf(state.rowH);
       state.rowH = opts[(i + 1) % opts.length];
-      $("btnFitRows").textContent = "Righe: " + (state.rowH === "auto" ? "auto" : state.rowH + "px");
+      $("btnFitRows").textContent = "Rows: " + (state.rowH === "auto" ? "auto" : state.rowH + "px");
       renderSlide();
     });
 
@@ -1959,7 +2207,39 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("presentPrev").addEventListener("click", function () { presentGo(-1); });
     $("presentNext").addEventListener("click", function () { presentGo(1); });
     $("presentQuarter").addEventListener("click", function () { presentQuarter(1); });
-    $("btnAddMsTop").addEventListener("click", addMilestone);
+    $("btnHalf").addEventListener("click", function () {
+      state.half = !state.half;
+      $("btnHalf").setAttribute("aria-pressed", String(state.half));
+      $("btnHalf").classList.toggle("btn-primary", state.half);
+      toast(state.half ? "Half-sprint mode on — click the half you want" : "Half-sprint mode off");
+    });
+
+    $("btnNote").addEventListener("click", function () {
+      var b = board();
+      b.note.show = true;
+      if (!b.note.text) b.note.text = "To validate";
+      commit(); renderSprints(); renderSlide();
+      var el = $("slideNoteText");
+      if (el) el.focus();
+    });
+
+    $("legendShow").addEventListener("change", function () {
+      var b = board();
+      b.legend = b.legend || {};
+      b.legend.show = $("legendShow").checked;
+      commit(); renderSlide();
+    });
+
+    $("mLegend").addEventListener("click", function () {
+      var b = board();
+      b.legend = b.legend || {};
+      b.legend.show = !b.legend.show;
+      commit(); renderSprints(); renderSlide();
+      $("menu").hidden = true;
+      toast(b.legend.show ? "Legend shown on the slide" : "Legend hidden");
+    });
+
+    $("glDrag").addEventListener("pointerdown", startGlDrag);
 
     /* In presentation the slide is the deck: a linked row opens its doc. */
     $("presentHost").addEventListener("pointerdown", function (e) {
@@ -1996,7 +2276,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       window.claude.use("downloads").then(function (dl) {
         if (!dl) return legacySave(filename, blob);
         return dl.save({ filename: filename, data: blob }).then(function () {
-          toast("Salvato: " + filename);
+          toast("Saved: " + filename);
         }).catch(function (err) {
           if (err && err.code === "declined") return;
           legacySave(filename, blob);
@@ -2013,7 +2293,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-    } catch (e) { toast("Download non disponibile qui"); }
+    } catch (e) { toast("Downloads are not available here"); }
   }
 
   function withCleanSlide(fn) {
@@ -2039,8 +2319,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   function exportPng(toClipboard) {
-    if (typeof html2canvas !== "function") { toast("Motore di export non caricato"); return; }
-    toast(toClipboard ? "Preparo l'immagine…" : "Genero il PNG…");
+    if (typeof html2canvas !== "function") { toast("Export engine did not load"); return; }
+    toast(toClipboard ? "Preparing the image…" : "Rendering the PNG…");
     withCleanSlide(function (slide) {
       return html2canvas(slide, {
         scale: 2, backgroundColor: "#ffffff",
@@ -2055,21 +2335,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (!toClipboard) return saveFile(name, blob, "image/png");
       if (!navigator.clipboard || !window.ClipboardItem) throw new Error("no clipboard");
       return navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })])
-        .then(function () { toast("Copiato — incollalo nella slide"); })
+        .then(function () { toast("Copied — paste it into your deck"); })
         .catch(function () { saveFile(name, blob, "image/png"); });
     }).catch(function () {
-      toast("Export non riuscito — riprova o usa uno screenshot");
+      toast("Export failed — try again or take a screenshot");
     });
   }
 
   /* One PDF per quarter, one page per view — what you send the people who
      were not in the room. */
   function exportPdf() {
-    if (typeof html2canvas !== "function" || !window.jspdf) { toast("Motore di export non caricato"); return; }
+    if (typeof html2canvas !== "function" || !window.jspdf) { toast("Export engine did not load"); return; }
     var deck = buildDeck();
-    if (!deck.length) { toast("Nessuna vista con iniziative da esportare"); return; }
+    if (!deck.length) { toast("No view with initiatives to export"); return; }
     var savedView = state.view;
-    toast("Genero il PDF…");
+    toast("Building the PDF…");
 
     var doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "px", format: [SLIDE_W, SLIDE_H] });
     var chain = Promise.resolve();
@@ -2097,7 +2377,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       saveFile(name, doc.output("blob"), "application/pdf");
     }).catch(function () {
       restore();
-      toast("Export PDF non riuscito");
+      toast("PDF export failed");
     });
   }
 
@@ -2141,6 +2421,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); toggleSheet(); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key.toLowerCase() === "p") { e.preventDefault(); enterPresent(); return; }
+      if (e.key.toLowerCase() === "h") { e.preventDefault(); $("btnHalf").click(); return; }
 
       var list = VIEWS[state.view].brushes;
       if (e.key === "0" || e.key.toLowerCase() === "e") { state.brush = ""; renderBrushes(); }
