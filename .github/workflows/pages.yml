@@ -1,11 +1,10 @@
 name: Deploy to GitHub Pages
 
-# Publishes the standalone build (index.html) to GitHub Pages.
-# Enable it once under Settings → Pages → Source: "GitHub Actions".
+# Fallback host. Vercel is the primary one, so this runs only when asked:
+# Actions → Deploy to GitHub Pages → Run workflow. It needs the repo to be
+# public and Settings → Pages → Source set to "GitHub Actions".
 
 on:
-  push:
-    branches: [claude/keen-ritchie-1wkx3v]
   workflow_dispatch:
 
 permissions:
