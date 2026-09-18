@@ -1,0 +1,1720 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  body{margin:0;font:14px system-ui,sans-serif;background:#faf9f7}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+<title>Roadmap Snapshot Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* ============================================================
+   TOKENS
+   Two palettes live here on purpose:
+   - pn-*  : the brand palette. Fixed, never theme-swapped, because it
+             paints the slide that gets exported to PNG.
+   - ui-*  : the editor chrome. Theme-aware (light / dark / system).
+   ============================================================ */
+:root{
+  --pn-teal:#17c3a2;
+  --pn-orange:#f4a32a;
+  --pn-indigo:#5b4ee8;
+  --pn-lime:#dcf223;
+  --pn-ink:#101012;
+  --pn-row:#f0f0f1;
+  --pn-head:#ededee;
+  --pn-link:#1155cc;
+  --pn-paper:#ffffff;
+  --pn-muted:#6b6b72;
+
+  --ui-bg:#f2f6f5;
+  --ui-panel:#ffffff;
+  --ui-sunk:#e9efed;
+  --ui-line:#dde5e3;
+  --ui-line-soft:#e9eeed;
+  --ui-text:#0f1614;
+  --ui-muted:#5c6b68;
+  --ui-faint:#8a9895;
+  --ui-accent:#0aa287;
+  --ui-accent-ink:#ffffff;
+  --ui-shadow:0 1px 2px rgba(16,32,29,.06),0 8px 24px -12px rgba(16,32,29,.18);
+  --ui-focus:#0aa287;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ui-bg:#0d1312;
+    --ui-panel:#151d1c;
+    --ui-sunk:#101817;
+    --ui-line:#26312f;
+    --ui-line-soft:#1d2726;
+    --ui-text:#e7eeed;
+    --ui-muted:#93a4a0;
+    --ui-faint:#6d7d7a;
+    --ui-accent:#2fd6b4;
+    --ui-accent-ink:#06211c;
+    --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
+    --ui-focus:#2fd6b4;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ui-bg:#0d1312;
+  --ui-panel:#151d1c;
+  --ui-sunk:#101817;
+  --ui-line:#26312f;
+  --ui-line-soft:#1d2726;
+  --ui-text:#e7eeed;
+  --ui-muted:#93a4a0;
+  --ui-faint:#6d7d7a;
+  --ui-accent:#2fd6b4;
+  --ui-accent-ink:#06211c;
+  --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
+  --ui-focus:#2fd6b4;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ui-bg);color:var(--ui-text);
+  font-family:"Figtree",ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;
+}
+.app{position:relative;z-index:1;background:var(--ui-bg);min-height:100%;display:flex;flex-direction:column}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px;border-radius:6px}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:40;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 16px;background:var(--ui-panel);border-bottom:1px solid var(--ui-line);
+}
+.brandmark{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:-.015em;font-size:15px;white-space:nowrap}
+.brandmark .dot{width:11px;height:11px;border-radius:3px;background:var(--pn-teal);box-shadow:0 0 0 3px color-mix(in srgb,var(--pn-teal) 22%,transparent)}
+.topbar .spacer{flex:1 1 auto;min-width:0}
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
+  border:1px solid var(--ui-line);border-radius:8px;background:var(--ui-panel);
+  font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;
+  transition:background .12s ease,border-color .12s ease,transform .06s ease;
+}
+.btn:hover{background:var(--ui-sunk);border-color:var(--ui-faint)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--ui-accent);border-color:var(--ui-accent);color:var(--ui-accent-ink)}
+.btn-primary:hover{background:color-mix(in srgb,var(--ui-accent) 86%,#000);border-color:color-mix(in srgb,var(--ui-accent) 86%,#000)}
+.btn-ghost{border-color:transparent;background:transparent;padding:0 9px;color:var(--ui-muted)}
+.btn-ghost:hover{background:var(--ui-sunk);color:var(--ui-text)}
+.btn-danger:hover{background:#c0392b;border-color:#c0392b;color:#fff}
+.btn-sm{height:27px;padding:0 9px;font-size:12px;border-radius:7px}
+
+select,input[type=text],input[type=url],input[type=date],input[type=number],textarea{
+  height:32px;padding:0 9px;border:1px solid var(--ui-line);border-radius:8px;
+  background:var(--ui-panel);font-size:13px;max-width:100%;
+}
+textarea{height:auto;padding:7px 9px;line-height:1.35;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--ui-accent);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-accent) 18%,transparent)}
+.boardpick{display:flex;align-items:center;gap:4px}
+.boardpick select{max-width:190px;font-weight:600}
+
+.viewtabs{display:flex;gap:2px;padding:3px;background:var(--ui-sunk);border-radius:10px}
+.vtab{
+  border:0;background:transparent;border-radius:7px;height:26px;padding:0 12px;
+  font-size:13px;font-weight:600;color:var(--ui-muted);cursor:pointer;white-space:nowrap;
+}
+.vtab.is-on{background:var(--ui-panel);color:var(--ui-text);box-shadow:var(--ui-shadow)}
+
+.sync{font-family:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--ui-faint);white-space:nowrap}
+.sync[data-state="saving"]{color:var(--pn-orange)}
+.sync[data-state="error"]{color:#d64545}
+
+/* ---------- workspace ---------- */
+.workspace{flex:1;display:grid;grid-template-columns:314px minmax(0,1fr);gap:0;align-items:start}
+@media (max-width:1040px){ .workspace{grid-template-columns:minmax(0,1fr)} }
+
+.sidebar{
+  border-right:1px solid var(--ui-line);background:var(--ui-panel);
+  padding:14px 14px 40px;min-width:0;
+  display:flex;flex-direction:column;gap:14px;
+}
+@media (min-width:1041px){ .sidebar{position:sticky;top:calc(53px + env(safe-area-inset-top,0px));max-height:calc(100dvh - 53px);overflow-y:auto} }
+@media (max-width:1040px){ .sidebar{border-right:0;border-bottom:1px solid var(--ui-line);padding-bottom:18px} }
+/* Narrow windows open with the panel folded away, so the slide is the
+   first thing on screen instead of sitting a screenful below it. */
+body.sidebar-off .sidebar{display:none}
+body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
+@media (max-width:760px){ .brandmark span.word{display:none} }
+
+.sidetabs{display:flex;gap:2px;padding:3px;background:var(--ui-sunk);border-radius:10px}
+.stab{flex:1;border:0;background:transparent;border-radius:7px;height:28px;font-size:12.5px;font-weight:600;color:var(--ui-muted);cursor:pointer}
+.stab.is-on{background:var(--ui-panel);color:var(--ui-text);box-shadow:var(--ui-shadow)}
+
+.panel{display:flex;flex-direction:column;gap:10px}
+.panel[hidden]{display:none}
+.eyebrow{
+  font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ui-faint);margin:0;
+}
+.field{display:flex;flex-direction:column;gap:4px}
+.field > label{font-size:11.5px;font-weight:600;color:var(--ui-muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.rowline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ui-muted);cursor:pointer}
+.check input{accent-color:var(--ui-accent);width:15px;height:15px;margin:0}
+
+/* library list */
+.lib{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}
+.lib-item{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
+  padding:6px 7px;border-radius:9px;border:1px solid transparent;cursor:pointer;
+}
+.lib-item:hover{background:var(--ui-sunk)}
+.lib-item.is-sel{background:color-mix(in srgb,var(--ui-accent) 12%,transparent);border-color:color-mix(in srgb,var(--ui-accent) 40%,transparent)}
+.lib-item .nm{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lib-item .nm.is-off{color:var(--ui-faint);font-weight:500}
+.lib-item .lk{font-size:10px;color:var(--ui-faint);font-family:"DM Mono",monospace}
+.lib-empty{font-size:12.5px;color:var(--ui-faint);padding:10px 2px;margin:0}
+
+.swatches{display:flex;gap:6px}
+.sw{width:30px;height:30px;border-radius:8px;border:2px solid var(--ui-line);cursor:pointer;background:transparent;padding:0}
+.sw[aria-pressed="true"]{border-color:var(--ui-text);box-shadow:0 0 0 2px var(--ui-panel) inset}
+.sw-teal{background:var(--pn-teal)}
+.sw-lime{background:var(--pn-lime)}
+.sw-none{background:repeating-linear-gradient(45deg,var(--ui-sunk),var(--ui-sunk) 4px,var(--ui-line) 4px,var(--ui-line) 8px)}
+
+.sprint-row{display:grid;grid-template-columns:1fr 46px 1.35fr auto;gap:5px;align-items:center}
+.sprint-row input{height:28px;font-size:12px;padding:0 7px}
+.ms-card{border:1px solid var(--ui-line);border-radius:10px;padding:9px;display:flex;flex-direction:column;gap:7px;background:var(--ui-sunk)}
+
+.divider{height:1px;background:var(--ui-line-soft);border:0;margin:2px 0}
+.help{font-size:11.5px;color:var(--ui-faint);margin:0;line-height:1.4}
+
+/* ---------- stage ---------- */
+.stage{min-width:0;padding:14px 16px 48px;display:flex;flex-direction:column;gap:12px}
+.brushbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.brushes{display:flex;gap:6px;flex-wrap:wrap}
+.brush{
+  display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px 0 9px;
+  border:1px solid var(--ui-line);border-radius:9px;background:var(--ui-panel);
+  font-size:12.5px;font-weight:700;cursor:pointer;
+}
+.brush .swatch{width:13px;height:13px;border-radius:4px;flex:none}
+.brush kbd{
+  font-family:"DM Mono",monospace;font-size:10px;font-weight:500;color:var(--ui-faint);
+  border:1px solid var(--ui-line);border-radius:4px;padding:0 4px;line-height:15px;
+}
+.brush[aria-pressed="true"]{border-color:var(--ui-text);background:var(--ui-sunk);box-shadow:var(--ui-shadow)}
+.brush[aria-pressed="true"] kbd{color:var(--ui-muted)}
+
+/* The slide never shrinks below MIN_SCALE: past that the cells stop being
+   clickable targets, so the canvas scrolls sideways instead. */
+.canvas-wrap{
+  position:relative;width:100%;overflow:auto;border-radius:14px;
+  background:var(--pn-paper);box-shadow:var(--ui-shadow);border:1px solid var(--ui-line);
+  overscroll-behavior-x:contain;
+}
+.canvas-inner{position:relative}
+.zoom{display:flex;align-items:center;gap:2px;padding:2px;background:var(--ui-sunk);border-radius:9px}
+.zoom button{
+  border:0;background:transparent;border-radius:7px;height:26px;min-width:26px;padding:0 8px;
+  font-size:12.5px;font-weight:700;color:var(--ui-muted);cursor:pointer;
+}
+.zoom button:hover{background:var(--ui-panel);color:var(--ui-text)}
+.zoom .lvl{
+  font-family:"DM Mono",ui-monospace,monospace;font-size:11px;min-width:54px;
+  color:var(--ui-text);font-weight:500;
+}
+.zoom .lvl[aria-pressed="true"]{background:var(--ui-panel);box-shadow:var(--ui-shadow)}
+.hint{font-size:11.5px;color:var(--ui-faint);margin:0;line-height:1.55}
+.hint kbd{font-family:"DM Mono",monospace;background:var(--ui-sunk);border:1px solid var(--ui-line);border-radius:4px;padding:1px 5px;font-size:10.5px}
+
+/* ============================================================
+   THE SLIDE — 1600x900 logical px, scaled to fit by JS.
+   Everything inside here is brand-fixed, light-only: it is the
+   artwork that lands in the deck.
+   ============================================================ */
+.slide{
+  --slide-w:1600px;--slide-h:900px;
+  --pad-l:48px;--pad-r:68px;
+  --rail-w:10px;--rail-gap:22px;
+  --label-w:480px;--label-gap:18px;
+  --col-gap:10px;--cols:8;--row-h:54px;
+  --track-left:calc(var(--pad-l) + var(--rail-w) + var(--rail-gap) + var(--label-w) + var(--label-gap));
+  position:relative;width:var(--slide-w);height:var(--slide-h);
+  transform-origin:top left;background:var(--pn-paper);color:var(--pn-ink);
+  font-family:"Figtree",ui-sans-serif,system-ui,sans-serif;
+  padding:56px var(--pad-r) 40px var(--pad-l);
+  display:flex;flex-direction:column;gap:0;overflow:hidden;
+}
+
+.slide-head{display:flex;align-items:flex-start;gap:24px;margin-left:34px}
+.slide-title{
+  flex:1;margin:0;font-size:46px;font-weight:800;letter-spacing:-.025em;line-height:1.08;
+  color:var(--pn-ink);text-wrap:balance;min-width:0;
+}
+.slide-title:focus{outline:2px dashed color-mix(in srgb,var(--pn-teal) 70%,transparent);outline-offset:6px;border-radius:4px}
+.slide-note{
+  flex:none;width:186px;min-height:84px;padding:14px 16px;background:var(--pn-lime);
+  color:var(--pn-ink);font-size:17px;font-weight:600;line-height:1.3;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+}
+.slide-note:focus{outline:2px dashed rgba(0,0,0,.45);outline-offset:3px}
+.slide-note[hidden]{display:none}
+
+.slide-board{margin-top:26px;display:flex;flex-direction:column;flex:1;min-height:0}
+
+/* shared row geometry */
+.brow{display:flex;align-items:stretch;gap:0}
+.brow .rail{width:var(--rail-w);flex:none;margin-right:var(--rail-gap)}
+.brow .label{width:var(--label-w);flex:none;margin-right:var(--label-gap);display:flex;align-items:center;min-width:0}
+.brow .track{flex:1;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:var(--col-gap);min-width:0}
+
+/* sprint header */
+.brow--head{margin-bottom:22px}
+.sprint{
+  background:var(--pn-head);border-radius:9px;padding:11px 9px 10px;
+  display:flex;flex-direction:column;gap:3px;text-align:left;min-width:0;
+}
+.sprint .nm{
+  font-size:15.5px;font-weight:700;letter-spacing:-.025em;line-height:1.1;
+  display:flex;align-items:baseline;gap:3px;min-width:0;
+}
+.sprint .nm > span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sprint .nm .q{font-size:11.5px;font-weight:600;color:#3d3d44;flex:none;margin:0}
+.sprint .dt{font-size:12.5px;font-weight:500;color:#63636b;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sprint [contenteditable]:focus{outline:2px dashed rgba(0,0,0,.35);outline-offset:2px;border-radius:3px}
+
+/* body + rows */
+.board-body{position:relative;flex:1;min-height:0}
+.brows{display:flex;flex-direction:column}
+.brow--data{height:var(--row-h);position:relative}
+
+.rail{border-radius:0}
+.rail--teal{background:var(--pn-teal)}
+.rail--lime{background:var(--pn-lime)}
+.rail--none{background:transparent}
+.rail.is-first{margin-top:4px;border-top-left-radius:3px;border-top-right-radius:3px}
+.rail.is-last{margin-bottom:4px;border-bottom-left-radius:3px;border-bottom-right-radius:3px}
+
+.pill{
+  width:100%;background:var(--pn-row);border-radius:7px;padding:8px 18px;
+  font-size:15.5px;font-weight:700;line-height:1.2;color:var(--pn-ink);
+  display:flex;align-items:center;
+  min-height:clamp(34px,calc(var(--row-h) - 16px),50px);
+  overflow:hidden;
+}
+.pill span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pill.is-link span{color:var(--pn-link);text-decoration:underline;text-underline-offset:2px}
+.pill.is-long{font-size:13.5px}
+.brow .label{position:relative}
+.label.is-boxed{padding:3px}
+.label.is-boxed .pill{outline:1.5px solid #2e2e34;outline-offset:3px;border-radius:5px}
+
+.cell{display:flex;gap:4px;align-items:center;min-width:0}
+.chip{
+  flex:1;min-width:0;height:clamp(30px,calc(var(--row-h) - 26px),46px);border-radius:9px;color:#fff;
+  font-size:14px;font-weight:700;letter-spacing:-.005em;line-height:1.1;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:2px 6px;
+}
+.chip--discovery{background:var(--pn-teal)}
+.chip--specs{background:var(--pn-orange)}
+.chip--delivery{background:var(--pn-indigo)}
+.chip--conception{background:var(--pn-orange);font-size:11px;line-height:1.12}
+.chip.is-tight{font-size:11px;line-height:1.12}
+
+/* milestones */
+.ms-layer{position:absolute;top:0;bottom:0;left:var(--track-left);right:0;pointer-events:none}
+.ms{position:absolute;width:2px;background:var(--pn-teal)}
+.ms .cap{
+  position:absolute;bottom:calc(100% + 6px);left:9px;width:300px;
+  font-size:15px;font-weight:600;line-height:1.28;color:var(--pn-teal);
+}
+
+/* editor affordances drawn on the slide (never exported) */
+.slide.is-live .cell{cursor:crosshair;border-radius:9px;touch-action:manipulation}
+.slide.is-live .cell:empty::after{
+  content:"";display:block;flex:1;height:clamp(30px,calc(var(--row-h) - 26px),46px);border-radius:9px;
+  border:1.5px dashed transparent;transition:border-color .1s ease,background .1s ease;
+}
+.slide.is-live .cell:hover:empty::after{border-color:#c9c9d2;background:#fafafb}
+.slide.is-live .cell:hover:not(:empty){box-shadow:0 0 0 2px #c9c9d2}
+.slide.is-live .label{cursor:pointer}
+.slide.is-live .brow--data.is-sel .pill{box-shadow:0 0 0 2px var(--ui-accent,#0aa287)}
+.rowtools{
+  position:absolute;left:calc(var(--pad-l) * -1 + 4px);top:50%;transform:translateY(-50%);
+  display:none;flex-direction:column;gap:1px;
+}
+.slide.is-live .brow--data:hover .rowtools{display:flex}
+.rowtools button{
+  width:22px;height:18px;border:1px solid #d7d7de;background:#fff;color:#4a4a52;
+  border-radius:5px;font-size:10px;line-height:1;cursor:pointer;padding:0;
+}
+.rowtools button:hover{background:#eeeef1}
+.linkjump{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:22px;height:22px;border-radius:6px;border:1px solid #d7d7de;background:#fff;
+  color:#4a4a52;font-size:11px;line-height:1;cursor:pointer;display:none;
+}
+.slide.is-live .label:hover .linkjump{display:block}
+
+.slide.is-export .rowtools,.slide.is-export .linkjump{display:none!important}
+.slide.is-export .cell:empty::after{display:none}
+
+/* read-only / narrow notices */
+.notice{
+  display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;
+  background:color-mix(in srgb,var(--pn-orange) 16%,var(--ui-panel));
+  border:1px solid color-mix(in srgb,var(--pn-orange) 40%,transparent);
+  font-size:12.5px;line-height:1.45;
+}
+.notice[hidden]{display:none}
+body.is-readonly .sidebar,body.is-readonly .brushbar{display:none}
+body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  z-index:90;background:var(--ui-text);color:var(--ui-bg);padding:9px 15px;border-radius:10px;
+  font-size:13px;font-weight:600;box-shadow:var(--ui-shadow);max-width:calc(100vw - 32px);
+}
+.toast[hidden]{display:none}
+
+/* modal-ish popover for the ⋯ menu */
+.menu{
+  position:absolute;right:16px;top:calc(52px + env(safe-area-inset-top,0px));z-index:60;
+  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:12px;
+  box-shadow:var(--ui-shadow);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:216px;
+}
+.menu[hidden]{display:none}
+.menu button{
+  text-align:left;border:0;background:transparent;border-radius:8px;padding:8px 10px;
+  font-size:13px;font-weight:600;cursor:pointer;color:var(--ui-text);
+}
+.menu button:hover{background:var(--ui-sunk)}
+.menu button.danger:hover{background:#c0392b;color:#fff}
+.menu hr{border:0;height:1px;background:var(--ui-line-soft);margin:4px 2px}
+
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <button class="btn btn-ghost" id="btnPanel" title="Mostra o nascondi il pannello" aria-label="Mostra o nascondi il pannello" aria-expanded="true">☰</button>
+    <div class="brandmark"><span class="dot"></span><span class="word">Roadmap Snapshot Studio</span></div>
+
+    <div class="boardpick">
+      <label class="sr-only" for="boardSel">Quarter</label>
+      <select id="boardSel"></select>
+      <button class="btn btn-ghost" id="btnNewBoard" title="Nuovo quarter" aria-label="Nuovo quarter">+</button>
+    </div>
+
+    <div class="viewtabs" role="tablist" aria-label="Vista">
+      <button class="vtab is-on" id="tabProduct" data-view="product" role="tab" aria-selected="true">Prodotto</button>
+      <button class="vtab" id="tabDesign" data-view="design" role="tab" aria-selected="false">Design</button>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="sync" id="sync" data-state="idle" aria-live="polite"></div>
+    <button class="btn" id="btnCopy">Copia PNG</button>
+    <button class="btn btn-primary" id="btnPng">Scarica PNG</button>
+    <button class="btn btn-ghost" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="Altre azioni">•••</button>
+  </header>
+
+  <div class="menu" id="menu" hidden role="menu">
+    <button id="mDuplicate" role="menuitem">Duplica quarter successivo</button>
+    <button id="mRename" role="menuitem">Rinomina quarter</button>
+    <hr>
+    <button id="mExport" role="menuitem">Esporta tutto (JSON)</button>
+    <button id="mImport" role="menuitem">Importa JSON</button>
+    <hr>
+    <button id="mDelete" role="menuitem" class="danger">Elimina questo quarter</button>
+  </div>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="sidetabs" role="tablist" aria-label="Pannelli">
+        <button class="stab is-on" data-panel="init" role="tab" aria-selected="true">Iniziative</button>
+        <button class="stab" data-panel="sprint" role="tab" aria-selected="false">Sprint</button>
+        <button class="stab" data-panel="ms" role="tab" aria-selected="false">Milestone</button>
+      </div>
+
+      <!-- INIZIATIVE -->
+      <section class="panel" id="panel-init">
+        <div class="field">
+          <label for="newName">Nuova iniziativa</label>
+          <input type="text" id="newName" placeholder="Es. Notifiche push">
+          <input type="url" id="newUrl" placeholder="Link alla documentazione (opzionale)">
+          <button class="btn btn-primary btn-sm" id="btnAddInit" style="align-self:flex-start">Aggiungi alla vista</button>
+        </div>
+        <hr class="divider">
+        <div class="field">
+          <label for="libSearch">Libreria · <span id="libCount"></span></label>
+          <input type="text" id="libSearch" placeholder="Cerca…">
+        </div>
+        <p class="help">La spunta indica che l'iniziativa è presente nella vista aperta. Clicca il nome per modificarla.</p>
+        <ul class="lib" id="libList"></ul>
+
+        <div id="inspector" hidden>
+          <hr class="divider">
+          <p class="eyebrow">Dettaglio riga</p>
+          <div class="panel">
+            <div class="field">
+              <label for="iName">Nome</label>
+              <input type="text" id="iName">
+            </div>
+            <div class="field">
+              <label for="iUrl">Link documentazione</label>
+              <input type="url" id="iUrl" placeholder="https://…">
+            </div>
+            <div class="field">
+              <label for="iLabel">Etichetta solo in questa vista</label>
+              <input type="text" id="iLabel" placeholder="Lascia vuoto per usare il nome">
+            </div>
+            <div class="field">
+              <label>Barra di categoria</label>
+              <div class="swatches">
+                <button class="sw sw-teal" data-accent="teal" aria-label="Verde" aria-pressed="false"></button>
+                <button class="sw sw-lime" data-accent="lime" aria-label="Lime (da validare)" aria-pressed="false"></button>
+                <button class="sw sw-none" data-accent="none" aria-label="Nessuna" aria-pressed="false"></button>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" id="iBox"> Riquadro di evidenza</label>
+            <div class="rowline">
+              <button class="btn btn-sm" id="btnUp">↑ Su</button>
+              <button class="btn btn-sm" id="btnDown">↓ Giù</button>
+              <button class="btn btn-sm" id="btnClearRow">Svuota fasi</button>
+            </div>
+            <div class="rowline">
+              <button class="btn btn-sm btn-danger" id="btnRemoveRow">Togli dalla vista</button>
+              <button class="btn btn-sm btn-danger" id="btnDeleteInit">Elimina dalla libreria</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPRINT -->
+      <section class="panel" id="panel-sprint" hidden>
+        <p class="eyebrow">Genera la griglia</p>
+        <div class="grid2">
+          <div class="field"><label for="genStart">Inizio 1° sprint</label><input type="date" id="genStart"></div>
+          <div class="field"><label for="genWeeks">Durata (settimane)</label><input type="number" id="genWeeks" min="1" max="8" value="2"></div>
+          <div class="field"><label for="genCount">Numero sprint</label><input type="number" id="genCount" min="2" max="12" value="8"></div>
+          <div class="field"><label for="genFrom">Parti da sprint n°</label><input type="number" id="genFrom" min="1" max="13" value="7"></div>
+          <div class="field"><label for="genQ">Quarter iniziale</label><select id="genQ"><option>Q1</option><option>Q2</option><option selected>Q3</option><option>Q4</option></select></div>
+          <div class="field"><label for="genPerQ">Sprint per quarter</label><input type="number" id="genPerQ" min="2" max="13" value="7"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btnGen" style="align-self:flex-start">Genera intestazioni</button>
+        <p class="help">Sovrascrive nomi e date di tutte le colonne; le fasi già dipinte restano dove sono.</p>
+        <hr class="divider">
+        <p class="eyebrow">Colonne</p>
+        <div class="panel" id="sprintList"></div>
+        <div class="rowline">
+          <button class="btn btn-sm" id="btnAddSprint">+ Colonna</button>
+          <button class="btn btn-sm" id="btnDelSprint">− Ultima colonna</button>
+        </div>
+        <hr class="divider">
+        <label class="check"><input type="checkbox" id="noteShow"> Mostra il post-it giallo</label>
+      </section>
+
+      <!-- MILESTONE -->
+      <section class="panel" id="panel-ms" hidden>
+        <p class="help">Le milestone sono la linea verticale verde con l'etichetta: segnano un go-live dentro il trimestre. Valgono per la vista aperta.</p>
+        <div class="panel" id="msList"></div>
+        <button class="btn btn-primary btn-sm" id="btnAddMs" style="align-self:flex-start">+ Milestone</button>
+      </section>
+    </aside>
+
+    <main class="stage">
+      <div class="notice" id="roNotice" hidden>
+        <strong>Sola lettura.</strong> Puoi consultare ed esportare la roadmap, ma non modificarla.
+      </div>
+
+      <div class="brushbar">
+        <div class="brushes" id="brushes" role="group" aria-label="Fase da applicare"></div>
+        <div class="spacer" style="flex:1"></div>
+        <div class="zoom" role="group" aria-label="Zoom">
+          <button id="zoomOut" title="Riduci" aria-label="Riduci">−</button>
+          <button class="lvl" id="zoomLvl" title="Torna ad adattare alla finestra" aria-pressed="true">Adatta</button>
+          <button id="zoomIn" title="Ingrandisci" aria-label="Ingrandisci">+</button>
+        </div>
+        <button class="btn btn-sm" id="btnFitRows" title="Adatta l'altezza delle righe">Righe: auto</button>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <div class="canvas-inner" id="canvasInner">
+          <div class="slide is-live" id="slide"></div>
+        </div>
+      </div>
+
+      <p class="hint">
+        <kbd>clic</kbd> dipinge la fase scelta · <kbd>trascina</kbd> riempie più sprint ·
+        <kbd>Shift</kbd>+clic stende la sequenza completa da quello sprint in poi ·
+        <kbd>Alt</kbd>+clic affianca una seconda fase nella stessa colonna ·
+        <kbd>tasto destro</kbd> cancella · <kbd>1</kbd>–<kbd>4</kbd> cambiano fase, <kbd>0</kbd> è la gomma.
+        Titolo, post-it e intestazioni degli sprint si modificano scrivendoci sopra.
+        Se la finestra è stretta la slide non scende sotto una soglia leggibile e il canvas scorre in orizzontale:
+        usa <kbd>−</kbd> <kbd>+</kbd> per lo zoom e <kbd>☰</kbd> per chiudere il pannello e guadagnare larghezza.
+      </p>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ========================================================
+     1. Model
+     ======================================================== */
+
+  var PHASES = {
+    discovery:  { label: "Discovery",             short: "D", views: ["product"] },
+    specs:      { label: "Specs",                 short: "S", views: ["product"] },
+    delivery:   { label: "Delivery",              short: "Dl", views: ["product", "design"] },
+    conception: { label: "Experience Conception", short: "EC", views: ["design"] }
+  };
+  var VIEWS = {
+    product: { name: "Prodotto", brushes: ["discovery", "specs", "delivery"], sequence: ["discovery", "specs", "delivery"] },
+    design:  { name: "Design",   brushes: ["conception", "delivery"],         sequence: ["conception", "delivery"] }
+  };
+  var ACCENTS = ["teal", "lime", "none"];
+
+  function uid(p) { return (p || "x") + Math.random().toString(36).slice(2, 9); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  /* Starter content: a worked example quarter, so the tool opens on a real
+     board instead of an empty grid. Replace it with your own roadmap via
+     Importa JSON — nothing here is meant to survive first use. */
+  function cells() {
+    var out = {};
+    for (var i = 0; i < arguments.length; i++) {
+      var a = arguments[i];
+      out[String(a[0])] = a.slice(1);
+    }
+    return out;
+  }
+
+  var LIB = [
+    { id: "i-onb",    name: "Onboarding self-service",   url: "https://example.com/spec/onboarding" },
+    { id: "i-push",   name: "Notifiche push",            url: "" },
+    { id: "i-check",  name: "Checkout in un passaggio",  url: "" },
+    { id: "i-search", name: "Ricerca avanzata",          url: "" },
+    { id: "i-mob",    name: "App mobile — rilascio",     url: "" },
+    { id: "i-ref",    name: "Programma referral",        url: "" },
+    { id: "i-rep",    name: "Dashboard di reportistica", url: "" },
+    { id: "i-cal",    name: "Integrazione calendario",   url: "" },
+    { id: "i-exp",    name: "Esportazione dati",         url: "" },
+    { id: "i-bill",   name: "Piani e fatturazione",      url: "" }
+  ];
+
+  function sp(n, q, d) { return { id: uid("s"), name: "Sprint " + n, quarter: q, dates: d }; }
+
+  function starterBoards() {
+    var demo = {
+      id: "b-demo", name: "Q4 esempio", createdAt: Date.now(), updatedAt: Date.now(),
+      note: { show: true, text: "To validate" },
+      sprints: [
+        sp(7, "Q3", "15/09 – 26/09"), sp(1, "Q4", "29/09 – 10/10"), sp(2, "Q4", "13/10 – 24/10"),
+        sp(3, "Q4", "27/10 – 07/11"), sp(4, "Q4", "10/11 – 21/11"), sp(5, "Q4", "24/11 – 05/12"),
+        sp(6, "Q4", "08/12 – 19/12"), sp(7, "Q4", "22/12 – 02/01")
+      ],
+      views: {
+        product: {
+          title: "Quarter roadmap snapshot (Q4)",
+          milestones: [{ id: uid("m"), label: "Go-live onboarding", col: 3, row: 1, endRow: 3 }],
+          rows: [
+            { iid: "i-onb",    accent: "teal", box: false, label: "", cells: cells([0, "specs"], [1, "delivery"], [2, "delivery"]) },
+            { iid: "i-push",   accent: "teal", box: false, label: "", cells: cells([0, "discovery"], [1, "specs"], [2, "delivery"]) },
+            { iid: "i-check",  accent: "teal", box: false, label: "", cells: cells([0, "discovery"], [1, "discovery"], [2, "specs"], [3, "delivery"]) },
+            { iid: "i-search", accent: "lime", box: true,  label: "", cells: cells([1, "discovery"], [2, "specs"], [3, "delivery"]) },
+            { iid: "i-mob",    accent: "teal", box: false, label: "", cells: cells([2, "discovery"], [3, "specs"], [4, "delivery"]) },
+            { iid: "i-ref",    accent: "teal", box: false, label: "", cells: cells([3, "discovery"], [4, "specs"], [5, "delivery"]) },
+            { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([4, "discovery"], [5, "specs"], [6, "delivery"]) },
+            { iid: "i-cal",    accent: "teal", box: false, label: "", cells: cells([5, "discovery"], [6, "specs"], [7, "delivery"]) },
+            { iid: "i-exp",    accent: "none", box: false, label: "", cells: cells([6, "discovery"], [7, "specs"]) }
+          ]
+        },
+        design: {
+          title: "Quarter design roadmap snapshot (Q4)",
+          milestones: [],
+          rows: [
+            { iid: "i-onb",    accent: "teal", box: false, label: "", cells: cells([0, "conception"], [1, "delivery"]) },
+            { iid: "i-push",   accent: "teal", box: false, label: "", cells: cells([1, "conception"], [2, "delivery"]) },
+            { iid: "i-check",  accent: "teal", box: false, label: "", cells: cells([2, "conception"], [3, "delivery"]) },
+            { iid: "i-search", accent: "lime", box: false, label: "", cells: cells([2, "conception"], [3, "delivery"]) },
+            { iid: "i-mob",    accent: "none", box: false, label: "App mobile & Programma referral", cells: cells([3, "conception"], [4, "delivery"]) },
+            { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([4, "conception"], [5, "delivery"]) }
+          ]
+        }
+      }
+    };
+    return [demo];
+  }
+
+  /* ========================================================
+     2. Storage — artifact db when available, localStorage otherwise
+     ======================================================== */
+
+  var LS_KEY = "roadmap-studio-v1";
+  var CLIENT = uid("c");
+
+  var Store = {
+    mode: "local",
+    db: null,
+    canWrite: true,
+    boards: [],
+    library: [],
+    onRemote: null,
+    _timers: {},
+    _dirty: {},
+
+    lsRead: function () {
+      try {
+        var raw = localStorage.getItem(LS_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    },
+    lsWrite: function () {
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify({ boards: Store.boards, library: Store.library }));
+      } catch (e) { /* private mode, quota — the session still works */ }
+    },
+
+    /* Synchronous: the page must paint on the first frame, never wait on
+       a capability handshake that can take up to 10s to answer. */
+    initLocal: function () {
+      var saved = Store.lsRead();
+      if (saved && saved.boards && saved.boards.length) {
+        Store.boards = saved.boards;
+        Store.library = (saved.library && saved.library.length) ? saved.library : clone(LIB);
+      } else {
+        Store.boards = starterBoards();
+        Store.library = clone(LIB);
+      }
+    },
+
+    /* Asynchronous: upgrade to shared storage if this view can run it. */
+    initRemote: function (onRemote) {
+      Store.onRemote = onRemote;
+      if (!window.claude || !window.claude.use) return;
+      window.claude.use("db").then(function (db) {
+        if (!db) return;
+        Store.mode = "db";
+        Store.db = db;
+        Store.attach(db);
+      }).catch(function () { /* stay local */ });
+
+      window.claude.use("user").then(function (u) {
+        if (!u) return;
+        return Promise.resolve(u.can("data.write")).then(function (ok) {
+          if (ok === false) Store.lockDown();
+        });
+      }).catch(function () {});
+    },
+
+    lockDown: function () {
+      Store.canWrite = false;
+      document.body.classList.add("is-readonly");
+      $("roNotice").hidden = false;
+      var s = $("slide"); if (s) s.classList.remove("is-live");
+    },
+
+    attach: function (db) {
+      var seeded = false;
+
+      db.collection("boards").onSnapshot(function (snap) {
+        if (snap.empty) {
+          if (!seeded) { seeded = true; Store.seed(db); }
+          return;
+        }
+        /* Merge document by document: skip echoes of our own writes and
+           any board with edits still waiting to be flushed, so a snapshot
+           can never clobber what the user is typing right now. */
+        var changed = false;
+        snap.docChanges().forEach(function (ch) {
+          var body = ch.doc.data() || {};
+          if (ch.type === "removed") {
+            var gone = (body.board && body.board.id) || ch.doc.id;
+            if (Store.boards.some(function (b) { return b.id === gone; })) {
+              Store.boards = Store.boards.filter(function (b) { return b.id !== gone; });
+              changed = true;
+            }
+            return;
+          }
+          if (!body.board) return;
+          if (body.writer === CLIENT) return;
+          if (Store._dirty[body.board.id]) return;
+          var i = Store.boards.map(function (b) { return b.id; }).indexOf(body.board.id);
+          if (i < 0) Store.boards.push(body.board); else Store.boards[i] = body.board;
+          changed = true;
+        });
+        if (!Store.boards.length) return;
+        Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+        Store.lsWrite();
+        setSync("idle");
+        if (changed && Store.onRemote) Store.onRemote();
+      }, function () { setSync("error", "offline"); });
+
+      db.doc("library/index").onSnapshot(function (snap) {
+        if (!snap.exists) return;
+        var body = snap.data() || {};
+        if (!body.items || body.writer === CLIENT || Store._dirty.__lib) return;
+        Store.library = body.items;
+        Store.lsWrite();
+        if (Store.onRemote) Store.onRemote();
+      }, function () {});
+    },
+
+    seed: function (db) {
+      db.doc("meta/seed").acquire({ holder: CLIENT, ttlMs: 20000 }).then(function (r) {
+        if (!r || !r.acquired) return;
+        Store.boards.forEach(function (b) { Store.saveBoard(b, true); });
+        Store.saveLibrary(true);
+      }).catch(function () {});
+    },
+
+    _debounce: function (key, fn) {
+      clearTimeout(Store._timers[key]);
+      Store._timers[key] = setTimeout(fn, 550);
+    },
+
+    saveBoard: function (board, now) {
+      board.updatedAt = Date.now();
+      Store.lsWrite();
+      if (Store.mode !== "db" || !Store.canWrite) { setSync("idle"); return; }
+      Store._dirty[board.id] = true;
+      var write = function () {
+        setSync("saving");
+        Store.db.doc("boards/" + board.id).set({ board: board, writer: CLIENT, updatedAt: board.updatedAt })
+          .then(function () { delete Store._dirty[board.id]; setSync("idle"); })
+          .catch(function (e) {
+            delete Store._dirty[board.id];
+            if (e && e.code === "invalid_argument") { Store.lockDown(); setSync("error", "sola lettura"); return; }
+            setSync("error", "non salvato");
+          });
+      };
+      if (now) write(); else Store._debounce("b:" + board.id, write);
+    },
+
+    saveLibrary: function (now) {
+      Store.lsWrite();
+      if (Store.mode !== "db" || !Store.canWrite) { setSync("idle"); return; }
+      Store._dirty.__lib = true;
+      var write = function () {
+        setSync("saving");
+        Store.db.doc("library/index").set({ items: Store.library, writer: CLIENT, updatedAt: Date.now() })
+          .then(function () { delete Store._dirty.__lib; setSync("idle"); })
+          .catch(function () { delete Store._dirty.__lib; setSync("error", "non salvato"); });
+      };
+      if (now) write(); else Store._debounce("lib", write);
+    },
+
+    removeBoard: function (id) {
+      Store.boards = Store.boards.filter(function (b) { return b.id !== id; });
+      Store.lsWrite();
+      if (Store.mode === "db" && Store.canWrite) Store.db.doc("boards/" + id).delete().catch(function () {});
+    }
+  };
+
+  /* ========================================================
+     3. App state + small helpers
+     ======================================================== */
+
+  var state = { boardId: null, view: "product", brush: null, sel: null, rowH: "auto", zoom: "fit" };
+
+  function $(id) { return document.getElementById(id); }
+  function board() {
+    var b = Store.boards.filter(function (x) { return x.id === state.boardId; })[0];
+    return b || Store.boards[0];
+  }
+  function view() { return board().views[state.view]; }
+  function initiative(iid) {
+    return Store.library.filter(function (x) { return x.id === iid; })[0] || { id: iid, name: "(senza nome)", url: "" };
+  }
+  function rowLabel(row) { return row.label || initiative(row.iid).name; }
+  function curRow() { return state.sel ? view().rows[state.sel.row] || null : null; }
+
+  var toastTimer;
+  function toast(msg) {
+    var el = $("toast");
+    el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 2600);
+  }
+  function setSync(stateName, text) {
+    var el = $("sync");
+    el.dataset.state = stateName;
+    el.textContent = text || (stateName === "saving" ? "salvo…" : (Store.mode === "db" ? "sincronizzato" : "salvato in locale"));
+  }
+  function commit() { Store.saveBoard(board()); }
+
+  /* ========================================================
+     4. Rendering the slide
+     ======================================================== */
+
+  var SLIDE_W = 1600, SLIDE_H = 900;
+  /* Below this the sprint cells stop being reliable click targets (they fall
+     under ~70x36 css px), so the canvas scrolls sideways instead of shrinking. */
+  var MIN_SCALE = 0.62;
+  var ZOOM_STEPS = [0.5, 0.62, 0.75, 0.9, 1, 1.25, 1.5];
+  var lastK = 0;
+
+  /* Rows fill the slide the way the reference decks do: ~58px pitch for a
+     ten-row quarter, ~82px when a view only carries seven. */
+  function autoRowHeight(n) {
+    if (state.rowH !== "auto") return state.rowH;
+    if (n <= 0) return 58;
+    return Math.max(34, Math.min(84, Math.round(575 / n)));
+  }
+
+  function cellInner(row, c) {
+    var ph = row.cells[String(c)] || [];
+    var out = "";
+    ph.forEach(function (p) {
+      var def = PHASES[p]; if (!def) return;
+      out += '<span class="chip chip--' + p + (ph.length > 1 ? " is-tight" : "") + '">' +
+        esc(ph.length > 1 ? def.short : def.label) + "</span>";
+    });
+    return out;
+  }
+
+  /* Repaint one cell in place. A full renderSlide() per painted cell made
+     dragging across the grid stutter and drop cells. */
+  function patchCell(ri, ci) {
+    var row = view().rows[ri];
+    var el = $("slide").querySelector('.cell[data-row="' + ri + '"][data-col="' + ci + '"]');
+    if (row && el) el.innerHTML = cellInner(row, ci);
+  }
+
+  function renderSlide() {
+    var b = board(), v = view(), slide = $("slide");
+    var cols = b.sprints.length || 1;
+    var rh = autoRowHeight(v.rows.length);
+    slide.style.setProperty("--cols", cols);
+    slide.style.setProperty("--row-h", rh + "px");
+
+    var html = "";
+
+    /* head */
+    html += '<div class="slide-head">';
+    html += '<h1 class="slide-title" id="slideTitle" contenteditable="true" spellcheck="false">' + esc(v.title) + "</h1>";
+    html += '<div class="slide-note" id="slideNote" contenteditable="true" spellcheck="false"' + (b.note.show ? "" : " hidden") + ">" + esc(b.note.text) + "</div>";
+    html += "</div>";
+
+    /* sprint header */
+    html += '<div class="slide-board"><div class="brow brow--head"><div class="rail"></div><div class="label"></div><div class="track">';
+    b.sprints.forEach(function (s, i) {
+      html += '<div class="sprint">' +
+        '<div class="nm"><span contenteditable="true" spellcheck="false" data-sprint="' + i + '" data-key="name">' + esc(s.name) + "</span>" +
+        '<span class="q" contenteditable="true" spellcheck="false" data-sprint="' + i + '" data-key="quarter">' + esc(s.quarter) + "</span></div>" +
+        '<div class="dt" contenteditable="true" spellcheck="false" data-sprint="' + i + '" data-key="dates">' + esc(s.dates) + "</div>" +
+        "</div>";
+    });
+    html += "</div></div>";
+
+    /* rows */
+    html += '<div class="board-body"><div class="brows">';
+    v.rows.forEach(function (row, ri) {
+      var ini = initiative(row.iid);
+      var prev = v.rows[ri - 1], next = v.rows[ri + 1];
+      var first = !prev || prev.accent !== row.accent;
+      var last = !next || next.accent !== row.accent;
+      var label = rowLabel(row);
+      var sel = state.sel && state.sel.row === ri ? " is-sel" : "";
+
+      html += '<div class="brow brow--data' + sel + '" data-row="' + ri + '">';
+      html += '<div class="rowtools"><button data-act="up" title="Sposta su" aria-label="Sposta su">▲</button><button data-act="down" title="Sposta giù" aria-label="Sposta giù">▼</button></div>';
+      html += '<div class="rail rail--' + row.accent + (first ? " is-first" : "") + (last ? " is-last" : "") + '"></div>';
+      html += '<div class="label' + (row.box ? " is-boxed" : "") + '" data-labelrow="' + ri + '">' +
+        '<div class="pill' + (ini.url ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + '"><span>' + esc(label) + "</span></div>" +
+        (ini.url ? '<button class="linkjump" data-open="' + ri + '" title="Apri la documentazione" aria-label="Apri la documentazione">↗</button>' : "") +
+        "</div>";
+      html += '<div class="track">';
+      for (var c = 0; c < cols; c++) {
+        html += '<div class="cell" data-row="' + ri + '" data-col="' + c + '">' + cellInner(row, c) + "</div>";
+      }
+      html += "</div></div>";
+    });
+    html += "</div>";
+
+    /* milestones */
+    html += '<div class="ms-layer">';
+    (v.milestones || []).forEach(function (m) {
+      var r0 = Math.max(0, Math.min(m.row, v.rows.length - 1));
+      var r1 = Math.max(r0, Math.min(m.endRow, v.rows.length - 1));
+      html += '<div class="ms" style="left:calc((100% + var(--col-gap)) / var(--cols) * ' + m.col + ' - var(--col-gap) / 2);' +
+        "top:" + (r0 * rh + 6) + "px;height:" + ((r1 - r0 + 1) * rh - 12) + 'px">' +
+        '<div class="cap">' + esc(m.label) + "</div></div>";
+    });
+    html += "</div></div></div>";
+
+    slide.innerHTML = html;
+    fitSlide();
+  }
+
+  function scaleFor() {
+    if (state.zoom !== "fit") return state.zoom;
+    return Math.min(1, Math.max(MIN_SCALE, $("canvasWrap").clientWidth / SLIDE_W));
+  }
+
+  function fitSlide(force) {
+    var k = scaleFor();
+    if (!force && Math.abs(k - lastK) < 0.0005) return;
+    lastK = k;
+    $("slide").style.transform = "scale(" + k + ")";
+    var inner = $("canvasInner");
+    inner.style.width = Math.round(SLIDE_W * k) + "px";
+    inner.style.height = Math.round(SLIDE_H * k) + "px";
+    var lvl = $("zoomLvl");
+    lvl.textContent = state.zoom === "fit" ? "Adatta" : Math.round(k * 100) + "%";
+    lvl.setAttribute("aria-pressed", String(state.zoom === "fit"));
+  }
+
+  function setZoom(z) {
+    state.zoom = z;
+    try { localStorage.setItem(LS_KEY + ":zoom", String(z)); } catch (e) {}
+    fitSlide(true);
+  }
+
+  function stepZoom(dir) {
+    var cur = scaleFor();
+    var i = 0;
+    while (i < ZOOM_STEPS.length && ZOOM_STEPS[i] <= cur + 0.001) i++;
+    var next = dir > 0 ? ZOOM_STEPS[Math.min(i, ZOOM_STEPS.length - 1)]
+                       : ZOOM_STEPS[Math.max(0, i - 2)];
+    setZoom(next);
+  }
+
+  /* ========================================================
+     5. Rendering the editor chrome
+     ======================================================== */
+
+  function renderBrushes() {
+    var host = $("brushes"), list = VIEWS[state.view].brushes;
+    if (list.indexOf(state.brush) < 0) state.brush = list[0];
+    var colors = { discovery: "var(--pn-teal)", specs: "var(--pn-orange)", delivery: "var(--pn-indigo)", conception: "var(--pn-orange)" };
+    var html = "";
+    list.forEach(function (p, i) {
+      html += '<button class="brush" data-brush="' + p + '" aria-pressed="' + (state.brush === p) + '">' +
+        '<span class="swatch" style="background:' + colors[p] + '"></span>' + esc(PHASES[p].label) +
+        "<kbd>" + (i + 1) + "</kbd></button>";
+    });
+    html += '<button class="brush" data-brush="" aria-pressed="' + (state.brush === "") + '">' +
+      '<span class="swatch" style="background:repeating-linear-gradient(45deg,#ccc,#ccc 3px,#eee 3px,#eee 6px)"></span>Gomma<kbd>0</kbd></button>';
+    host.innerHTML = html;
+  }
+
+  function renderBoardSel() {
+    var sel = $("boardSel");
+    sel.innerHTML = Store.boards.map(function (b) {
+      return '<option value="' + esc(b.id) + '"' + (b.id === state.boardId ? " selected" : "") + ">" + esc(b.name) + "</option>";
+    }).join("");
+  }
+
+  function renderLibrary() {
+    var q = ($("libSearch").value || "").toLowerCase().trim();
+    var v = view();
+    var inView = {};
+    v.rows.forEach(function (r, i) { inView[r.iid] = i; });
+    var items = Store.library.filter(function (it) { return !q || it.name.toLowerCase().indexOf(q) >= 0; });
+    $("libCount").textContent = Store.library.length + " iniziative";
+
+    if (!items.length) {
+      $("libList").innerHTML = '<li><p class="lib-empty">Nessun risultato.</p></li>';
+      return;
+    }
+    $("libList").innerHTML = items.map(function (it) {
+      var on = inView[it.id] !== undefined;
+      var selected = state.sel && v.rows[state.sel.row] && v.rows[state.sel.row].iid === it.id;
+      return '<li class="lib-item' + (selected ? " is-sel" : "") + '" data-iid="' + esc(it.id) + '">' +
+        '<input type="checkbox" class="libchk"' + (on ? " checked" : "") + ' aria-label="Nella vista" style="accent-color:var(--ui-accent);width:15px;height:15px;margin:0">' +
+        '<span class="nm' + (on ? "" : " is-off") + '">' + esc(it.name) + "</span>" +
+        '<span class="lk">' + (it.url ? "link" : "") + "</span></li>";
+    }).join("");
+  }
+
+  function renderInspector() {
+    var box = $("inspector"), v = view();
+    var row = state.sel ? v.rows[state.sel.row] : null;
+    if (!row) { box.hidden = true; return; }
+    box.hidden = false;
+    var ini = initiative(row.iid);
+    $("iName").value = ini.name;
+    $("iUrl").value = ini.url || "";
+    $("iLabel").value = row.label || "";
+    $("iBox").checked = !!row.box;
+    Array.prototype.forEach.call(box.querySelectorAll(".sw"), function (sw) {
+      sw.setAttribute("aria-pressed", String(sw.dataset.accent === row.accent));
+    });
+  }
+
+  function renderSprints() {
+    var b = board();
+    $("sprintList").innerHTML = b.sprints.map(function (s, i) {
+      return '<div class="sprint-row" data-sprint="' + i + '">' +
+        '<input type="text" value="' + esc(s.name) + '" data-key="name" aria-label="Nome sprint ' + (i + 1) + '">' +
+        '<input type="text" value="' + esc(s.quarter) + '" data-key="quarter" aria-label="Quarter">' +
+        '<input type="text" value="' + esc(s.dates) + '" data-key="dates" aria-label="Date">' +
+        "</div>";
+    }).join("");
+    $("noteShow").checked = !!b.note.show;
+  }
+
+  function renderMilestones() {
+    var v = view(), b = board();
+    var opts = function (n, sel, labels) {
+      var o = "";
+      for (var i = 0; i < n; i++) o += '<option value="' + i + '"' + (i === sel ? " selected" : "") + ">" + esc(labels ? labels[i] : i + 1) + "</option>";
+      return o;
+    };
+    var sprintLabels = b.sprints.map(function (s) { return s.name + " " + s.quarter; });
+    var rowLabels = v.rows.map(function (r, i) { return (i + 1) + ". " + rowLabel(r).slice(0, 22); });
+
+    if (!v.milestones || !v.milestones.length) {
+      $("msList").innerHTML = '<p class="lib-empty">Nessuna milestone in questa vista.</p>';
+      return;
+    }
+    $("msList").innerHTML = v.milestones.map(function (m, i) {
+      return '<div class="ms-card" data-ms="' + i + '">' +
+        '<textarea rows="2" data-key="label" aria-label="Testo milestone">' + esc(m.label) + "</textarea>" +
+        '<div class="field"><label>Prima dello sprint</label><select data-key="col">' + opts(b.sprints.length, m.col, sprintLabels) + "</select></div>" +
+        '<div class="grid2">' +
+        '<div class="field"><label>Da riga</label><select data-key="row">' + opts(v.rows.length, m.row, rowLabels) + "</select></div>" +
+        '<div class="field"><label>A riga</label><select data-key="endRow">' + opts(v.rows.length, m.endRow, rowLabels) + "</select></div>" +
+        "</div>" +
+        '<button class="btn btn-sm btn-danger" data-act="del-ms" style="align-self:flex-start">Elimina</button>' +
+        "</div>";
+    }).join("");
+  }
+
+  function renderAll() {
+    renderBoardSel();
+    renderBrushes();
+    renderLibrary();
+    renderInspector();
+    renderSprints();
+    renderMilestones();
+    renderSlide();
+  }
+
+  /* ========================================================
+     6. Interaction
+     ======================================================== */
+
+  function selectRow(ri) {
+    state.sel = ri === null ? null : { row: ri };
+    renderLibrary(); renderInspector(); renderSlide();
+  }
+
+  function paint(ri, ci, mode) {
+    var v = view(), row = v.rows[ri];
+    if (!row || !Store.canWrite) return;
+    var key = String(ci), touched = [ci];
+    if (mode === "erase" || state.brush === "") {
+      if (!row.cells[key]) return;
+      delete row.cells[key];
+    } else if (mode === "add") {
+      var cur = row.cells[key] || [];
+      if (cur.indexOf(state.brush) >= 0) return;
+      row.cells[key] = cur.concat([state.brush]).slice(0, 2);
+    } else if (mode === "sequence") {
+      touched = [];
+      VIEWS[state.view].sequence.forEach(function (p, k) {
+        if (ci + k < board().sprints.length) { row.cells[String(ci + k)] = [p]; touched.push(ci + k); }
+      });
+    } else {
+      if ((row.cells[key] || []).join() === state.brush) return;
+      row.cells[key] = [state.brush];
+    }
+    commit();
+    touched.forEach(function (c) { patchCell(ri, c); });
+  }
+
+  var painting = false;
+  function wireSlide() {
+    var slide = $("slide");
+
+    slide.addEventListener("pointerdown", function (e) {
+      if (!Store.canWrite) return;
+      var open = e.target.closest("[data-open]");
+      if (open) {
+        var url = initiative(view().rows[+open.dataset.open].iid).url;
+        if (url) window.open(url, "_blank", "noopener");
+        e.preventDefault(); return;
+      }
+      var tool = e.target.closest(".rowtools button");
+      if (tool) {
+        var ri = +e.target.closest("[data-row]").dataset.row;
+        moveRow(ri, tool.dataset.act === "up" ? -1 : 1);
+        e.preventDefault(); return;
+      }
+      var lab = e.target.closest("[data-labelrow]");
+      if (lab) { selectRow(+lab.dataset.labelrow); e.preventDefault(); return; }
+
+      var cell = e.target.closest(".cell");
+      if (!cell) return;
+      e.preventDefault();
+      var r = +cell.dataset.row, c = +cell.dataset.col;
+      var mode = e.button === 2 ? "erase" : (e.shiftKey ? "sequence" : (e.altKey ? "add" : "set"));
+      painting = mode === "set" || mode === "erase";
+      paint(r, c, mode);
+    });
+
+    slide.addEventListener("pointerover", function (e) {
+      if (!painting) return;
+      var cell = e.target.closest(".cell");
+      if (!cell) return;
+      paint(+cell.dataset.row, +cell.dataset.col, state.brush === "" ? "erase" : "set");
+    });
+
+    slide.addEventListener("contextmenu", function (e) {
+      if (e.target.closest(".cell")) e.preventDefault();
+    });
+
+    /* contenteditable fields on the slide */
+    slide.addEventListener("input", function (e) {
+      var t = e.target;
+      if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit(); return; }
+      if (t.id === "slideNote") { board().note.text = t.textContent.trim(); commit(); return; }
+      if (t.dataset && t.dataset.sprint !== undefined) {
+        board().sprints[+t.dataset.sprint][t.dataset.key] = t.textContent.trim();
+        commit(); renderSprints();
+      }
+    });
+    slide.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.isContentEditable) { e.preventDefault(); e.target.blur(); }
+    });
+  }
+
+  window.addEventListener("pointerup", function () { painting = false; });
+
+  function moveRow(ri, dir) {
+    var rows = view().rows, to = ri + dir;
+    if (to < 0 || to >= rows.length) return;
+    var tmp = rows[ri]; rows[ri] = rows[to]; rows[to] = tmp;
+    if (state.sel && state.sel.row === ri) state.sel.row = to;
+    commit(); renderSlide(); renderMilestones();
+  }
+
+  function addToView(iid) {
+    var v = view();
+    if (v.rows.some(function (r) { return r.iid === iid; })) return;
+    v.rows.push({ iid: iid, accent: "teal", box: false, label: "", cells: {} });
+    commit();
+  }
+  function removeFromView(iid) {
+    var v = view();
+    v.rows = v.rows.filter(function (r) { return r.iid !== iid; });
+    state.sel = null;
+    commit();
+  }
+
+  /* ---- sidebar wiring ---- */
+  function wireSidebar() {
+    Array.prototype.forEach.call(document.querySelectorAll(".stab"), function (tab) {
+      tab.addEventListener("click", function () {
+        Array.prototype.forEach.call(document.querySelectorAll(".stab"), function (t) {
+          var on = t === tab;
+          t.classList.toggle("is-on", on);
+          t.setAttribute("aria-selected", String(on));
+          $("panel-" + t.dataset.panel).hidden = !on;
+        });
+      });
+    });
+
+    $("btnAddInit").addEventListener("click", function () {
+      var name = $("newName").value.trim();
+      if (!name) { $("newName").focus(); return; }
+      var it = { id: uid("i"), name: name, url: $("newUrl").value.trim() };
+      Store.library.push(it);
+      Store.saveLibrary();
+      addToView(it.id);
+      $("newName").value = ""; $("newUrl").value = "";
+      state.sel = { row: view().rows.length - 1 };
+      renderAll();
+      toast("“" + name + "” aggiunta");
+    });
+
+    $("libSearch").addEventListener("input", renderLibrary);
+
+    $("libList").addEventListener("click", function (e) {
+      var li = e.target.closest(".lib-item");
+      if (!li) return;
+      var iid = li.dataset.iid;
+      if (e.target.classList.contains("libchk")) {
+        if (e.target.checked) addToView(iid); else removeFromView(iid);
+        renderAll();
+        return;
+      }
+      var idx = view().rows.map(function (r) { return r.iid; }).indexOf(iid);
+      if (idx < 0) { addToView(iid); idx = view().rows.length - 1; }
+      selectRow(idx);
+    });
+
+    $("iName").addEventListener("input", function () {
+      var row = curRow(); if (!row) return;
+      initiative(row.iid).name = $("iName").value;
+      Store.saveLibrary(); renderSlide(); renderLibrary();
+    });
+    $("iUrl").addEventListener("input", function () {
+      var row = curRow(); if (!row) return;
+      initiative(row.iid).url = $("iUrl").value.trim();
+      Store.saveLibrary(); renderSlide(); renderLibrary();
+    });
+    $("iLabel").addEventListener("input", function () {
+      var row = curRow(); if (!row) return;
+      row.label = $("iLabel").value;
+      commit(); renderSlide();
+    });
+    $("iBox").addEventListener("change", function () {
+      var row = curRow(); if (!row) return;
+      row.box = $("iBox").checked;
+      commit(); renderSlide();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#inspector .sw"), function (sw) {
+      sw.addEventListener("click", function () {
+        var row = curRow(); if (!row) return;
+        row.accent = sw.dataset.accent;
+        commit(); renderInspector(); renderSlide();
+      });
+    });
+    $("btnUp").addEventListener("click", function () { if (curRow()) { moveRow(state.sel.row, -1); renderInspector(); } });
+    $("btnDown").addEventListener("click", function () { if (curRow()) { moveRow(state.sel.row, 1); renderInspector(); } });
+    $("btnClearRow").addEventListener("click", function () {
+      var row = curRow(); if (!row) return;
+      row.cells = {}; commit(); renderSlide();
+    });
+    $("btnRemoveRow").addEventListener("click", function () {
+      var row = curRow(); if (!row) return;
+      removeFromView(row.iid); renderAll();
+    });
+    $("btnDeleteInit").addEventListener("click", function () {
+      var row = curRow(); if (!row) return;
+      var iid = row.iid;
+      var ini = initiative(iid);
+      if (!confirm("Eliminare “" + ini.name + "” dalla libreria e da tutti i quarter?")) return;
+      Store.library = Store.library.filter(function (x) { return x.id !== iid; });
+      Store.boards.forEach(function (b) {
+        Object.keys(b.views).forEach(function (k) {
+          b.views[k].rows = b.views[k].rows.filter(function (r) { return r.iid !== iid; });
+        });
+        Store.saveBoard(b);
+      });
+      Store.saveLibrary();
+      state.sel = null;
+      renderAll();
+    });
+
+    /* sprints */
+    $("sprintList").addEventListener("input", function (e) {
+      var wrap = e.target.closest("[data-sprint]");
+      if (!wrap) return;
+      board().sprints[+wrap.dataset.sprint][e.target.dataset.key] = e.target.value;
+      commit(); renderSlide();
+    });
+    $("btnAddSprint").addEventListener("click", function () {
+      var b = board();
+      if (b.sprints.length >= 12) return;
+      b.sprints.push({ id: uid("s"), name: "Sprint " + (b.sprints.length + 1), quarter: "Q4", dates: "—" });
+      commit(); renderSprints(); renderSlide(); renderMilestones();
+    });
+    $("btnDelSprint").addEventListener("click", function () {
+      var b = board();
+      if (b.sprints.length <= 2) return;
+      var last = b.sprints.length - 1;
+      b.sprints.pop();
+      Object.keys(b.views).forEach(function (k) {
+        b.views[k].rows.forEach(function (r) { delete r.cells[String(last)]; });
+        b.views[k].milestones = b.views[k].milestones.filter(function (m) { return m.col <= last; });
+      });
+      commit(); renderSprints(); renderSlide(); renderMilestones();
+    });
+    $("btnGen").addEventListener("click", generateSprints);
+    $("noteShow").addEventListener("change", function () {
+      board().note.show = $("noteShow").checked; commit(); renderSlide();
+    });
+
+    /* milestones */
+    $("btnAddMs").addEventListener("click", function () {
+      var v = view();
+      if (!v.rows.length) { toast("Aggiungi prima almeno un'iniziativa"); return; }
+      v.milestones = v.milestones || [];
+      var r0 = Math.min(1, v.rows.length - 1);
+      v.milestones.push({ id: uid("m"), label: "Go-live", col: Math.min(3, board().sprints.length - 1), row: r0, endRow: Math.min(r0 + 2, v.rows.length - 1) });
+      commit(); renderMilestones(); renderSlide();
+    });
+    $("msList").addEventListener("input", function (e) {
+      var card = e.target.closest("[data-ms]");
+      if (!card) return;
+      var m = view().milestones[+card.dataset.ms];
+      var key = e.target.dataset.key;
+      m[key] = key === "label" ? e.target.value : +e.target.value;
+      if (m.endRow < m.row) m.endRow = m.row;
+      commit(); renderSlide();
+    });
+    $("msList").addEventListener("change", function (e) {
+      if (e.target.tagName === "SELECT") renderMilestones();
+    });
+    $("msList").addEventListener("click", function (e) {
+      if (e.target.dataset.act !== "del-ms") return;
+      var i = +e.target.closest("[data-ms]").dataset.ms;
+      view().milestones.splice(i, 1);
+      commit(); renderMilestones(); renderSlide();
+    });
+  }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function generateSprints() {
+    var start = $("genStart").value;
+    if (!start) { toast("Scegli la data di inizio"); return; }
+    var weeks = Math.max(1, +$("genWeeks").value || 2);
+    var count = Math.max(2, Math.min(12, +$("genCount").value || 8));
+    var from = Math.max(1, +$("genFrom").value || 1);
+    var perQ = Math.max(2, +$("genPerQ").value || 7);
+    var qIdx = ["Q1", "Q2", "Q3", "Q4"].indexOf($("genQ").value);
+    var b = board();
+    var d = new Date(start + "T00:00:00");
+    var out = [];
+    for (var i = 0; i < count; i++) {
+      var end = new Date(d.getTime() + (weeks * 7 - 3) * 86400000);
+      out.push({
+        id: (b.sprints[i] && b.sprints[i].id) || uid("s"),
+        name: "Sprint " + from,
+        quarter: ["Q1", "Q2", "Q3", "Q4"][qIdx],
+        dates: pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + " – " + pad(end.getDate()) + "/" + pad(end.getMonth() + 1)
+      });
+      from++;
+      if (from > perQ) { from = 1; qIdx = (qIdx + 1) % 4; }
+      d = new Date(d.getTime() + weeks * 7 * 86400000);
+    }
+    /* keep painted phases that still have a column */
+    Object.keys(b.views).forEach(function (k) {
+      b.views[k].rows.forEach(function (r) {
+        Object.keys(r.cells).forEach(function (c) { if (+c >= out.length) delete r.cells[c]; });
+      });
+      b.views[k].milestones = (b.views[k].milestones || []).filter(function (m) { return m.col < out.length; });
+    });
+    b.sprints = out;
+    commit(); renderSprints(); renderMilestones(); renderSlide();
+    toast("Intestazioni rigenerate");
+  }
+
+  /* ---- top bar wiring ---- */
+  function wireTopbar() {
+    $("boardSel").addEventListener("change", function () {
+      state.boardId = $("boardSel").value;
+      state.sel = null;
+      try { localStorage.setItem(LS_KEY + ":last", state.boardId); } catch (e) {}
+      renderAll();
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".vtab"), function (tab) {
+      tab.addEventListener("click", function () {
+        state.view = tab.dataset.view;
+        state.sel = null;
+        Array.prototype.forEach.call(document.querySelectorAll(".vtab"), function (t) {
+          var on = t === tab;
+          t.classList.toggle("is-on", on);
+          t.setAttribute("aria-selected", String(on));
+        });
+        renderAll();
+      });
+    });
+
+    $("btnNewBoard").addEventListener("click", function () {
+      var name = prompt("Nome del nuovo quarter", "Q1 2026");
+      if (!name) return;
+      var b = {
+        id: uid("b"), name: name, createdAt: Date.now(), updatedAt: Date.now(),
+        note: { show: true, text: "To validate" },
+        sprints: board().sprints.map(function (s) { return { id: uid("s"), name: s.name, quarter: s.quarter, dates: "—" }; }),
+        views: {
+          product: { title: "Quarter roadmap snapshot (" + name.split(" ")[0] + ")", milestones: [], rows: [] },
+          design: { title: "Quarter design roadmap snapshot (" + name.split(" ")[0] + ")", milestones: [], rows: [] }
+        }
+      };
+      Store.boards.unshift(b);
+      state.boardId = b.id; state.sel = null;
+      Store.saveBoard(b, true);
+      renderAll();
+    });
+
+    $("btnMore").addEventListener("click", function (e) {
+      e.stopPropagation();
+      var m = $("menu");
+      m.hidden = !m.hidden;
+      $("btnMore").setAttribute("aria-expanded", String(!m.hidden));
+    });
+    document.addEventListener("click", function () { $("menu").hidden = true; $("btnMore").setAttribute("aria-expanded", "false"); });
+    $("menu").addEventListener("click", function (e) { e.stopPropagation(); });
+
+    $("mDuplicate").addEventListener("click", function () {
+      var src = board();
+      var name = prompt("Nome del quarter duplicato", nextQuarterName(src.name));
+      if (!name) return;
+      var copy = clone(src);
+      copy.id = uid("b"); copy.name = name; copy.createdAt = Date.now();
+      var q = name.split(" ")[0];
+      Object.keys(copy.views).forEach(function (k) {
+        copy.views[k].title = copy.views[k].title.replace(/\(Q[1-4][^)]*\)/, "(" + q + ")");
+        copy.views[k].milestones = [];
+        copy.views[k].rows.forEach(function (r) { r.cells = {}; });
+      });
+      copy.sprints.forEach(function (s) { s.id = uid("s"); s.dates = "—"; });
+      Store.boards.unshift(copy);
+      state.boardId = copy.id; state.sel = null;
+      Store.saveBoard(copy, true);
+      $("menu").hidden = true;
+      renderAll();
+      toast("Duplicato: righe e sprint mantenuti, fasi da ridipingere");
+    });
+
+    $("mRename").addEventListener("click", function () {
+      var b = board();
+      var name = prompt("Nome del quarter", b.name);
+      if (!name) return;
+      b.name = name; commit(); renderBoardSel(); $("menu").hidden = true;
+    });
+
+    $("mDelete").addEventListener("click", function () {
+      if (Store.boards.length <= 1) { toast("Serve almeno un quarter"); return; }
+      var b = board();
+      if (!confirm("Eliminare “" + b.name + "”?")) return;
+      Store.removeBoard(b.id);
+      state.boardId = Store.boards[0].id; state.sel = null;
+      $("menu").hidden = true;
+      renderAll();
+    });
+
+    $("mExport").addEventListener("click", function () {
+      var payload = JSON.stringify({ version: 1, boards: Store.boards, library: Store.library }, null, 2);
+      saveFile("roadmap-studio.json", payload, "application/json");
+      $("menu").hidden = true;
+    });
+
+    $("mImport").addEventListener("click", function () {
+      /* The picker must be in the document: a detached input is ignored by
+         some browsers and never fires change. */
+      var input = document.createElement("input");
+      input.type = "file"; input.accept = "application/json,.json";
+      input.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;opacity:0";
+      document.body.appendChild(input);
+      input.addEventListener("change", function () {
+        var f = input.files && input.files[0];
+        if (!f) { input.remove(); return; }
+        f.text().then(function (txt) {
+          var data = JSON.parse(txt);
+          if (!data.boards || !data.boards.length) throw new Error("no boards");
+          /* An import replaces the workspace, so drop quarters it doesn't carry
+             instead of leaving them stranded in shared storage. */
+          var keep = {};
+          data.boards.forEach(function (b) { keep[b.id] = true; });
+          Store.boards.filter(function (b) { return !keep[b.id]; })
+            .forEach(function (b) { Store.removeBoard(b.id); });
+          Store.boards = data.boards;
+          Store.library = data.library || Store.library;
+          state.boardId = Store.boards[0].id; state.sel = null;
+          Store.boards.forEach(function (b) { Store.saveBoard(b, true); });
+          Store.saveLibrary(true);
+          renderAll();
+          toast("Importati " + Store.boards.length + " quarter");
+        }).catch(function () {
+          toast("File non valido");
+        }).then(function () { input.remove(); });
+      });
+      input.click();
+      $("menu").hidden = true;
+    });
+
+    $("btnFitRows").addEventListener("click", function () {
+      var opts = ["auto", 78, 64, 52, 42];
+      var i = opts.indexOf(state.rowH);
+      state.rowH = opts[(i + 1) % opts.length];
+      $("btnFitRows").textContent = "Righe: " + (state.rowH === "auto" ? "auto" : state.rowH + "px");
+      renderSlide();
+    });
+
+    $("btnPng").addEventListener("click", function () { exportPng(false); });
+    $("btnCopy").addEventListener("click", function () { exportPng(true); });
+
+    $("zoomIn").addEventListener("click", function () { stepZoom(1); });
+    $("zoomOut").addEventListener("click", function () { stepZoom(-1); });
+    $("zoomLvl").addEventListener("click", function () { setZoom("fit"); });
+
+    $("btnPanel").addEventListener("click", function () {
+      var off = document.body.classList.toggle("sidebar-off");
+      $("btnPanel").setAttribute("aria-expanded", String(!off));
+      try { localStorage.setItem(LS_KEY + ":panel", off ? "off" : "on"); } catch (e) {}
+      fitSlide(true);
+    });
+  }
+
+  function nextQuarterName(name) {
+    var m = /^Q([1-4])\s*(\d{4})?/.exec(name.trim());
+    if (!m) return name + " (copia)";
+    var q = +m[1], y = m[2] ? +m[2] : new Date().getFullYear();
+    q++; if (q > 4) { q = 1; y++; }
+    return "Q" + q + " " + y;
+  }
+
+  /* ========================================================
+     7. Export
+     ======================================================== */
+
+  function saveFile(filename, data, mime) {
+    var blob = data instanceof Blob ? data : new Blob([data], { type: mime || "text/plain" });
+    if (window.claude && window.claude.use) {
+      window.claude.use("downloads").then(function (dl) {
+        if (!dl) return legacySave(filename, blob);
+        return dl.save({ filename: filename, data: blob }).then(function () {
+          toast("Salvato: " + filename);
+        }).catch(function (err) {
+          if (err && err.code === "declined") return;
+          legacySave(filename, blob);
+        });
+      }).catch(function () { legacySave(filename, blob); });
+    } else {
+      legacySave(filename, blob);
+    }
+  }
+  function legacySave(filename, blob) {
+    try {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    } catch (e) { toast("Download non disponibile qui"); }
+  }
+
+  function withCleanSlide(fn) {
+    var slide = $("slide"), inner = $("canvasInner");
+    var holder = document.createElement("div");
+    holder.style.cssText = "position:absolute;left:-20000px;top:0;width:1600px;height:900px;background:#fff;pointer-events:none";
+    document.body.appendChild(holder);
+    slide.classList.add("is-export");
+    slide.classList.remove("is-live");
+    slide.style.transform = "none";
+    holder.appendChild(slide);
+    var restore = function () {
+      inner.appendChild(slide);
+      slide.classList.remove("is-export");
+      if (Store.canWrite) slide.classList.add("is-live");
+      holder.remove();
+      fitSlide(true);
+    };
+    return Promise.resolve()
+      .then(function () { return fn(slide); })
+      .then(function (r) { restore(); return r; })
+      .catch(function (e) { restore(); throw e; });
+  }
+
+  function exportPng(toClipboard) {
+    if (typeof html2canvas !== "function") { toast("Motore di export non caricato"); return; }
+    toast(toClipboard ? "Preparo l'immagine…" : "Genero il PNG…");
+    withCleanSlide(function (slide) {
+      return html2canvas(slide, {
+        scale: 2, backgroundColor: "#ffffff",
+        width: SLIDE_W, height: SLIDE_H, windowWidth: SLIDE_W, windowHeight: SLIDE_H,
+        logging: false, useCORS: true
+      });
+    }).then(function (canvas) {
+      return new Promise(function (res) { canvas.toBlob(res, "image/png"); });
+    }).then(function (blob) {
+      if (!blob) throw new Error("no blob");
+      var name = (board().name + " " + VIEWS[state.view].name).replace(/[^\w\s.-]/g, "").trim().replace(/\s+/g, "-") + ".png";
+      if (!toClipboard) return saveFile(name, blob, "image/png");
+      if (!navigator.clipboard || !window.ClipboardItem) throw new Error("no clipboard");
+      return navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })])
+        .then(function () { toast("Copiato — incollalo nella slide"); })
+        .catch(function () { saveFile(name, blob, "image/png"); });
+    }).catch(function () {
+      toast("Export non riuscito — riprova o usa uno screenshot");
+    });
+  }
+
+  /* ========================================================
+     8. Keyboard + boot
+     ======================================================== */
+
+  function wireKeys() {
+    document.addEventListener("keydown", function (e) {
+      var t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var list = VIEWS[state.view].brushes;
+      if (e.key === "0" || e.key.toLowerCase() === "e") { state.brush = ""; renderBrushes(); }
+      else if (/^[1-4]$/.test(e.key) && list[+e.key - 1]) { state.brush = list[+e.key - 1]; renderBrushes(); }
+      else if (e.key === "Escape") { selectRow(null); $("menu").hidden = true; }
+    });
+
+    $("brushes").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-brush]");
+      if (!b) return;
+      state.brush = b.dataset.brush;
+      renderBrushes();
+    });
+  }
+
+  function boot() {
+    var last = null;
+    try { last = localStorage.getItem(LS_KEY + ":last"); } catch (e) {}
+    state.boardId = (last && Store.boards.some(function (b) { return b.id === last; })) ? last : Store.boards[0].id;
+
+    wireSlide(); wireSidebar(); wireTopbar(); wireKeys();
+
+    /* default sprint generator to a sensible "next monday" */
+    var d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
+    $("genStart").value = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+
+    /* Per-viewer conveniences; a blocked or empty store just uses defaults. */
+    var panel = null, zoom = null;
+    try { panel = localStorage.getItem(LS_KEY + ":panel"); zoom = localStorage.getItem(LS_KEY + ":zoom"); } catch (e) {}
+    if (panel === "off" || (panel === null && window.innerWidth < 1040)) {
+      document.body.classList.add("sidebar-off");
+      $("btnPanel").setAttribute("aria-expanded", "false");
+    }
+    if (zoom && zoom !== "fit" && !isNaN(parseFloat(zoom))) state.zoom = parseFloat(zoom);
+
+    renderAll();
+    setSync("idle");
+
+    /* fitSlide() without `force` short-circuits when the scale is unchanged,
+       which keeps the ResizeObserver from chasing its own height writes. */
+    if (window.ResizeObserver) new ResizeObserver(function () { fitSlide(); }).observe($("canvasWrap"));
+    window.addEventListener("resize", function () { fitSlide(); });
+    if (document.fonts) document.fonts.ready.then(function () { fitSlide(true); });
+  }
+
+  Store.initLocal();
+  boot();
+  Store.initRemote(function () {
+    if (!Store.boards.some(function (b) { return b.id === state.boardId; })) state.boardId = Store.boards[0].id;
+    state.sel = null;
+    renderAll();
+  });
+})();
+</script>
+</body>
+</html>

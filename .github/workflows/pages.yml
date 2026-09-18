@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+
+# Publishes the standalone build (index.html) to GitHub Pages.
+# Enable it once under Settings → Pages → Source: "GitHub Actions".
+
+on:
+  push:
+    branches: [claude/keen-ritchie-1wkx3v]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build index.html from source
+        run: ./build.sh
+
+      - name: Fail if the committed build is stale
+        run: git diff --exit-code -- index.html
+
+      - name: Stage the site
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
