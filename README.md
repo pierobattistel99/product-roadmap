@@ -131,8 +131,17 @@ locali di html2canvas e jsPDF; `CHROMIUM` punta a un binario alternativo.
 
 ## Hosting e persistenza
 
-Il deploy è statico: `index.html` viene servito così com'è, senza build e senza
-runtime. `.vercelignore` tiene fuori sorgente, test e documentazione.
+**Produzione: https://roadmap-snapshot-studio.vercel.app**
+
+Progetto Vercel `roadmap-snapshot-studio`, collegato a questo repo: ogni push
+sul branch di produzione (`claude/keen-ritchie-1wkx3v`) fa un deploy
+automatico. Il deploy è statico — `index.html` viene servito così com'è, senza
+build e senza runtime — quindi esegui `./build.sh` e committa `index.html`
+insieme alle modifiche al sorgente, altrimenti va online la pagina precedente.
+`.vercelignore` tiene fuori sorgente, test e documentazione.
+
+L'URL di produzione è pubblico: chi ha il link apre il tool, ma non i tuoi
+dati, che restano nel browser di chi li ha inseriti.
 
 - Su Vercel (o aperto da disco) i dati stanno nel `localStorage` del browser:
   restano tra le sessioni su quel dispositivo, non seguono l'utente altrove.
