@@ -1,0 +1,11 @@
+{
+  "name": "roadmap-studio-review",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node review.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

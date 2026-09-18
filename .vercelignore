@@ -1,0 +1,6 @@
+src/
+test/
+build.sh
+README.md
+.github/
+node_modules/

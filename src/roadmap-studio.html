@@ -329,6 +329,80 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   position:absolute;bottom:calc(100% + 6px);left:9px;width:300px;
   font-size:15px;font-weight:600;line-height:1.28;color:var(--pn-teal);
 }
+/* Milestones are edited where they live: the caption types in place, the line
+   drags between sprints and its ends drag across rows. */
+.slide.is-live .ms{pointer-events:auto}
+.slide.is-live .ms::before{
+  content:"";position:absolute;left:-9px;right:-9px;top:0;bottom:0;cursor:ew-resize;
+}
+.slide.is-live .ms:hover::before{background:color-mix(in srgb,var(--pn-teal) 16%,transparent);border-radius:4px}
+.slide.is-live .ms .cap{cursor:text;pointer-events:auto}
+.ms .cap:focus{outline:2px dashed color-mix(in srgb,var(--pn-teal) 70%,transparent);outline-offset:3px;border-radius:4px}
+.ms .grip{
+  position:absolute;left:-5px;width:12px;height:12px;border-radius:50%;
+  background:#fff;border:2px solid var(--pn-teal);display:none;cursor:ns-resize;
+}
+.ms .grip-top{top:-6px}
+.ms .grip-bot{bottom:-6px}
+.ms .msdel{
+  position:absolute;left:8px;top:-9px;width:20px;height:20px;border-radius:50%;
+  border:1.5px solid var(--pn-teal);background:#fff;color:var(--pn-teal);
+  font-size:12px;line-height:1;cursor:pointer;display:none;padding:0;
+}
+.slide.is-live .ms:hover .grip,.slide.is-live .ms:hover .msdel{display:block}
+.slide.is-export .ms::before,.slide.is-export .grip,.slide.is-export .msdel{display:none!important}
+
+/* presentation mode */
+.present{
+  position:fixed;inset:0;z-index:100;background:#0b0f0e;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.present[hidden]{display:none}
+.present-stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden}
+.present-host{position:relative;box-shadow:0 30px 90px -30px rgba(0,0,0,.8);background:#fff}
+.present-bar{
+  display:flex;align-items:center;gap:12px;padding:10px 16px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  color:#cfe0dc;font-size:13px;width:100%;justify-content:center;flex-wrap:wrap;
+}
+.present-bar button{
+  border:1px solid #2d3a38;background:#141c1b;color:#e7efee;border-radius:8px;
+  height:32px;padding:0 12px;font-size:13px;font-weight:600;cursor:pointer;
+}
+.present-bar button:hover:not([disabled]){background:#1e2a28}
+.present-bar button[disabled]{opacity:.35;cursor:not-allowed}
+.present-bar .count{font-family:"DM Mono",ui-monospace,monospace;font-size:12px;min-width:56px;text-align:center}
+.present-bar .what{font-weight:600;color:#8fa09d}
+.slide.is-present .label{cursor:default}
+.slide.is-present .pill.is-link{cursor:pointer}
+
+/* keyboard help */
+.sheet{
+  position:fixed;inset:0;z-index:95;background:rgba(8,14,13,.55);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+}
+.sheet[hidden]{display:none}
+.sheet-card{
+  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:16px;
+  box-shadow:var(--ui-shadow);padding:20px;max-width:520px;width:100%;
+  max-height:85vh;overflow-y:auto;
+}
+.sheet-card h2{margin:0 0 14px;font-size:17px;letter-spacing:-.02em}
+.sheet-card dl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0 0 16px;align-items:baseline}
+.sheet-card dt{margin:0;text-align:right}
+.sheet-card dd{margin:0;font-size:13px;color:var(--ui-muted)}
+.sheet-card kbd{
+  font-family:"DM Mono",ui-monospace,monospace;background:var(--ui-sunk);
+  border:1px solid var(--ui-line);border-radius:5px;padding:2px 6px;font-size:11px;white-space:nowrap;
+}
+
+.histgroup{display:flex;gap:2px;padding:3px;background:var(--ui-sunk);border-radius:9px}
+.histgroup button{
+  border:0;background:transparent;border-radius:7px;height:26px;min-width:30px;
+  font-size:14px;color:var(--ui-muted);cursor:pointer;padding:0;
+}
+.histgroup button:hover:not([disabled]){background:var(--ui-panel);color:var(--ui-text)}
+.histgroup button[disabled]{opacity:.3;cursor:default}
 
 /* editor affordances drawn on the slide (never exported) */
 .slide.is-live .cell{cursor:crosshair;border-radius:9px;touch-action:manipulation}
@@ -413,8 +487,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       <button class="vtab" id="tabDesign" data-view="design" role="tab" aria-selected="false">Design</button>
     </div>
 
+    <div class="histgroup" role="group" aria-label="Cronologia">
+      <button id="btnUndo" title="Annulla (Ctrl/Cmd+Z)" aria-label="Annulla" disabled>↶</button>
+      <button id="btnRedo" title="Ripristina (Ctrl/Cmd+Shift+Z)" aria-label="Ripristina" disabled>↷</button>
+    </div>
+
     <div class="spacer"></div>
     <div class="sync" id="sync" data-state="idle" aria-live="polite"></div>
+    <button class="btn" id="btnPresent" title="Presenta a schermo intero (P)">▶ Presenta</button>
     <button class="btn" id="btnCopy">Copia PNG</button>
     <button class="btn btn-primary" id="btnPng">Scarica PNG</button>
     <button class="btn btn-ghost" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="Altre azioni">•••</button>
@@ -424,8 +504,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     <button id="mDuplicate" role="menuitem">Duplica quarter successivo</button>
     <button id="mRename" role="menuitem">Rinomina quarter</button>
     <hr>
+    <button id="mPdf" role="menuitem">Esporta deck in PDF</button>
     <button id="mExport" role="menuitem">Esporta tutto (JSON)</button>
     <button id="mImport" role="menuitem">Importa JSON</button>
+    <hr>
+    <button id="mKeys" role="menuitem">Scorciatoie da tastiera</button>
     <hr>
     <button id="mDelete" role="menuitem" class="danger">Elimina questo quarter</button>
   </div>
@@ -531,6 +614,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
       <div class="brushbar">
         <div class="brushes" id="brushes" role="group" aria-label="Fase da applicare"></div>
+        <button class="btn btn-sm" id="btnAddMsTop" title="Aggiunge una linea di go-live alla vista">+ Milestone</button>
         <div class="spacer" style="flex:1"></div>
         <div class="zoom" role="group" aria-label="Zoom">
           <button id="zoomOut" title="Riduci" aria-label="Riduci">−</button>
@@ -551,17 +635,51 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         <kbd>Shift</kbd>+clic stende la sequenza completa da quello sprint in poi ·
         <kbd>Alt</kbd>+clic affianca una seconda fase nella stessa colonna ·
         <kbd>tasto destro</kbd> cancella · <kbd>1</kbd>–<kbd>4</kbd> cambiano fase, <kbd>0</kbd> è la gomma.
-        Titolo, post-it e intestazioni degli sprint si modificano scrivendoci sopra.
-        Se la finestra è stretta la slide non scende sotto una soglia leggibile e il canvas scorre in orizzontale:
-        usa <kbd>−</kbd> <kbd>+</kbd> per lo zoom e <kbd>☰</kbd> per chiudere il pannello e guadagnare larghezza.
+        Titolo, post-it, intestazioni degli sprint ed etichette delle milestone si modificano scrivendoci sopra;
+        la linea verde si trascina tra gli sprint e i suoi capi si allungano sulle righe.
+        <kbd>P</kbd> apre la presentazione a schermo intero, <kbd>Ctrl/Cmd+Z</kbd> annulla, <kbd>?</kbd> elenca le scorciatoie.
       </p>
     </main>
+  </div>
+</div>
+
+<div class="present" id="present" hidden>
+  <div class="present-stage"><div class="present-host" id="presentHost"></div></div>
+  <div class="present-bar">
+    <button id="presentPrev" aria-label="Slide precedente">←</button>
+    <span class="count" id="presentCount"></span>
+    <button id="presentNext" aria-label="Slide successiva">→</button>
+    <span class="what" id="presentLabel"></span>
+    <button id="presentQuarter" title="Cambia quarter (↑ ↓)">Quarter ↑↓</button>
+    <button id="presentExit">Esci (Esc)</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-card">
+    <h2 id="sheetTitle">Scorciatoie</h2>
+    <dl>
+      <dt><kbd>1</kbd>…<kbd>4</kbd></dt><dd>Sceglie la fase da dipingere</dd>
+      <dt><kbd>0</kbd> / <kbd>E</kbd></dt><dd>Gomma</dd>
+      <dt><kbd>clic</kbd> + <kbd>trascina</kbd></dt><dd>Dipinge una o più celle</dd>
+      <dt><kbd>Shift</kbd>+clic</dt><dd>Stende l'intera sequenza da quello sprint</dd>
+      <dt><kbd>Alt</kbd>+clic</dt><dd>Affianca una seconda fase nella colonna</dd>
+      <dt>tasto destro</dt><dd>Cancella la cella</dd>
+      <dt><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></dt><dd>Annulla · con <kbd>Shift</kbd> ripristina</dd>
+      <dt><kbd>P</kbd></dt><dd>Modalità presentazione</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>In presentazione: cambia slide</dd>
+      <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>In presentazione: cambia quarter</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Esce da presentazione o deseleziona</dd>
+      <dt><kbd>?</kbd></dt><dd>Apre e chiude questo pannello</dd>
+    </dl>
+    <button class="btn btn-primary btn-sm" id="sheetClose">Chiudi</button>
   </div>
 </div>
 
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 (function () {
   "use strict";
@@ -854,7 +972,82 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     el.dataset.state = stateName;
     el.textContent = text || (stateName === "saving" ? "salvo…" : (Store.mode === "db" ? "sincronizzato" : "salvato in locale"));
   }
-  function commit() { Store.saveBoard(board()); }
+  /* Undo history, per quarter. Edits are coalesced on a short pause so a burst
+     of typing or a painted stroke is one step, not one step per keystroke. */
+  var History = {
+    past: [], future: [], baseline: null, timer: null,
+
+    /* Every save stamps updatedAt, so compare boards without it — otherwise
+       restoring a snapshot looks like a fresh edit and wipes the redo stack. */
+    snap: function () {
+      var b = clone(board());
+      delete b.updatedAt;
+      return JSON.stringify(b);
+    },
+    reset: function () {
+      clearTimeout(History.timer);
+      History.past = []; History.future = [];
+      History.baseline = History.snap();
+      History.ui();
+    },
+    record: function () {
+      clearTimeout(History.timer);
+      History.timer = setTimeout(function () {
+        var now = History.snap();
+        if (now === History.baseline) return;
+        History.past.push(History.baseline);
+        if (History.past.length > 60) History.past.shift();
+        History.baseline = now;
+        History.future = [];
+        History.ui();
+      }, 420);
+    },
+    /* Flush a pending coalesce window so undo never skips the newest edit. */
+    settle: function () {
+      clearTimeout(History.timer);
+      var now = History.snap();
+      if (now !== History.baseline) {
+        History.past.push(History.baseline);
+        History.baseline = now;
+        History.future = [];
+      }
+    },
+    apply: function (json) {
+      var b = JSON.parse(json);
+      var i = Store.boards.map(function (x) { return x.id; }).indexOf(b.id);
+      if (i < 0) Store.boards.push(b); else Store.boards[i] = b;
+      state.boardId = b.id; state.sel = null;
+      Store.saveBoard(b, true);
+      renderAll();
+      History.ui();
+    },
+    undo: function () {
+      History.settle();
+      if (!History.past.length) { toast("Niente da annullare"); return; }
+      var prev = History.past.pop();
+      History.future.push(History.baseline);
+      History.baseline = prev;
+      History.apply(prev);
+    },
+    redo: function () {
+      History.settle();
+      if (!History.future.length) { toast("Niente da ripristinare"); return; }
+      var next = History.future.pop();
+      History.past.push(History.baseline);
+      History.baseline = next;
+      History.apply(next);
+    },
+    ui: function () {
+      var u = $("btnUndo"), r = $("btnRedo");
+      if (u) u.disabled = !History.past.length;
+      if (r) r.disabled = !History.future.length;
+    }
+  };
+
+  function commit() {
+    History.record();
+    Store.saveBoard(board());
+  }
 
   /* ========================================================
      4. Rendering the slide
@@ -873,6 +1066,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (state.rowH !== "auto") return state.rowH;
     if (n <= 0) return 58;
     return Math.max(34, Math.min(84, Math.round(575 / n)));
+  }
+
+  /* Milestone geometry, shared by the initial render and by dragging, so a
+     dragged line lands exactly where a re-render would put it. */
+  function msStyle(m, rowCount, rh) {
+    var r0 = Math.max(0, Math.min(m.row, rowCount - 1));
+    var r1 = Math.max(r0, Math.min(m.endRow, rowCount - 1));
+    return "left:calc((100% + var(--col-gap)) / var(--cols) * " + m.col + " - var(--col-gap) / 2);" +
+      "top:" + (r0 * rh + 6) + "px;height:" + ((r1 - r0 + 1) * rh - 12) + "px";
   }
 
   function cellInner(row, c) {
@@ -947,17 +1149,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     /* milestones */
     html += '<div class="ms-layer">';
-    (v.milestones || []).forEach(function (m) {
-      var r0 = Math.max(0, Math.min(m.row, v.rows.length - 1));
-      var r1 = Math.max(r0, Math.min(m.endRow, v.rows.length - 1));
-      html += '<div class="ms" style="left:calc((100% + var(--col-gap)) / var(--cols) * ' + m.col + ' - var(--col-gap) / 2);' +
-        "top:" + (r0 * rh + 6) + "px;height:" + ((r1 - r0 + 1) * rh - 12) + 'px">' +
-        '<div class="cap">' + esc(m.label) + "</div></div>";
+    (v.milestones || []).forEach(function (m, mi) {
+      html += '<div class="ms" data-ms="' + mi + '" style="' + msStyle(m, v.rows.length, rh) + '">' +
+        '<div class="cap" contenteditable="true" spellcheck="false" data-mscap="' + mi + '">' + esc(m.label) + "</div>" +
+        '<button class="msdel" data-msdel="' + mi + '" title="Elimina la milestone" aria-label="Elimina la milestone">×</button>' +
+        '<span class="grip grip-top" data-msgrip="top"></span>' +
+        '<span class="grip grip-bot" data-msgrip="bot"></span>' +
+        "</div>";
     });
     html += "</div></div></div>";
 
     slide.innerHTML = html;
-    fitSlide();
+    if (present.on) fitPresent(); else fitSlide();
   }
 
   function scaleFor() {
@@ -999,7 +1202,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function renderBrushes() {
     var host = $("brushes"), list = VIEWS[state.view].brushes;
-    if (list.indexOf(state.brush) < 0) state.brush = list[0];
+    /* "" is the eraser and is deliberately absent from the phase list — don't
+       treat it as an unknown brush and reset it, or it can never stay picked. */
+    if (state.brush !== "" && list.indexOf(state.brush) < 0) state.brush = list[0];
     var colors = { discovery: "var(--pn-teal)", specs: "var(--pn-orange)", delivery: "var(--pn-indigo)", conception: "var(--pn-orange)" };
     var html = "";
     list.forEach(function (p, i) {
@@ -1109,6 +1314,107 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
      6. Interaction
      ======================================================== */
 
+  /* ---- presentation mode ---------------------------------------------- */
+
+  var present = { on: false, idx: 0, deck: [], savedView: null };
+
+  function buildDeck() {
+    var b = board();
+    return ["product", "design"]
+      .filter(function (k) { return b.views[k] && b.views[k].rows.length; })
+      .map(function (k) { return { view: k }; });
+  }
+
+  function fitPresent() {
+    var host = $("presentHost"), slide = $("slide");
+    var bar = document.querySelector(".present-bar");
+    var k = Math.min(
+      (window.innerWidth - 24) / SLIDE_W,
+      (window.innerHeight - (bar ? bar.offsetHeight : 62) - 24) / SLIDE_H
+    );
+    k = Math.max(0.1, k);
+    slide.style.transform = "scale(" + k + ")";
+    host.style.width = Math.round(SLIDE_W * k) + "px";
+    host.style.height = Math.round(SLIDE_H * k) + "px";
+  }
+
+  function showPresentSlide() {
+    var d = present.deck[present.idx];
+    state.view = d.view;
+    renderSlide();
+    $("presentCount").textContent = (present.idx + 1) + " / " + present.deck.length;
+    $("presentLabel").textContent = board().name + " · " + VIEWS[d.view].name;
+    $("presentPrev").disabled = present.idx === 0;
+    $("presentNext").disabled = present.idx === present.deck.length - 1;
+  }
+
+  function enterPresent() {
+    if (present.on) return;
+    var deck = buildDeck();
+    if (!deck.length) { toast("Nessuna vista con iniziative da presentare"); return; }
+    present.deck = deck;
+    present.savedView = state.view;
+    present.on = true;
+    var here = deck.map(function (d) { return d.view; }).indexOf(state.view);
+    present.idx = here < 0 ? 0 : here;
+
+    var slide = $("slide");
+    slide.classList.remove("is-live");
+    slide.classList.add("is-present");
+    $("presentHost").appendChild(slide);
+    $("present").hidden = false;
+    showPresentSlide();
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(function () {});
+    }
+  }
+
+  function exitPresent() {
+    if (!present.on) return;
+    present.on = false;
+    $("present").hidden = true;
+    var slide = $("slide");
+    slide.classList.remove("is-present");
+    if (Store.canWrite) slide.classList.add("is-live");
+    $("canvasInner").appendChild(slide);
+    state.view = present.savedView;
+    syncViewTabs();
+    renderAll();
+    lastK = 0; fitSlide(true);
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(function () {});
+    }
+  }
+
+  function presentGo(delta) {
+    var i = present.idx + delta;
+    if (i < 0 || i >= present.deck.length) return;
+    present.idx = i;
+    showPresentSlide();
+  }
+
+  function presentQuarter(delta) {
+    var ids = Store.boards.map(function (b) { return b.id; });
+    var i = ids.indexOf(state.boardId) + delta;
+    if (i < 0 || i >= ids.length) return;
+    var prevId = state.boardId;
+    state.boardId = ids[i];
+    var deck = buildDeck();
+    if (!deck.length) { state.boardId = prevId; toast("Quarter senza iniziative"); return; }
+    present.deck = deck;
+    present.idx = Math.min(present.idx, deck.length - 1);
+    History.reset();
+    showPresentSlide();
+  }
+
+  function syncViewTabs() {
+    Array.prototype.forEach.call(document.querySelectorAll(".vtab"), function (t) {
+      var on = t.dataset.view === state.view;
+      t.classList.toggle("is-on", on);
+      t.setAttribute("aria-selected", String(on));
+    });
+  }
+
   function selectRow(ri) {
     state.sel = ri === null ? null : { row: ri };
     renderLibrary(); renderInspector(); renderSlide();
@@ -1138,12 +1444,76 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     touched.forEach(function (c) { patchCell(ri, c); });
   }
 
-  var painting = false;
+  /* ---- milestones, dragged where they sit -------------------------------- */
+
+  var msDrag = null;
+
+  function msApplyPointer(e, m) {
+    var slide = $("slide");
+    var layer = slide.querySelector(".ms-layer");
+    var rowsEl = slide.querySelector(".brows");
+    if (!layer || !rowsEl) return;
+    var v = view(), n = v.rows.length;
+    if (msDrag.kind === "move") {
+      var lay = layer.getBoundingClientRect();
+      var cols = board().sprints.length;
+      var col = Math.round((e.clientX - lay.left) / lay.width * cols);
+      m.col = Math.max(0, Math.min(cols - 1, col));
+    } else {
+      var rr = rowsEl.getBoundingClientRect();
+      var idx = Math.floor((e.clientY - rr.top) / (rr.height / n));
+      idx = Math.max(0, Math.min(n - 1, idx));
+      if (msDrag.kind === "top") m.row = Math.min(idx, m.endRow);
+      else m.endRow = Math.max(idx, m.row);
+    }
+  }
+
+  function addMilestone() {
+    var v = view();
+    if (!v.rows.length) { toast("Aggiungi prima almeno un'iniziativa"); return; }
+    v.milestones = v.milestones || [];
+    var r0 = Math.min(1, v.rows.length - 1);
+    v.milestones.push({
+      id: uid("m"), label: "Go-live",
+      col: Math.min(3, board().sprints.length - 1),
+      row: r0, endRow: Math.min(r0 + 2, v.rows.length - 1)
+    });
+    commit(); renderMilestones(); renderSlide();
+    toast("Milestone aggiunta — trascina la linea o scrivi sull'etichetta");
+  }
+
+  /* While a stroke is down this holds its mode ("set" or "erase"), never the
+     brush: a right-button drag erases all the way, it does not switch to
+     painting halfway. paintedLast guards re-entry — patching a cell swaps the
+     element under the pointer, which fires a fresh pointerover for the very
+     cell just painted and would undo an erase on the spot. */
+  var painting = null;
+  var paintedLast = null;
+
   function wireSlide() {
     var slide = $("slide");
 
     slide.addEventListener("pointerdown", function (e) {
       if (!Store.canWrite) return;
+
+      var del = e.target.closest("[data-msdel]");
+      if (del) {
+        view().milestones.splice(+del.dataset.msdel, 1);
+        commit(); renderMilestones(); renderSlide();
+        e.preventDefault(); return;
+      }
+      var grip = e.target.closest("[data-msgrip]");
+      if (grip) {
+        msDrag = { i: +grip.closest("[data-ms]").dataset.ms, kind: grip.dataset.msgrip };
+        e.preventDefault(); return;
+      }
+      if (e.target.closest("[data-mscap]")) return;   /* caption types in place */
+      var msEl = e.target.closest("[data-ms]");
+      if (msEl) {
+        msDrag = { i: +msEl.dataset.ms, kind: "move" };
+        e.preventDefault(); return;
+      }
+
       var open = e.target.closest("[data-open]");
       if (open) {
         var url = initiative(view().rows[+open.dataset.open].iid).url;
@@ -1164,7 +1534,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       e.preventDefault();
       var r = +cell.dataset.row, c = +cell.dataset.col;
       var mode = e.button === 2 ? "erase" : (e.shiftKey ? "sequence" : (e.altKey ? "add" : "set"));
-      painting = mode === "set" || mode === "erase";
+      painting = (mode === "set" || mode === "erase") ? mode : null;
+      paintedLast = r + ":" + c;
       paint(r, c, mode);
     });
 
@@ -1172,7 +1543,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (!painting) return;
       var cell = e.target.closest(".cell");
       if (!cell) return;
-      paint(+cell.dataset.row, +cell.dataset.col, state.brush === "" ? "erase" : "set");
+      var id = cell.dataset.row + ":" + cell.dataset.col;
+      if (id === paintedLast) return;
+      paintedLast = id;
+      paint(+cell.dataset.row, +cell.dataset.col, painting);
     });
 
     slide.addEventListener("contextmenu", function (e) {
@@ -1184,6 +1558,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var t = e.target;
       if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit(); return; }
       if (t.id === "slideNote") { board().note.text = t.textContent.trim(); commit(); return; }
+      if (t.dataset && t.dataset.mscap !== undefined) {
+        var m = view().milestones[+t.dataset.mscap];
+        if (m) { m.label = t.textContent.trim(); commit(); renderMilestones(); }
+        return;
+      }
       if (t.dataset && t.dataset.sprint !== undefined) {
         board().sprints[+t.dataset.sprint][t.dataset.key] = t.textContent.trim();
         commit(); renderSprints();
@@ -1194,7 +1573,20 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
   }
 
-  window.addEventListener("pointerup", function () { painting = false; });
+  window.addEventListener("pointermove", function (e) {
+    if (!msDrag) return;
+    var v = view(), m = v.milestones && v.milestones[msDrag.i];
+    if (!m) { msDrag = null; return; }
+    msApplyPointer(e, m);
+    var el = $("slide").querySelector('.ms[data-ms="' + msDrag.i + '"]');
+    if (el) el.setAttribute("style", msStyle(m, v.rows.length, autoRowHeight(v.rows.length)));
+  });
+
+  window.addEventListener("pointerup", function () {
+    if (msDrag) { msDrag = null; commit(); renderMilestones(); }
+    painting = null;
+    paintedLast = null;
+  });
 
   function moveRow(ri, dir) {
     var rows = view().rows, to = ri + dir;
@@ -1343,14 +1735,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
 
     /* milestones */
-    $("btnAddMs").addEventListener("click", function () {
-      var v = view();
-      if (!v.rows.length) { toast("Aggiungi prima almeno un'iniziativa"); return; }
-      v.milestones = v.milestones || [];
-      var r0 = Math.min(1, v.rows.length - 1);
-      v.milestones.push({ id: uid("m"), label: "Go-live", col: Math.min(3, board().sprints.length - 1), row: r0, endRow: Math.min(r0 + 2, v.rows.length - 1) });
-      commit(); renderMilestones(); renderSlide();
-    });
+    $("btnAddMs").addEventListener("click", addMilestone);
     $("msList").addEventListener("input", function (e) {
       var card = e.target.closest("[data-ms]");
       if (!card) return;
@@ -1413,6 +1798,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       state.boardId = $("boardSel").value;
       state.sel = null;
       try { localStorage.setItem(LS_KEY + ":last", state.boardId); } catch (e) {}
+      History.reset();
       renderAll();
     });
 
@@ -1420,11 +1806,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       tab.addEventListener("click", function () {
         state.view = tab.dataset.view;
         state.sel = null;
-        Array.prototype.forEach.call(document.querySelectorAll(".vtab"), function (t) {
-          var on = t === tab;
-          t.classList.toggle("is-on", on);
-          t.setAttribute("aria-selected", String(on));
-        });
+        syncViewTabs();
         renderAll();
       });
     });
@@ -1549,6 +1931,30 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("zoomOut").addEventListener("click", function () { stepZoom(-1); });
     $("zoomLvl").addEventListener("click", function () { setZoom("fit"); });
 
+    $("mPdf").addEventListener("click", function () { $("menu").hidden = true; exportPdf(); });
+    $("mKeys").addEventListener("click", function () { $("menu").hidden = true; toggleSheet(true); });
+    $("sheetClose").addEventListener("click", function () { toggleSheet(false); });
+    $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) toggleSheet(false); });
+
+    $("btnUndo").addEventListener("click", function () { History.undo(); });
+    $("btnRedo").addEventListener("click", function () { History.redo(); });
+
+    $("btnPresent").addEventListener("click", enterPresent);
+    $("presentExit").addEventListener("click", exitPresent);
+    $("presentPrev").addEventListener("click", function () { presentGo(-1); });
+    $("presentNext").addEventListener("click", function () { presentGo(1); });
+    $("presentQuarter").addEventListener("click", function () { presentQuarter(1); });
+    $("btnAddMsTop").addEventListener("click", addMilestone);
+
+    /* In presentation the slide is the deck: a linked row opens its doc. */
+    $("presentHost").addEventListener("pointerdown", function (e) {
+      var lab = e.target.closest("[data-labelrow]");
+      if (!lab) return;
+      var row = view().rows[+lab.dataset.labelrow];
+      var url = row && initiative(row.iid).url;
+      if (url) window.open(url, "_blank", "noopener");
+    });
+
     $("btnPanel").addEventListener("click", function () {
       var off = document.body.classList.toggle("sidebar-off");
       $("btnPanel").setAttribute("aria-expanded", String(!off));
@@ -1641,19 +2047,89 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
   }
 
+  /* One PDF per quarter, one page per view — what you send the people who
+     were not in the room. */
+  function exportPdf() {
+    if (typeof html2canvas !== "function" || !window.jspdf) { toast("Motore di export non caricato"); return; }
+    var deck = buildDeck();
+    if (!deck.length) { toast("Nessuna vista con iniziative da esportare"); return; }
+    var savedView = state.view;
+    toast("Genero il PDF…");
+
+    var doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "px", format: [SLIDE_W, SLIDE_H] });
+    var chain = Promise.resolve();
+    deck.forEach(function (d, i) {
+      chain = chain.then(function () {
+        state.view = d.view;
+        renderSlide();
+        return withCleanSlide(function (slide) {
+          return html2canvas(slide, {
+            scale: 2, backgroundColor: "#ffffff",
+            width: SLIDE_W, height: SLIDE_H, windowWidth: SLIDE_W, windowHeight: SLIDE_H,
+            logging: false, useCORS: true
+          });
+        });
+      }).then(function (canvas) {
+        if (i > 0) doc.addPage([SLIDE_W, SLIDE_H], "landscape");
+        doc.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, SLIDE_W, SLIDE_H);
+      });
+    });
+
+    var restore = function () { state.view = savedView; syncViewTabs(); renderAll(); };
+    return chain.then(function () {
+      restore();
+      var name = board().name.replace(/[^\w\s.-]/g, "").trim().replace(/\s+/g, "-") + "-roadmap.pdf";
+      saveFile(name, doc.output("blob"), "application/pdf");
+    }).catch(function () {
+      restore();
+      toast("Export PDF non riuscito");
+    });
+  }
+
   /* ========================================================
      8. Keyboard + boot
      ======================================================== */
 
+  function toggleSheet(force) {
+    var s = $("sheet");
+    s.hidden = force === undefined ? !s.hidden : !force;
+  }
+
   function wireKeys() {
     document.addEventListener("keydown", function (e) {
       var t = e.target;
-      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      var typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
+      /* Undo/redo stay live even while a field has focus. */
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        if (!Store.canWrite) return;
+        e.preventDefault();
+        if (e.shiftKey) History.redo(); else History.undo();
+        return;
+      }
+
+      if (present.on) {
+        if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); presentGo(1); }
+        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); presentGo(-1); }
+        else if (e.key === "ArrowDown") { e.preventDefault(); presentQuarter(1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); presentQuarter(-1); }
+        else if (e.key === "Escape") { e.preventDefault(); exitPresent(); }
+        return;
+      }
+
+      if (typing) return;
+
+      if (e.key === "Escape") {
+        if (!$("sheet").hidden) { toggleSheet(false); return; }
+        selectRow(null); $("menu").hidden = true; return;
+      }
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); toggleSheet(); return; }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.toLowerCase() === "p") { e.preventDefault(); enterPresent(); return; }
+
       var list = VIEWS[state.view].brushes;
       if (e.key === "0" || e.key.toLowerCase() === "e") { state.brush = ""; renderBrushes(); }
       else if (/^[1-4]$/.test(e.key) && list[+e.key - 1]) { state.brush = list[+e.key - 1]; renderBrushes(); }
-      else if (e.key === "Escape") { selectRow(null); $("menu").hidden = true; }
     });
 
     $("brushes").addEventListener("click", function (e) {
@@ -1685,7 +2161,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (zoom && zoom !== "fit" && !isNaN(parseFloat(zoom))) state.zoom = parseFloat(zoom);
 
     renderAll();
+    History.reset();
     setSync("idle");
+
+    window.addEventListener("resize", function () { if (present.on) fitPresent(); });
 
     /* fitSlide() without `force` short-circuits when the scale is unchanged,
        which keeps the ResizeObserver from chasing its own height writes. */
@@ -1700,6 +2179,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (!Store.boards.some(function (b) { return b.id === state.boardId; })) state.boardId = Store.boards[0].id;
     state.sel = null;
     renderAll();
+    History.reset();
   });
 })();
 </script>

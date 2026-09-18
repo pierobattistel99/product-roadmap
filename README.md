@@ -30,6 +30,22 @@ La slide **è** l'editor: quello che vedi è esattamente quello che esporti.
 | `↗` sull'etichetta | apre il link alla documentazione |
 | `−` `+` in alto a destra | zoom; `Adatta` torna alla larghezza della finestra |
 | `☰` in alto a sinistra | mostra o nasconde il pannello laterale |
+| `Ctrl/Cmd+Z` | annulla; con `Shift` ripristina |
+| `?` | elenco delle scorciatoie |
+
+### Milestone
+
+La linea verde di go-live si modifica direttamente sulla slide: si scrive
+sull'etichetta, si trascina il corpo della linea per spostarla tra gli sprint,
+si tirano i due pallini ai capi per allungarla sulle righe e la `×` la elimina.
+`+ Milestone` nella barra degli strumenti ne aggiunge una.
+
+### Presentazione
+
+`▶ Presenta` (o `P`) apre il deck a schermo intero: niente editor, solo le
+slide del quarter. `←` `→` scorrono le viste, `↑` `↓` cambiano quarter, `Esc`
+esce. Le iniziative con un link restano cliccabili durante la presentazione,
+così apri la documentazione mentre parli.
 
 La slide non scende mai sotto il 62%: sotto quella soglia le celle degli sprint
 diventano bersagli da ~40×21 px e cliccarle è un terno al lotto. In una finestra
@@ -52,11 +68,13 @@ laterale parte chiuso e zoom e stato del pannello restano memorizzati.
 
 `Scarica PNG` produce un file 3200×1800 (2×) pronto da incollare in Google
 Slides o Keynote; `Copia PNG` mette la stessa immagine negli appunti. Le
-affordance dell'editor (contorni tratteggiati, frecce di riordino, pulsanti
-link) non finiscono mai nell'export.
+affordance dell'editor (contorni tratteggiati, frecce di riordino, maniglie
+delle milestone) non finiscono mai nell'export.
 
-Dal menu `•••`: duplica il quarter successivo (mantiene righe e sprint, azzera
-le fasi), rinomina, elimina, esporta e importa tutto in JSON.
+Dal menu `•••`: `Esporta deck in PDF` mette entrambe le viste del quarter in un
+PDF orizzontale da mandare a chi non era in riunione; poi duplica il quarter
+successivo (mantiene righe e sprint, azzera le fasi), rinomina, elimina,
+esporta e importa tutto in JSON.
 
 ## Brand
 
@@ -80,8 +98,10 @@ aziendale basta cambiare il `<link>` e la `font-family` in cima al file.
 
 ```
 src/roadmap-studio.html   sorgente (corpo pagina, senza skeleton)
-build.sh                  genera index.html standalone dal sorgente
-index.html                versione autonoma, apribile da disco
+build.sh                  genera index.html dal sorgente (bash + awk, zero dipendenze)
+index.html                pagina servita e apribile da disco — output del build
+vercel.json               hosting statico: cache e header
+test/review.mjs           suite di verifica funzionale in Chromium
 ```
 
 Dopo ogni modifica al sorgente:
@@ -90,13 +110,36 @@ Dopo ogni modifica al sorgente:
 ./build.sh
 ```
 
-## Persistenza
+`index.html` è generato: non modificarlo a mano, le modifiche vanno in
+`src/roadmap-studio.html`.
 
-- Pubblicato come Artifact, i dati stanno nel database dell'artifact: restano tra
-  sessioni e dispositivi e sono visibili a chi ha accesso all'artifact. Chi ha
-  accesso in sola lettura vede la roadmap ed esporta, ma non modifica.
-- Aperto da disco (`index.html`), i dati stanno nel `localStorage` del browser.
-  Usa `Esporta tutto (JSON)` per portarli altrove.
+## Verifica
+
+```sh
+npm --prefix test install
+npm --prefix test test
+```
+
+Apre `index.html` in Chromium ed esercita ogni comportamento del tool —
+pennelli, gomma (clic, trascinamento, tasto destro, tastiera), undo/redo,
+milestone trascinabili, presentazione, export PNG e PDF, generazione sprint,
+persistenza e regole per finestre strette. Esce con codice diverso da zero al
+primo fallimento o errore JavaScript di pagina.
+
+In ambienti senza accesso alle CDN, passa `H2C_PATH` e `JSPDF_PATH` con copie
+locali di html2canvas e jsPDF; `CHROMIUM` punta a un binario alternativo.
+
+## Hosting e persistenza
+
+Il deploy è statico: `index.html` viene servito così com'è, senza build e senza
+runtime. `.vercelignore` tiene fuori sorgente, test e documentazione.
+
+- Su Vercel (o aperto da disco) i dati stanno nel `localStorage` del browser:
+  restano tra le sessioni su quel dispositivo, non seguono l'utente altrove.
+  `Esporta tutto (JSON)` è il modo per spostarli o tenerne un backup.
+- Pubblicato come Artifact, i dati stanno nel database dell'artifact e seguono
+  l'utente tra dispositivi. Chi ha accesso in sola lettura consulta ed esporta
+  ma non modifica.
 
 Il tool si apre su un quarter di esempio, così la prima sessione parte da una
 board funzionante e non da una griglia vuota. Per caricare la tua roadmap usa
@@ -106,4 +149,5 @@ board funzionante e non da una griglia vuota. Per caricare la tua roadmap usa
 
 - Una cella tiene al massimo due fasi affiancate.
 - Il set di fasi è fisso per vista (tre per Prodotto, due per Design).
-- L'export PNG usa `html2canvas` da CDN: senza rete il pulsante non funziona.
+- Il deck di presentazione è il quarter aperto: `↑` `↓` passano agli altri.
+- Export PNG e PDF usano `html2canvas` e `jsPDF` da CDN: senza rete quei due pulsanti non funzionano.
