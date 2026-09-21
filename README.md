@@ -33,7 +33,12 @@ entry copies its fields onto the roadmap you have open; from that moment the row
 is independent. **P** and **D** show where an entry has already been used, the
 dropdown narrows the list to what is on the open view or missing from it, and
 *New initiative* adds a catalogue entry plus a row on the open view.
-*Remove from library* drops the catalogue entry and leaves every roadmap alone.
+The `×` on a library row drops that catalogue entry and leaves every roadmap
+alone; `•••` → *Remove unused library entries* clears out everything no roadmap
+is using. Renaming a row on the slide renames its catalogue entry too, so the
+list keeps showing what you actually typed — the other roadmap's row still keeps
+its own wording. An import reuses an entry that already carries the same name
+rather than piling up near-duplicates.
 
 Boards saved before this are migrated on load: each row keeps the name it was
 showing, taking the per-view label where one was set.
@@ -51,8 +56,11 @@ The slide **is** the editor: what you see is exactly what you export.
 | right-click | erases the cell — drag to erase a run |
 | `½ Half sprint` / `H` | paints only the half of the sprint you click |
 | `1`–`4` / `0` | pick a phase / the eraser |
-| click the title, the sticky note, a sprint header | edit the text in place |
-| click a row label | opens the detail in the left panel |
+| click any text on the slide | edit it in place — title, sticky note, sprint header, **row name**, milestone caption |
+| `Enter` in a row name | starts the next initiative right below, focused |
+| `+ Initiative` under the last row | appends a blank row ready to type |
+| `×` on row hover | deletes that row |
+| click a row label | also opens the detail in the left panel |
 | `↗` on a label | opens the documentation link |
 | hover a row label | shows the initiative's area and short description |
 | `−` `+` top right | zoom; `Fit` goes back to the window width |

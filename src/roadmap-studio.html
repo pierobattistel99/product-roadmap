@@ -165,7 +165,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 /* library list */
 .lib{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}
 .lib-item{
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;gap:8px;
   padding:6px 7px;border-radius:9px;border:1px solid transparent;cursor:pointer;
 }
 .lib-item:hover{background:var(--ui-sunk)}
@@ -175,6 +175,12 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .lib-item .lk{font-size:10px;color:var(--ui-faint);font-family:"DM Mono",monospace}
 /* Which roadmap an initiative already sits on. The two views are independent,
    so this is the only place that relationship is visible at a glance. */
+.libdel{
+  border:0;background:transparent;color:var(--ui-faint);font-size:14px;line-height:1;
+  cursor:pointer;padding:0 2px;visibility:hidden;border-radius:4px;
+}
+.lib-item:hover .libdel{visibility:visible}
+.libdel:hover{color:#fff;background:#c0392b}
 .uses{display:inline-flex;gap:3px}
 .uses i{
   font-style:normal;font-size:9.5px;font-weight:800;line-height:15px;
@@ -319,6 +325,14 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   overflow:hidden;
 }
 .pill span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* The row name is typed where it is read, like every other bit of slide text. */
+.slide.is-live .pill span{cursor:text;outline:none;min-width:40px}
+.slide.is-live .pill span:focus{
+  outline:2px dashed color-mix(in srgb,var(--ui-accent,#2151ff) 60%,transparent);
+  outline-offset:3px;border-radius:4px;-webkit-line-clamp:unset;
+}
+.slide.is-live .pill span.is-blank::before{content:"Name this initiative";color:#a0a0a8;font-weight:600}
+.slide.is-export .pill span.is-blank::before{content:""}
 .pill.is-link span{color:var(--pn-link);text-decoration:underline;text-underline-offset:2px}
 .pill.is-long{font-size:13.5px}
 .brow .label{position:relative}
@@ -498,6 +512,16 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
   border-radius:5px;font-size:10px;line-height:1;cursor:pointer;padding:0;
 }
 .rowtools button:hover{background:#eeeef1}
+.rowtools button.del:hover{background:#c0392b;border-color:#c0392b;color:#fff}
+
+/* a ghost row that adds another initiative without leaving the slide */
+.brow--add{height:30px;align-items:center}
+.brow--add .addrow{
+  border:1.5px dashed #c9c9d2;background:transparent;color:#75757e;border-radius:7px;
+  font:600 13px "Figtree",sans-serif;padding:4px 14px;cursor:pointer;width:100%;text-align:left;
+}
+.brow--add .addrow:hover{border-color:var(--ui-accent,#2151ff);color:var(--ui-accent,#2151ff)}
+.slide.is-export .brow--add,.slide.is-present .brow--add{display:none}
 .linkjump{
   position:absolute;right:6px;top:50%;transform:translateY(-50%);
   width:22px;height:22px;border-radius:6px;border:1px solid #d7d7de;background:#fff;
@@ -578,6 +602,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     <button id="mDuplicate" role="menuitem">Duplicate into next quarter</button>
     <button id="mRename" role="menuitem">Rename quarter</button>
     <button id="mLegend" role="menuitem">Show legend on the slide</button>
+    <button id="mPrune" role="menuitem">Remove unused library entries</button>
     <hr>
     <button id="mPdf" role="menuitem">Export deck as PDF</button>
     <button id="mExport" role="menuitem">Export everything (JSON)</button>
@@ -1286,6 +1311,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function renderSlide() {
     var b = board(), v = view(), slide = $("slide");
+    /* Presentation and read-only views must not hand out editable fields. */
+    var edit = Store.canWrite && !present.on;
+    var ce = edit ? ' contenteditable="true" spellcheck="false"' : "";
     var cols = b.sprints.length || 1;
     var rh = autoRowHeight(v.rows.length);
     slide.style.setProperty("--cols", cols);
@@ -1295,9 +1323,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     /* head */
     html += '<div class="slide-head">';
-    html += '<h1 class="slide-title" id="slideTitle" contenteditable="true" spellcheck="false">' + esc(v.title) + "</h1>";
+    html += '<h1 class="slide-title" id="slideTitle"' + ce + ">" + esc(v.title) + "</h1>";
     html += '<div class="slide-note" id="slideNote"' + (b.note.show ? "" : " hidden") + ">" +
-      '<span id="slideNoteText" contenteditable="true" spellcheck="false">' + esc(b.note.text) + "</span>" +
+      '<span id="slideNoteText"' + ce + ">" + esc(b.note.text) + "</span>" +
       '<button class="notedel" id="noteDel" title="Remove the note" aria-label="Remove the note">×</button></div>';
     html += "</div>";
 
@@ -1305,9 +1333,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     html += '<div class="slide-board"><div class="brow brow--head"><div class="rail"></div><div class="label"></div><div class="track">';
     b.sprints.forEach(function (s, i) {
       html += '<div class="sprint">' +
-        '<div class="nm"><span contenteditable="true" spellcheck="false" data-sprint="' + i + '" data-key="name">' + esc(s.name) + "</span>" +
-        '<span class="q" contenteditable="true" spellcheck="false" data-sprint="' + i + '" data-key="quarter">' + esc(s.quarter) + "</span></div>" +
-        '<div class="dt" contenteditable="true" spellcheck="false" data-sprint="' + i + '" data-key="dates">' + esc(s.dates) + "</div>" +
+        '<div class="nm"><span' + ce + ' data-sprint="' + i + '" data-key="name">' + esc(s.name) + "</span>" +
+        '<span class="q"' + ce + ' data-sprint="' + i + '" data-key="quarter">' + esc(s.quarter) + "</span></div>" +
+        '<div class="dt"' + ce + ' data-sprint="' + i + '" data-key="dates">' + esc(s.dates) + "</div>" +
         "</div>";
     });
     html += "</div></div>";
@@ -1318,14 +1346,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var prev = v.rows[ri - 1], next = v.rows[ri + 1];
       var first = !prev || prev.accent !== row.accent;
       var last = !next || next.accent !== row.accent;
-      var label = rowLabel(row);
+      var label = row.name || "";
       var sel = state.sel && state.sel.row === ri ? " is-sel" : "";
 
       html += '<div class="brow brow--data' + sel + '" data-row="' + ri + '">';
-      html += '<div class="rowtools"><button data-act="up" title="Move up" aria-label="Move up">▲</button><button data-act="down" title="Move down" aria-label="Move down">▼</button></div>';
+      html += '<div class="rowtools">' +
+        '<button data-act="up" title="Move up" aria-label="Move up">▲</button>' +
+        '<button data-act="down" title="Move down" aria-label="Move down">▼</button>' +
+        '<button class="del" data-act="del" title="Delete this row" aria-label="Delete this row">×</button></div>';
       html += '<div class="rail rail--' + row.accent + (first ? " is-first" : "") + (last ? " is-last" : "") + '"></div>';
       html += '<div class="label' + (row.box ? " is-boxed" : "") + '" data-labelrow="' + ri + '">' +
-        '<div class="pill' + (row.url ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + '"><span>' + esc(label) + "</span></div>" +
+        '<div class="pill' + (row.url ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + '">' +
+          '<span class="' + (row.name ? "" : "is-blank") + '"' + ce + ' data-namerow="' + ri + '">' + esc(row.name || "") + "</span></div>" +
         (row.url ? '<button class="linkjump" data-open="' + ri + '" title="Open the documentation" aria-label="Open the documentation">↗</button>' : "") +
         "</div>";
       html += '<div class="track">';
@@ -1334,13 +1366,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       }
       html += "</div></div>";
     });
+    if (edit) {
+      html += '<div class="brow brow--add"><div class="rail"></div>' +
+        '<div class="label"><button class="addrow" id="rowAdd">+ Initiative</button></div>' +
+        '<div class="track"></div></div>';
+    }
     html += "</div>";
 
     /* milestones */
     html += '<div class="ms-layer">';
     (v.milestones || []).forEach(function (m, mi) {
       html += '<div class="ms" data-ms="' + mi + '" style="' + msStyle(m, v.rows.length, rh) + '">' +
-        '<div class="cap" contenteditable="true" spellcheck="false" data-mscap="' + mi + '">' + esc(m.label) + "</div>" +
+        '<div class="cap"' + ce + ' data-mscap="' + mi + '">' + esc(m.label) + "</div>" +
         '<button class="msdel" data-msdel="' + mi + '" title="Delete this milestone" aria-label="Delete this milestone">×</button>' +
         '<span class="grip grip-top" data-msgrip="top"></span>' +
         '<span class="grip grip-bot" data-msgrip="bot"></span>' +
@@ -1465,7 +1502,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           (u.product ? '<i class="u u-p" title="On the product roadmap">P</i>' : "") +
           (u.design ? '<i class="u u-d" title="On the design roadmap">D</i>' : "") +
         "</span>" +
-        '<span class="lk">' + esc(it.area || (it.url ? "link" : "")) + "</span></li>";
+        '<span class="lk">' + esc(it.area || (it.url ? "link" : "")) + "</span>" +
+        '<button class="libdel" title="Remove from the library" aria-label="Remove from the library">×</button></li>';
     }).join("");
   }
 
@@ -1651,9 +1689,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
   }
 
-  function selectRow(ri) {
+  function markSelection() {
+    Array.prototype.forEach.call($("slide").querySelectorAll(".brow--data"), function (el) {
+      el.classList.toggle("is-sel", !!state.sel && +el.dataset.row === state.sel.row);
+    });
+  }
+
+  /* keepFocus skips the slide rebuild so a caret placed in a row name survives
+     the selection that the same click triggers. */
+  function selectRow(ri, keepFocus) {
     state.sel = ri === null ? null : { row: ri };
-    renderLibrary(); renderInspector(); renderSlide();
+    renderLibrary(); renderInspector();
+    if (keepFocus) markSelection(); else renderSlide();
   }
 
   function halfIndex(cellEl, clientX) {
@@ -1730,10 +1777,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var lay = layer.getBoundingClientRect(), rr = rowsEl.getBoundingClientRect();
     if (e.clientX < lay.left - 40 || e.clientX > lay.right + 40) return null;
     if (e.clientY < rr.top - 60 || e.clientY > rr.bottom + 60) return null;
-    var n = view().rows.length;
-    if (!n) return null;
-    var row = Math.max(0, Math.min(n - 1, Math.floor((e.clientY - rr.top) / (rr.height / n))));
-    return { col: colFromX(e.clientX), row: row };
+    if (!view().rows.length) return null;
+    return { col: colFromX(e.clientX), row: rowFromY(e.clientY) };
   }
 
   function startGlDrag(e) {
@@ -1777,18 +1822,30 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   var msDrag = null;
 
+  /* Row geometry read off the data rows themselves: .brows also holds the
+     "+ Initiative" ghost row, so its height is not n row pitches. */
+  function rowMetrics() {
+    var els = $("slide").querySelectorAll(".brow--data");
+    if (!els.length) return null;
+    var first = els[0].getBoundingClientRect();
+    return { top: first.top, pitch: first.height, count: els.length };
+  }
+
+  function rowFromY(clientY) {
+    var m = rowMetrics();
+    if (!m || !m.pitch) return 0;
+    return Math.max(0, Math.min(m.count - 1, Math.floor((clientY - m.top) / m.pitch)));
+  }
+
   function msApplyPointer(e, m) {
     var slide = $("slide");
     var layer = slide.querySelector(".ms-layer");
-    var rowsEl = slide.querySelector(".brows");
-    if (!layer || !rowsEl) return;
+    if (!layer) return;
     var v = view(), n = v.rows.length;
     if (msDrag.kind === "move") {
       m.col = colFromX(e.clientX);
     } else {
-      var rr = rowsEl.getBoundingClientRect();
-      var idx = Math.floor((e.clientY - rr.top) / (rr.height / n));
-      idx = Math.max(0, Math.min(n - 1, idx));
+      var idx = rowFromY(e.clientY);
       if (msDrag.kind === "top") m.row = Math.min(idx, m.endRow);
       else m.endRow = Math.max(idx, m.row);
     }
@@ -1850,14 +1907,22 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         if (url) window.open(url, "_blank", "noopener");
         e.preventDefault(); return;
       }
+      if (e.target.id === "rowAdd") { addBlankRow(); e.preventDefault(); return; }
       var tool = e.target.closest(".rowtools button");
       if (tool) {
         var ri = +e.target.closest("[data-row]").dataset.row;
-        moveRow(ri, tool.dataset.act === "up" ? -1 : 1);
+        if (tool.dataset.act === "del") { removeRowAt(ri); renderAll(); }
+        else moveRow(ri, tool.dataset.act === "up" ? -1 : 1);
         e.preventDefault(); return;
       }
       var lab = e.target.closest("[data-labelrow]");
-      if (lab) { selectRow(+lab.dataset.labelrow); e.preventDefault(); return; }
+      if (lab) {
+        /* Clicking the name itself must leave the caret alone. */
+        var typing = !!e.target.closest("[data-namerow]");
+        selectRow(+lab.dataset.labelrow, typing);
+        if (!typing) e.preventDefault();
+        return;
+      }
 
       var cell = e.target.closest(".cell");
       if (!cell) return;
@@ -1899,6 +1964,19 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var t = e.target;
       if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit(); return; }
       if (t.id === "slideNoteText") { board().note.text = t.textContent.trim(); commit(); return; }
+      if (t.dataset && t.dataset.namerow !== undefined) {
+        var nrow = view().rows[+t.dataset.namerow];
+        if (nrow) {
+          nrow.name = t.textContent.trim();
+          t.classList.toggle("is-blank", !nrow.name);
+          /* Keep the catalogue label in step with what was typed. Rows own their
+             names, so this never reaches the other roadmap's row. */
+          var le = nrow.libId && libEntry(nrow.libId);
+          if (le && nrow.name && le.name !== nrow.name) { le.name = nrow.name; Store.saveLibrary(); }
+          commit(); renderLibrary(); renderInspector();
+        }
+        return;
+      }
       if (t.dataset && t.dataset.mscap !== undefined) {
         var m = view().milestones[+t.dataset.mscap];
         if (m) { m.label = t.textContent.trim(); commit(); renderMilestones(); }
@@ -1910,6 +1988,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       }
     });
     slide.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.dataset && e.target.dataset.namerow !== undefined) {
+        e.preventDefault();
+        addBlankRow(+e.target.dataset.namerow);
+        return;
+      }
       if (e.key === "Enter" && e.target.isContentEditable) { e.preventDefault(); e.target.blur(); }
     });
   }
@@ -1957,6 +2040,35 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     state.sel = null;
     commit();
   }
+  function focusRowName(i) {
+    var el = $("slide").querySelector('[data-namerow="' + i + '"]');
+    if (!el) return;
+    el.focus();
+    try {
+      var r = document.createRange();
+      r.selectNodeContents(el); r.collapse(false);
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r);
+    } catch (e) {}
+  }
+
+  /* A blank row, ready to be typed into. Pass an index to insert just below it
+     — that is what Enter at the end of a row name does. */
+  function addBlankRow(afterIdx) {
+    if (!Store.canWrite) return;
+    var v = view();
+    var at = (afterIdx === undefined || afterIdx === null) ? v.rows.length : afterIdx + 1;
+    v.rows.splice(at, 0, {
+      libId: null, name: "", url: "", desc: "", area: "",
+      accent: v.rows.length ? (v.rows[Math.max(0, at - 1)] || {}).accent || "teal" : "teal",
+      box: false, cells: {}
+    });
+    commit();
+    state.sel = { row: at };
+    renderAll();
+    focusRowName(at);
+  }
+
   function removeRowAt(i) {
     view().rows.splice(i, 1);
     state.sel = null;
@@ -1998,6 +2110,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var iid = li.dataset.iid;
       var it = libEntry(iid);
       if (!it) return;
+      if (e.target.classList.contains("libdel")) {
+        /* The catalogue entry goes; rows already on a roadmap are untouched. */
+        if (!confirm("Remove “" + it.name + "” from the library?\n\nRows already on a roadmap stay where they are.")) return;
+        Store.library = Store.library.filter(function (x) { return x.id !== iid; });
+        Store.saveLibrary();
+        renderLibrary();
+        return;
+      }
       if (e.target.classList.contains("libchk")) {
         if (e.target.checked) addToView(it); else removeFromView(iid);
         renderAll();
@@ -2264,9 +2384,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
             var i = Store.boards.map(function (x) { return x.id; }).indexOf(nb.id);
             if (i < 0) { Store.boards.push(nb); added++; } else { Store.boards[i] = nb; updated++; }
           });
+          /* Reuse an entry that already carries the same name instead of piling
+             up near-duplicates, remapping the incoming rows onto it. */
+          var remap = {};
           (data.library || []).forEach(function (ni) {
-            var i = Store.library.map(function (x) { return x.id; }).indexOf(ni.id);
-            if (i < 0) Store.library.push(ni); else Store.library[i] = ni;
+            var byId = Store.library.map(function (x) { return x.id; }).indexOf(ni.id);
+            if (byId >= 0) { Store.library[byId] = ni; return; }
+            var key = (ni.name || "").trim().toLowerCase();
+            var twin = key && Store.library.filter(function (x) {
+              return (x.name || "").trim().toLowerCase() === key;
+            })[0];
+            if (twin) remap[ni.id] = twin.id; else Store.library.push(ni);
+          });
+          data.boards.forEach(function (nb) {
+            Object.keys(nb.views || {}).forEach(function (k) {
+              (nb.views[k].rows || []).forEach(function (r) {
+                if (r.libId && remap[r.libId]) r.libId = remap[r.libId];
+              });
+            });
           });
           migrateAll();
           Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
@@ -2333,6 +2468,23 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       b.legend = b.legend || {};
       b.legend.show = $("legendShow").checked;
       commit(); renderSlide();
+    });
+
+    $("mPrune").addEventListener("click", function () {
+      $("menu").hidden = true;
+      var used = {};
+      Store.boards.forEach(function (b) {
+        Object.keys(b.views).forEach(function (k) {
+          (b.views[k].rows || []).forEach(function (r) { if (r.libId) used[r.libId] = true; });
+        });
+      });
+      var gone = Store.library.filter(function (x) { return !used[x.id]; }).length;
+      if (!gone) { toast("Every library entry is in use"); return; }
+      if (!confirm("Remove " + gone + " library entries that no roadmap uses?")) return;
+      Store.library = Store.library.filter(function (x) { return used[x.id]; });
+      Store.saveLibrary();
+      renderAll();
+      toast(gone + " entries removed");
     });
 
     $("mLegend").addEventListener("click", function () {

@@ -219,15 +219,22 @@ const png = await p.evaluate(async () => {
     const c=await html2canvas(slide,{scale:1,backgroundColor:'#fff',width:1600,height:900,windowWidth:1600,windowHeight:900,logging:false});
     const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
     let ink=0,n=0; for(let i=0;i<d.length;i+=4*97){n++;if(d[i]<245||d[i+1]<245||d[i+2]<245)ink++;}
-    const grips=slide.querySelectorAll('.grip,.msdel');
+    const grips=slide.querySelectorAll('.grip,.msdel,.rowtools,.brow--add,.libdel');
+    const probe=document.createElement('span');
+    probe.className='is-blank';
+    slide.querySelector('.pill').appendChild(probe);
+    const phContent=getComputedStyle(probe,'::before').content;
+    probe.remove();
     out={w:c.width,h:c.height,ink:+(ink/n*100).toFixed(1),
-         gripsHidden:[...grips].every(g=>getComputedStyle(g).display==='none')};
+         gripsHidden:[...grips].every(g=>getComputedStyle(g).display==='none'),
+         placeholderHidden: phContent === 'none' || phContent === '""'};
   }catch(e){out={error:String(e)}}
   inner.appendChild(slide); slide.classList.remove('is-export'); slide.classList.add('is-live'); hold.remove();
   return out;
 });
 check('export: PNG renders at full size', png.w === 1600 && png.h === 900 && png.ink > 15, JSON.stringify(png));
 check('export: editing handles excluded from PNG', png.gripsHidden === true);
+check('export: the "+ Initiative" row and name placeholder stay out', png.placeholderHidden === true);
 
 const pdf = await p.evaluate(async () => {
   try {
@@ -455,6 +462,125 @@ await p.click('.stab[data-panel="init"]'); await p.waitForTimeout(200);
 
 check('theme: editor accent is #2151FF',
   (await Q(`getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim().toLowerCase()`)) === '#2151ff');
+
+// ---------- 11d. TYPING ON THE SLIDE ----------
+await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
+await p.reload(); await p.waitForTimeout(900);
+
+const names = () => Q(`[...document.querySelectorAll('.brow--data .pill span')].map(s=>s.textContent)`);
+
+check('slide: row names are editable in place',
+  (await Q(`!!document.querySelector('.brow--data .pill span[contenteditable="true"]')`)));
+await p.click('.brow--data[data-row="1"] .pill span');
+await p.keyboard.press('Control+a');
+await p.keyboard.type('Renamed straight on the slide');
+await p.waitForTimeout(500);
+check('slide: typing on the pill renames the row',
+  (await names())[1] === 'Renamed straight on the slide');
+check('slide: and it reaches the model',
+  (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.rows[1].name`)) === 'Renamed straight on the slide');
+check('slide: the caret stays in the pill while typing',
+  (await Q(`document.activeElement && document.activeElement.dataset && document.activeElement.dataset.namerow === '1'`)));
+check('slide: the library entry follows the new wording',
+  (await Q(`[...document.querySelectorAll('.lib-item .nm')].some(n=>n.textContent==='Renamed straight on the slide')`)));
+
+const nBefore = (await names()).length;
+await p.keyboard.press('Enter'); await p.waitForTimeout(500);
+check('slide: Enter opens the next initiative below',
+  (await names()).length === nBefore + 1 && (await names())[2] === '');
+check('slide: the new row is focused and ready to type',
+  (await Q(`document.activeElement && document.activeElement.dataset && document.activeElement.dataset.namerow === '2'`)));
+await p.keyboard.type('Typed without touching the panel'); await p.waitForTimeout(500);
+check('slide: it takes the typing', (await names())[2] === 'Typed without touching the panel');
+
+await p.click('#rowAdd'); await p.waitForTimeout(500);
+check('slide: + Initiative appends another row', (await names()).length === nBefore + 2);
+await p.keyboard.type('Appended from the ghost row'); await p.waitForTimeout(450);
+check('slide: the appended row takes the typing',
+  (await names())[nBefore + 1] === 'Appended from the ghost row');
+
+await p.hover('.brow--data[data-row="2"]');
+await p.click('.brow--data[data-row="2"] .rowtools button[data-act="del"]'); await p.waitForTimeout(450);
+check('slide: × deletes that row',
+  (await names()).length === nBefore + 1 && !(await names()).includes('Typed without touching the panel'));
+
+// ---------- 11e. THE LIBRARY CAN BE CLEANED OUT ----------
+const libBefore = await Q(`document.querySelectorAll('.lib-item').length`);
+p.once('dialog', d => d.accept());
+await p.hover('.lib-item:nth-child(1)');
+await p.click('.lib-item:nth-child(1) .libdel'); await p.waitForTimeout(500);
+check('library: × removes a catalogue entry',
+  (await Q(`document.querySelectorAll('.lib-item').length`)) === libBefore - 1);
+check('library: removing it leaves the roadmap rows alone',
+  (await names()).length === nBefore + 1);
+
+const unusedBefore = await Q(`(()=>{const d=JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  const used={}; d.boards.forEach(b=>Object.keys(b.views).forEach(k=>(b.views[k].rows||[]).forEach(r=>{if(r.libId)used[r.libId]=1})));
+  return d.library.filter(x=>!used[x.id]).length;})()`);
+check('library: there are unused entries to prune', unusedBefore > 0, unusedBefore + ' unused');
+p.once('dialog', d => d.accept());
+await p.click('#btnMore'); await p.click('#mPrune'); await p.waitForTimeout(600);
+check('library: prune removes exactly the unused ones',
+  (await Q(`(()=>{const d=JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+    const used={}; d.boards.forEach(b=>Object.keys(b.views).forEach(k=>(b.views[k].rows||[]).forEach(r=>{if(r.libId)used[r.libId]=1})));
+    return d.library.filter(x=>!used[x.id]).length;})()`)) === 0);
+check('library: pruning left the roadmap untouched', (await names()).length === nBefore + 1);
+
+// ---------- 11f. THE GHOST ROW MUST NOT SKEW ROW GEOMETRY ----------
+await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
+await p.reload(); await p.waitForTimeout(900);
+const lastRow = (await Q(`document.querySelectorAll('.brow--data').length`)) - 1;
+await p.evaluate((n) => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1') || 'null');
+  if (d) { d.boards[0].views.product.milestones = [{ id:'g', label:'G', col:3, row:0, endRow:1 }];
+           localStorage.setItem('roadmap-studio-v1', JSON.stringify(d)); }
+}, lastRow);
+await p.click('.cell[data-row="0"][data-col="7"]'); await p.waitForTimeout(600);
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  d.boards[0].views.product.milestones = [{ id:'g', label:'G', col:3, row:0, endRow:1 }];
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(800);
+// drag the bottom grip all the way to the last row
+await p.hover('.ms');
+const grip2 = await p.locator('.ms .grip-bot').boundingBox();
+const lastBox = await p.locator('.brow--data[data-row="' + lastRow + '"]').boundingBox();
+await p.mouse.move(grip2.x + grip2.width/2, grip2.y + grip2.height/2);
+await p.mouse.down();
+await p.mouse.move(grip2.x + grip2.width/2, lastBox.y + lastBox.height/2, { steps: 12 });
+await p.mouse.up(); await p.waitForTimeout(450);
+check('geometry: a milestone grip can reach the last row',
+  (await Q(`(m=>m[0].endRow)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`)) === lastRow,
+  'endRow ' + (await Q(`(m=>m[0].endRow)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`)) + ' of ' + lastRow);
+
+// dropping a go-live must land on the row under the pointer
+await p.evaluate(() => { const d=JSON.parse(localStorage.getItem('roadmap-studio-v1')); d.boards[0].views.product.milestones=[]; localStorage.setItem('roadmap-studio-v1', JSON.stringify(d)); });
+await p.reload(); await p.waitForTimeout(800);
+const target = await p.locator('.brow--data[data-row="' + (lastRow - 1) + '"] .cell[data-col="5"]').boundingBox();
+const glSrc = await p.locator('#glDrag').boundingBox();
+await p.mouse.move(glSrc.x + glSrc.width/2, glSrc.y + glSrc.height/2);
+await p.mouse.down();
+await p.mouse.move(target.x + target.width/2, target.y + target.height/2, { steps: 14 });
+await p.mouse.up(); await p.waitForTimeout(450);
+check('geometry: a dropped go-live lands on the row under the pointer',
+  (await Q(`(m=>m[0].row)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`)) === lastRow - 1,
+  'row ' + (await Q(`(m=>m[0].row)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`)) + ' expected ' + (lastRow - 1));
+
+// ---------- 11g. PRESENTATION IS NOT AN EDITOR ----------
+await p.keyboard.press('p'); await p.waitForTimeout(700);
+check('present: nothing on the slide is contenteditable',
+  (await Q(`document.querySelectorAll('#slide [contenteditable]').length`)) === 0);
+check('present: the + Initiative row is gone',
+  (await Q(`document.querySelectorAll('#slide .brow--add').length`)) === 0);
+const rowsInPresent = await Q(`document.querySelectorAll('#slide .brow--data').length`);
+await p.keyboard.press('Enter'); await p.waitForTimeout(400);
+check('present: Enter does not insert a row into the deck',
+  (await Q(`document.querySelectorAll('#slide .brow--data').length`)) === rowsInPresent);
+await p.keyboard.press('Escape'); await p.waitForTimeout(700);
+check('present: editing comes back on exit',
+  (await Q(`document.querySelectorAll('#slide [contenteditable]').length`)) > 0 &&
+  (await Q(`document.querySelectorAll('#slide .brow--add').length`)) === 1);
 
 // ---------- 11c. IMPORT MERGES, IT DOES NOT WIPE ----------
 const fixture = path.join(ROOT, 'test', '.import-fixture.json');
