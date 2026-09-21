@@ -15,10 +15,20 @@ is the discovery phase, and *conception* is their delivery. So the design view
 carries Discovery in the same green as the product view and Experience
 Conception in amber — and no Delivery, which belongs to the product view only.
 
-Both views share the same sprints and the same initiative library, but keep
-their own rows, ordering, labels, category bars and milestones: the design view
-can show a subset of the initiatives and merge two rows into one, giving it a
-label that applies only there.
+### The two roadmaps are independent
+
+They share the sprint header and one initiative library, and nothing else. Each
+view keeps its own rows, ordering, labels, category bars and milestones, so the
+design roadmap is free to carry requests the product roadmap has never heard of
+— a design system audit, an illustration refresh — and to leave out product work
+the design team is not involved in.
+
+In the library each row shows where it already appears: **P** for the product
+roadmap, **D** for the design one, both, or neither. The dropdown above the list
+narrows it to what is on the open view, or to what is missing from it, and
+*New initiative* adds to whichever view you have open. Renaming an initiative
+renames it everywhere, because it is one library; use the per-view label when
+one roadmap needs to word a row differently.
 
 ## Using it
 
@@ -116,6 +126,10 @@ landscape PDF for the people who were not in the room; then duplicate into the
 next quarter (keeps rows and sprints, clears phases), rename, delete, and export
 or import everything as JSON.
 
+Import **merges** rather than replaces: a quarter whose id is already there is
+overwritten, new ones are added, and anything the file does not mention is left
+alone. So a file can restore one quarter without touching the rest.
+
 ## Brand
 
 The slide's colours are fixed and do not follow the light/dark theme, because
@@ -193,8 +207,10 @@ data, which stays in the browser of whoever entered it.
   user across devices. Read-only viewers can browse and export but not edit.
 
 The tool opens on an example quarter, so the first session starts from a working
-board rather than an empty grid. To load your own roadmap use `•••` →
-`Import JSON`: it replaces the example and is saved in your browser.
+board rather than an empty grid — with a design view deliberately unlike the
+product one, to show the two are not tied together. To load your own roadmap use
+`•••` → `Import JSON`, then delete the example from `•••` when you no longer
+need it.
 
 ## Known limits
 

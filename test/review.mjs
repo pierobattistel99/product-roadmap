@@ -38,7 +38,7 @@ const Q = (s) => p.evaluate(s);
 
 // ---------- 1. boot ----------
 check('boot: slide rendered', (await Q(`document.querySelectorAll('.brow--data').length`)) === 9);
-check('boot: library loaded', (await Q(`document.getElementById('libCount').textContent`)) === '10 initiatives');
+check('boot: library loaded', (await Q(`document.getElementById('libCount').textContent`)) === '12 initiatives');
 check('boot: undo starts disabled', await Q(`document.getElementById('btnUndo').disabled`));
 
 // ---------- 2. ERASER (the reported bug) ----------
@@ -330,6 +330,29 @@ check('description: saved on the initiative',
 await p.fill('#libSearch', 'finance'); await p.waitForTimeout(300);
 check('area: library search matches it', (await Q(`document.querySelectorAll('.lib-item').length`)) === 2,
   'Plans and billing + One-step checkout');
+await p.fill('#libSearch', ''); await p.waitForTimeout(250);
+
+// ---------- the two roadmaps are independent ----------
+check('views: the library marks where each initiative is used',
+  (await Q(`[...document.querySelectorAll('.lib-item')].some(li=>li.querySelector('.u-p')) && [...document.querySelectorAll('.lib-item')].some(li=>li.querySelector('.u-d'))`)));
+check('views: a design-only request carries D and not P',
+  (await Q(`(li=>!!li && !li.querySelector('.u-p') && !!li.querySelector('.u-d'))([...document.querySelectorAll('.lib-item')].find(l=>l.querySelector('.nm').textContent==='Design system audit'))`)));
+const prodRows = await Q(`[...document.querySelectorAll('.brow--data .pill span')].map(s=>s.textContent)`);
+check('views: the design-only request is not on the product roadmap', !prodRows.includes('Design system audit'));
+await p.click('.vtab[data-view="design"]'); await p.waitForTimeout(400);
+const desRows = await Q(`[...document.querySelectorAll('.brow--data .pill span')].map(s=>s.textContent)`);
+check('views: design carries rows product does not', desRows.includes('Design system audit') && desRows.includes('Illustration set refresh'));
+check('views: and omits rows product has', !desRows.includes('Data export') && prodRows.includes('Data export'));
+await p.fill('#newName', 'Brand guidelines page'); await p.click('#btnAddInit'); await p.waitForTimeout(500);
+check('views: a new request lands only on the open view',
+  (await Q(`[...document.querySelectorAll('.brow--data .pill span')].map(s=>s.textContent)`)).includes('Brand guidelines page'));
+await p.selectOption('#libFilter', 'on'); await p.waitForTimeout(300);
+const onlyHere = await Q(`document.querySelectorAll('.lib-item').length`);
+check('views: the filter narrows the library to this view', onlyHere === desRows.length + 1, onlyHere + ' items');
+await p.selectOption('#libFilter', 'all'); await p.waitForTimeout(250);
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(400);
+check('views: the new design request stayed out of product',
+  !(await Q(`[...document.querySelectorAll('.brow--data .pill span')].map(s=>s.textContent)`)).includes('Brand guidelines page'));
 await p.fill('#libSearch', ''); await p.waitForTimeout(300);
 
 await p.hover('.label[data-labelrow="0"]'); await p.waitForTimeout(400);
@@ -412,6 +435,40 @@ await p.click('.stab[data-panel="init"]'); await p.waitForTimeout(200);
 
 check('theme: editor accent is #2151FF',
   (await Q(`getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim().toLowerCase()`)) === '#2151ff');
+
+// ---------- 11c. IMPORT MERGES, IT DOES NOT WIPE ----------
+const fixture = path.join(ROOT, 'test', '.import-fixture.json');
+fs.writeFileSync(fixture, JSON.stringify({
+  version: 1,
+  boards: [{
+    id: 'b-imported', name: 'Q1 imported', createdAt: Date.now() + 1000, updatedAt: Date.now(),
+    note: { show: false, text: 'To validate' }, legend: { show: true },
+    sprints: [{ id: 's1', name: 'Sprint 1', quarter: 'Q1', dates: '01/01 – 14/01' },
+              { id: 's2', name: 'Sprint 2', quarter: 'Q1', dates: '15/01 – 28/01' }],
+    views: {
+      product: { title: 'Quarter roadmap snapshot (Q1)', milestones: [],
+                 rows: [{ iid: 'imp-1', accent: 'teal', box: false, label: '',
+                          cells: { '0': ['discovery'], '1': ['delivery', null] } }] },
+      design: { title: 'Quarter design roadmap snapshot (Q1)', milestones: [], rows: [] }
+    }
+  }],
+  library: [{ id: 'imp-1', name: 'Imported initiative', url: '', desc: '', area: 'Finance' }]
+}));
+const quartersBefore = await Q(`document.getElementById('boardSel').options.length`);
+await p.click('#btnMore');
+const [chooser] = await Promise.all([ p.waitForEvent('filechooser'), p.click('#mImport') ]);
+await chooser.setFiles(fixture);
+await p.waitForTimeout(900);
+check('import: adds the quarter it carries',
+  (await Q(`[...document.getElementById('boardSel').options].some(o=>o.text==='Q1 imported')`)));
+check('import: keeps the quarters already there',
+  (await Q(`document.getElementById('boardSel').options.length`)) === quartersBefore + 1,
+  quartersBefore + ' -> ' + (await Q(`document.getElementById('boardSel').options.length`)));
+check('import: half-sprint cells survive the round trip',
+  (await Q(`(c=>c.querySelectorAll('.chip').length+'/'+c.querySelectorAll('.chip--ph').length)(document.querySelector('.cell[data-row="0"][data-col="1"]'))`)) === '1/1');
+check('import: its library entry is merged in',
+  (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.some(i=>i.id==='imp-1')`)));
+fs.unlinkSync(fixture);
 
 // ---------- 12. RESPONSIVE ----------
 await p.setViewportSize({ width: 620, height: 900 }); await p.waitForTimeout(600);

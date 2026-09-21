@@ -178,7 +178,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 /* library list */
 .lib{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}
 .lib-item{
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;
   padding:6px 7px;border-radius:9px;border:1px solid transparent;cursor:pointer;
 }
 .lib-item:hover{background:var(--ui-sunk)}
@@ -186,6 +186,18 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .lib-item .nm{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .lib-item .nm.is-off{color:var(--ui-faint);font-weight:500}
 .lib-item .lk{font-size:10px;color:var(--ui-faint);font-family:"DM Mono",monospace}
+/* Which roadmap an initiative already sits on. The two views are independent,
+   so this is the only place that relationship is visible at a glance. */
+.uses{display:inline-flex;gap:3px}
+.uses i{
+  font-style:normal;font-size:9.5px;font-weight:800;line-height:15px;
+  width:16px;text-align:center;border-radius:4px;
+}
+.u-p{background:color-mix(in srgb,var(--ui-accent) 18%,transparent);color:var(--ui-accent)}
+.u-d{
+  background:color-mix(in srgb,var(--pn-orange) 22%,transparent);
+  color:color-mix(in srgb,var(--pn-orange) 65%,var(--ui-text));
+}
 .lib-empty{font-size:12.5px;color:var(--ui-faint);padding:10px 2px;margin:0}
 
 .swatches{display:flex;gap:6px}
@@ -611,8 +623,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         <div class="field">
           <label for="libSearch">Library · <span id="libCount"></span></label>
           <input type="text" id="libSearch" placeholder="Search name or area…">
+          <select id="libFilter">
+            <option value="all">Show every initiative</option>
+            <option value="on">Only what is on this view</option>
+            <option value="off">Only what is missing here</option>
+          </select>
         </div>
-        <p class="help">The checkbox says whether the initiative is on the view you have open. Click a name to edit it.</p>
+        <p class="help">The two roadmaps are independent. <b>P</b> and <b>D</b> show where an
+        initiative already appears; tick the box to put it on the view you have open, and use
+        <em>New initiative</em> for a request that belongs to one roadmap only.</p>
         <ul class="lib" id="libList"></ul>
 
         <div id="inspector" hidden>
@@ -847,7 +866,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     { id: "i-exp",    name: "Data export",               url: "", area: "Legal",
       desc: "Portability export covering every record we hold on a customer." },
     { id: "i-bill",   name: "Plans and billing",         url: "", area: "Finance",
-      desc: "Plan changes, proration and invoices handled in product." }
+      desc: "Plan changes, proration and invoices handled in product." },
+    { id: "i-ds",     name: "Design system audit",       url: "", area: "Design",
+      desc: "Inventory the component library and retire the duplicates. Design roadmap only." },
+    { id: "i-illu",   name: "Illustration set refresh",  url: "", area: "Design",
+      desc: "New illustrations for the empty states. Design roadmap only." }
   ];
 
   function sp(n, q, d) { return { id: uid("s"), name: "Sprint " + n, quarter: q, dates: d }; }
@@ -882,12 +905,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           title: "Quarter design roadmap snapshot (Q4)",
           milestones: [],
           rows: [
-            { iid: "i-onb",    accent: "teal", box: false, label: "", cells: cells([0, "discovery"], [1, "conception"]) },
-            { iid: "i-push",   accent: "teal", box: false, label: "", cells: cells([1, "discovery"], [2, "conception"]) },
-            { iid: "i-check",  accent: "teal", box: false, label: "", cells: cells([2, "discovery"], [3, "conception"]) },
+            { iid: "i-ds",     accent: "teal", box: false, label: "", cells: cells([0, "discovery"], [1, "conception"]) },
+            { iid: "i-onb",    accent: "teal", box: false, label: "", cells: cells([1, "discovery"], [2, "conception"]) },
             { iid: "i-search", accent: "lime", box: false, label: "", cells: cells([2, "discovery"], [3, "conception"]) },
-            { iid: "i-mob",    accent: "none", box: false, label: "Mobile app & Referral programme", cells: cells([3, "discovery"], [4, "conception"]) },
-            { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([4, "discovery"], [5, "conception"]) }
+            { iid: "i-illu",   accent: "teal", box: false, label: "", cells: cells([3, "discovery"], [4, "conception"]) },
+            { iid: "i-mob",    accent: "none", box: false, label: "Mobile app & Referral programme", cells: cells([4, "discovery"], [5, "conception"]) },
+            { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([5, "discovery"], [6, "conception"]) }
           ]
         }
       }
@@ -1073,7 +1096,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
   function view() { return board().views[state.view]; }
   function initiative(iid) {
-    return Store.library.filter(function (x) { return x.id === iid; })[0] || { id: iid, name: "(senza nome)", url: "" };
+    return Store.library.filter(function (x) { return x.id === iid; })[0] || { id: iid, name: "(unnamed)", url: "" };
   }
   function rowLabel(row) { return row.label || initiative(row.iid).name; }
   function curRow() { return state.sel ? view().rows[state.sel.row] || null : null; }
@@ -1389,11 +1412,26 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function renderLibrary() {
     var q = ($("libSearch").value || "").toLowerCase().trim();
-    var v = view();
+    var mode = $("libFilter").value;
+    var b = board(), v = view();
+
+    /* Usage is read per view, because the two roadmaps share only the library:
+       an initiative can sit on one, both, or neither. */
+    var usedBy = {};
+    ["product", "design"].forEach(function (k) {
+      (b.views[k] ? b.views[k].rows : []).forEach(function (r) {
+        usedBy[r.iid] = usedBy[r.iid] || {};
+        usedBy[r.iid][k] = true;
+      });
+    });
     var inView = {};
     v.rows.forEach(function (r, i) { inView[r.iid] = i; });
+
     var items = Store.library.filter(function (it) {
-      return !q || (it.name + " " + (it.area || "")).toLowerCase().indexOf(q) >= 0;
+      if (q && (it.name + " " + (it.area || "")).toLowerCase().indexOf(q) < 0) return false;
+      if (mode === "on") return inView[it.id] !== undefined;
+      if (mode === "off") return inView[it.id] === undefined;
+      return true;
     });
     $("libCount").textContent = Store.library.length + " initiatives";
 
@@ -1403,11 +1441,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     }
     $("libList").innerHTML = items.map(function (it) {
       var on = inView[it.id] !== undefined;
+      var u = usedBy[it.id] || {};
       var selected = state.sel && v.rows[state.sel.row] && v.rows[state.sel.row].iid === it.id;
       return '<li class="lib-item' + (selected ? " is-sel" : "") + '" data-iid="' + esc(it.id) + '"' +
         (it.desc ? ' title="' + esc(it.desc) + '"' : "") + ">" +
         '<input type="checkbox" class="libchk"' + (on ? " checked" : "") + ' aria-label="On this view" style="accent-color:var(--ui-accent);width:15px;height:15px;margin:0">' +
         '<span class="nm' + (on ? "" : " is-off") + '">' + esc(it.name) + "</span>" +
+        '<span class="uses">' +
+          (u.product ? '<i class="u u-p" title="On the product roadmap">P</i>' : "") +
+          (u.design ? '<i class="u u-d" title="On the design roadmap">D</i>' : "") +
+        "</span>" +
         '<span class="lk">' + esc(it.area || (it.url ? "link" : "")) + "</span></li>";
     }).join("");
   }
@@ -1924,6 +1967,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
 
     $("libSearch").addEventListener("input", renderLibrary);
+    $("libFilter").addEventListener("change", renderLibrary);
 
     $("libList").addEventListener("click", function (e) {
       var li = e.target.closest(".lib-item");
@@ -2201,19 +2245,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         f.text().then(function (txt) {
           var data = JSON.parse(txt);
           if (!data.boards || !data.boards.length) throw new Error("no boards");
-          /* An import replaces the workspace, so drop quarters it doesn't carry
-             instead of leaving them stranded in shared storage. */
-          var keep = {};
-          data.boards.forEach(function (b) { keep[b.id] = true; });
-          Store.boards.filter(function (b) { return !keep[b.id]; })
-            .forEach(function (b) { Store.removeBoard(b.id); });
-          Store.boards = data.boards;
-          Store.library = data.library || Store.library;
-          state.boardId = Store.boards[0].id; state.sel = null;
-          Store.boards.forEach(function (b) { Store.saveBoard(b, true); });
+          /* Merge by id rather than replace: an import restores or adds quarters
+             without quietly deleting whatever else the workspace holds. */
+          var added = 0, updated = 0;
+          data.boards.forEach(function (nb) {
+            var i = Store.boards.map(function (x) { return x.id; }).indexOf(nb.id);
+            if (i < 0) { Store.boards.push(nb); added++; } else { Store.boards[i] = nb; updated++; }
+          });
+          (data.library || []).forEach(function (ni) {
+            var i = Store.library.map(function (x) { return x.id; }).indexOf(ni.id);
+            if (i < 0) Store.library.push(ni); else Store.library[i] = ni;
+          });
+          Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+          state.boardId = data.boards[0].id; state.sel = null;
+          data.boards.forEach(function (b) { Store.saveBoard(b, true); });
           Store.saveLibrary(true);
+          History.reset();
           renderAll();
-          toast("Imported " + Store.boards.length + " quarters");
+          toast(added + " quarter(s) added, " + updated + " updated");
         }).catch(function () {
           toast("That file is not valid");
         }).then(function () { input.remove(); });
