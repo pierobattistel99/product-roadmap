@@ -488,6 +488,13 @@ check('import: half-sprint cells survive the round trip',
   (await Q(`(c=>c.querySelectorAll('.chip').length+'/'+c.querySelectorAll('.chip--ph').length)(document.querySelector('.cell[data-row="0"][data-col="1"]'))`)) === '1/1');
 check('import: its library entry is merged in',
   (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.some(i=>i.id==='imp-1')`)));
+// an imported quarter must still be the one open after a reload
+await p.reload(); await p.waitForTimeout(900);
+check('import: the imported quarter is still open after a reload',
+  (await Q(`document.getElementById('boardSel').selectedOptions[0].text`)) === 'Q1 imported',
+  'reopened on ' + (await Q(`document.getElementById('boardSel').selectedOptions[0].text`)));
+check('import: and its rows are intact',
+  (await Q(`document.querySelector('.brow--data .pill span').textContent`)) === 'Imported initiative');
 fs.unlinkSync(fixture);
 
 // ---------- 12. RESPONSIVE ----------

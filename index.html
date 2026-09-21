@@ -1122,6 +1122,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function migrateAll() { Store.boards.forEach(migrateBoard); }
   function curRow() { return state.sel ? view().rows[state.sel.row] || null : null; }
 
+  /* Changing quarter must also be remembered, or the next load reopens whatever
+     was last picked from the dropdown — which is how an imported roadmap
+     silently gave way to the example board on the following visit. */
+  function setBoard(id) {
+    state.boardId = id;
+    try { localStorage.setItem(LS_KEY + ":last", id); } catch (e) {}
+  }
+
   var toastTimer;
   function toast(msg) {
     var el = $("toast");
@@ -1178,7 +1186,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var b = JSON.parse(json);
       var i = Store.boards.map(function (x) { return x.id; }).indexOf(b.id);
       if (i < 0) Store.boards.push(b); else Store.boards[i] = b;
-      state.boardId = b.id; state.sel = null;
+      setBoard(b.id); state.sel = null;
       Store.saveBoard(b, true);
       renderAll();
       History.ui();
@@ -1641,9 +1649,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var i = ids.indexOf(state.boardId) + delta;
     if (i < 0 || i >= ids.length) return;
     var prevId = state.boardId;
-    state.boardId = ids[i];
+    setBoard(ids[i]);
     var deck = buildDeck();
-    if (!deck.length) { state.boardId = prevId; toast("That quarter has no initiatives"); return; }
+    if (!deck.length) { setBoard(prevId); toast("That quarter has no initiatives"); return; }
     present.deck = deck;
     present.idx = Math.min(present.idx, deck.length - 1);
     History.reset();
@@ -2165,9 +2173,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   /* ---- top bar wiring ---- */
   function wireTopbar() {
     $("boardSel").addEventListener("change", function () {
-      state.boardId = $("boardSel").value;
+      setBoard($("boardSel").value);
       state.sel = null;
-      try { localStorage.setItem(LS_KEY + ":last", state.boardId); } catch (e) {}
       History.reset();
       renderAll();
     });
@@ -2194,7 +2201,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         }
       };
       Store.boards.unshift(b);
-      state.boardId = b.id; state.sel = null;
+      setBoard(b.id); state.sel = null;
       Store.saveBoard(b, true);
       renderAll();
     });
@@ -2222,7 +2229,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       });
       copy.sprints.forEach(function (s) { s.id = uid("s"); s.dates = "—"; });
       Store.boards.unshift(copy);
-      state.boardId = copy.id; state.sel = null;
+      setBoard(copy.id); state.sel = null;
       Store.saveBoard(copy, true);
       $("menu").hidden = true;
       renderAll();
@@ -2241,7 +2248,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var b = board();
       if (!confirm("Delete “" + b.name + "”?")) return;
       Store.removeBoard(b.id);
-      state.boardId = Store.boards[0].id; state.sel = null;
+      setBoard(Store.boards[0].id); state.sel = null;
       $("menu").hidden = true;
       renderAll();
     });
@@ -2278,7 +2285,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           });
           migrateAll();
           Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
-          state.boardId = data.boards[0].id; state.sel = null;
+          setBoard(data.boards[0].id); state.sel = null;
           data.boards.forEach(function (b) { Store.saveBoard(b, true); });
           Store.saveLibrary(true);
           History.reset();
@@ -2585,7 +2592,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   Store.initLocal();
   boot();
   Store.initRemote(function () {
-    if (!Store.boards.some(function (b) { return b.id === state.boardId; })) state.boardId = Store.boards[0].id;
+    if (!Store.boards.some(function (b) { return b.id === state.boardId; })) setBoard(Store.boards[0].id);
     state.sel = null;
     renderAll();
     History.reset();
