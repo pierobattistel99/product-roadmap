@@ -239,7 +239,10 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   --rail-w:10px;--rail-gap:22px;
   --label-w:480px;--label-gap:18px;
   --col-gap:10px;--cols:8;--row-h:54px;
-  --track-left:calc(var(--pad-l) + var(--rail-w) + var(--rail-gap) + var(--label-w) + var(--label-gap));
+  /* Offset of the sprint track from .board-body, which already begins at the
+     slide's left padding — do NOT add --pad-l here or every milestone line
+     is drawn one padding too far right. */
+  --track-left:calc(var(--rail-w) + var(--rail-gap) + var(--label-w) + var(--label-gap));
   position:relative;width:var(--slide-w);height:var(--slide-h);
   transform-origin:top left;background:var(--pn-paper);color:var(--pn-ink);
   font-family:"Figtree",ui-sans-serif,system-ui,sans-serif;
@@ -329,7 +332,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .ms-layer{position:absolute;top:0;bottom:0;left:var(--track-left);right:0;pointer-events:none}
 .ms{position:absolute;width:2px;background:var(--pn-teal)}
 .ms .cap{
-  position:absolute;bottom:calc(100% + 6px);left:9px;width:300px;
+  position:absolute;bottom:calc(100% + 6px);left:9px;width:max-content;max-width:320px;
   font-size:15px;font-weight:600;line-height:1.28;color:var(--pn-teal);
 }
 /* Milestones are edited where they live: the caption types in place, the line
@@ -1168,6 +1171,31 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     return Math.max(34, Math.min(84, Math.round(575 / n)));
   }
 
+  /* Sprint track geometry in screen pixels, derived from the live layout so it
+     stays correct at any zoom. A column plus its gap is one "unit". */
+  function trackMetrics() {
+    var slide = $("slide");
+    var layer = slide.querySelector(".ms-layer");
+    if (!layer || !layer.offsetWidth) return null;
+    var lay = layer.getBoundingClientRect();
+    var k = lay.width / layer.offsetWidth;
+    var gap = (parseFloat(getComputedStyle(slide).getPropertyValue("--col-gap")) || 10) * k;
+    var cols = board().sprints.length || 1;
+    return { lay: lay, gap: gap, cols: cols, unit: (lay.width + gap) / cols };
+  }
+
+  /* A go-live lands on a real date, which is rarely a sprint boundary — so the
+     line snaps to quarters of a sprint, not just to the edges. */
+  var MS_STEP = 0.25;
+
+  function colFromX(clientX) {
+    var m = trackMetrics();
+    if (!m) return 0;
+    var raw = (clientX - m.lay.left + m.gap / 2) / m.unit;
+    var c = Math.round(raw / MS_STEP) * MS_STEP;
+    return Math.max(0, Math.min(m.cols, Math.round(c * 100) / 100));
+  }
+
   /* Milestone geometry, shared by the initial render and by dragging, so a
      dragged line lands exactly where a re-render would put it. */
   function msStyle(m, rowCount, rh) {
@@ -1414,10 +1442,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       $("msList").innerHTML = '<p class="lib-empty">No milestone on this view.</p>';
       return;
     }
+    var OFFSETS = [[0, "at the start"], [0.25, "a quarter in"], [0.5, "in the middle"],
+                   [0.75, "three quarters in"], [1, "at the end"]];
+
     $("msList").innerHTML = v.milestones.map(function (m, i) {
+      var last = b.sprints.length - 1;
+      var si = Math.max(0, Math.min(last, Math.floor(m.col)));
+      var off = Math.round((m.col - si) * 100) / 100;
+      if (m.col >= b.sprints.length) { si = last; off = 1; }
+      var offOpts = OFFSETS.map(function (o) {
+        return '<option value="' + o[0] + '"' + (Math.abs(off - o[0]) < 0.01 ? " selected" : "") + ">" + o[1] + "</option>";
+      }).join("");
       return '<div class="ms-card" data-ms="' + i + '">' +
         '<textarea rows="2" data-key="label" aria-label="Milestone caption">' + esc(m.label) + "</textarea>" +
-        '<div class="field"><label>Before sprint</label><select data-key="col">' + opts(b.sprints.length, m.col, sprintLabels) + "</select></div>" +
+        '<div class="field"><label>Sprint</label><select data-key="sprintIdx">' + opts(b.sprints.length, si, sprintLabels) + "</select></div>" +
+        '<div class="field"><label>Position in that sprint</label><select data-key="offset">' + offOpts + "</select></div>" +
         '<div class="grid2">' +
         '<div class="field"><label>From row</label><select data-key="row">' + opts(v.rows.length, m.row, rowLabels) + "</select></div>" +
         '<div class="field"><label>To row</label><select data-key="endRow">' + opts(v.rows.length, m.endRow, rowLabels) + "</select></div>" +
@@ -1621,11 +1660,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var lay = layer.getBoundingClientRect(), rr = rowsEl.getBoundingClientRect();
     if (e.clientX < lay.left - 40 || e.clientX > lay.right + 40) return null;
     if (e.clientY < rr.top - 60 || e.clientY > rr.bottom + 60) return null;
-    var cols = board().sprints.length, n = view().rows.length;
+    var n = view().rows.length;
     if (!n) return null;
-    var col = Math.max(0, Math.min(cols - 1, Math.round((e.clientX - lay.left) / lay.width * cols)));
     var row = Math.max(0, Math.min(n - 1, Math.floor((e.clientY - rr.top) / (rr.height / n))));
-    return { col: col, row: row };
+    return { col: colFromX(e.clientX), row: row };
   }
 
   function startGlDrag(e) {
@@ -1676,10 +1714,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (!layer || !rowsEl) return;
     var v = view(), n = v.rows.length;
     if (msDrag.kind === "move") {
-      var lay = layer.getBoundingClientRect();
-      var cols = board().sprints.length;
-      var col = Math.round((e.clientX - lay.left) / lay.width * cols);
-      m.col = Math.max(0, Math.min(cols - 1, col));
+      m.col = colFromX(e.clientX);
     } else {
       var rr = rowsEl.getBoundingClientRect();
       var idx = Math.floor((e.clientY - rr.top) / (rr.height / n));
@@ -1989,7 +2024,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (!card) return;
       var m = view().milestones[+card.dataset.ms];
       var key = e.target.dataset.key;
-      m[key] = key === "label" ? e.target.value : +e.target.value;
+      if (key === "label") {
+        m.label = e.target.value;
+      } else if (key === "sprintIdx" || key === "offset") {
+        var si = +card.querySelector('[data-key="sprintIdx"]').value;
+        var off = +card.querySelector('[data-key="offset"]').value;
+        m.col = Math.min(board().sprints.length, si + off);
+      } else {
+        m[key] = +e.target.value;
+      }
       if (m.endRow < m.row) m.endRow = m.row;
       commit(); renderSlide();
     });

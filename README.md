@@ -66,9 +66,15 @@ its own date, independent of any initiative's delivery.
 - Drag **⇥ Go-live** from the toolbar onto the grid to drop one where you want
   it; click it without dragging to add one at a default spot.
 - Type on the caption to rename it.
-- Drag the body of the line to move it between sprints.
+- Drag the body of the line to move it along the timeline.
 - Drag the two dots at the ends to stretch it across rows.
 - `×` deletes it.
+
+A go-live lands on a real date, which is rarely a sprint boundary, so the line
+snaps to **quarters of a sprint**: start, a quarter in, middle, three quarters
+in, end. That is 33 positions across eight sprints rather than 8. The
+Milestones panel sets the same thing with two dropdowns — which sprint, and
+where inside it — for anyone who would rather not drag.
 
 ### The sticky note
 

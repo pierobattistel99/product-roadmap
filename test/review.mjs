@@ -333,6 +333,62 @@ check('go-live: it lands on the sprint you dropped it over',
   (await Q(`(m=>m[m.length-1].col)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`)) === 6);
 
 // accent colour
+// the line used to be drawn one slide-padding to the right of the grid
+const msAlign = await Q(`(()=>{
+  const lay=document.querySelector('.ms-layer').getBoundingClientRect();
+  const c0=document.querySelector('.brow--data[data-row="0"] .cell[data-col="0"]').getBoundingClientRect();
+  const cl=document.querySelector('.brow--data[data-row="0"] .cell:last-child').getBoundingClientRect();
+  return {l:+(lay.left-c0.left).toFixed(1), r:+(lay.right-cl.right).toFixed(1)};
+})()`);
+check('go-live: the milestone layer lines up with the sprint grid',
+  Math.abs(msAlign.l) < 0.6 && Math.abs(msAlign.r) < 0.6, JSON.stringify(msAlign));
+
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  d.boards[0].views.product.milestones = [{ id:'t', label:'T', col:3, row:0, endRow:2 }];
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(700);
+const onBoundary = await Q(`(()=>{
+  const line=document.querySelector('.ms').getBoundingClientRect();
+  const a=document.querySelector('.brow--data[data-row="0"] .cell[data-col="2"]').getBoundingClientRect();
+  const b=document.querySelector('.brow--data[data-row="0"] .cell[data-col="3"]').getBoundingClientRect();
+  return +(line.left-(a.right+b.left)/2).toFixed(1);
+})()`);
+check('go-live: a whole number sits exactly on the sprint boundary', Math.abs(onBoundary) < 0.6, 'delta ' + onBoundary);
+
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  d.boards[0].views.product.milestones = [{ id:'t', label:'T', col:3.5, row:0, endRow:2 }];
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(700);
+const midSprint = await Q(`(()=>{
+  const line=document.querySelector('.ms').getBoundingClientRect();
+  const c=document.querySelector('.brow--data[data-row="0"] .cell[data-col="3"]').getBoundingClientRect();
+  return +(line.left-(c.left+c.right)/2).toFixed(1);
+})()`);
+check('go-live: a half lands in the middle of that sprint', Math.abs(midSprint) < 0.6, 'delta ' + midSprint);
+
+// dropping inside a sprint must produce a fractional position
+const cellBox = await p.locator('.cell[data-row="3"][data-col="5"]').boundingBox();
+const glBox = await p.locator('#glDrag').boundingBox();
+await p.evaluate(() => { const d=JSON.parse(localStorage.getItem('roadmap-studio-v1')); d.boards[0].views.product.milestones=[]; localStorage.setItem('roadmap-studio-v1', JSON.stringify(d)); });
+await p.reload(); await p.waitForTimeout(600);
+await p.mouse.move(glBox.x + glBox.width/2, glBox.y + glBox.height/2);
+await p.mouse.down();
+await p.mouse.move(cellBox.x + cellBox.width/2, cellBox.y + cellBox.height/2, { steps: 12 });
+await p.mouse.up(); await p.waitForTimeout(400);
+const droppedCol = await Q(`(m=>m.length?m[0].col:null)(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`);
+check('go-live: dropping mid-sprint gives a mid-sprint position', droppedCol === 5.5, 'col ' + droppedCol);
+
+await p.click('.stab[data-panel="ms"]'); await p.waitForTimeout(300);
+check('go-live: the panel offers sprint plus position',
+  (await Q(`!!document.querySelector('#msList [data-key="sprintIdx"]') && !!document.querySelector('#msList [data-key="offset"]')`)));
+check('go-live: the panel shows the mid-sprint position',
+  (await Q(`document.querySelector('#msList [data-key="offset"]').value`)) === '0.5');
+await p.click('.stab[data-panel="init"]'); await p.waitForTimeout(200);
+
 check('theme: editor accent is #2151FF',
   (await Q(`getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim().toLowerCase()`)) === '#2151ff');
 
