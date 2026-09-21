@@ -8,7 +8,12 @@ instead of redrawing them by hand:
 - **Product view** — `Quarter roadmap snapshot (Qx)`, for the CPO, heads of
   business unit and stakeholders. Phases: Discovery → Specs → Delivery.
 - **Design view** — `Quarter design roadmap snapshot (Qx)`, for the design
-  team. Phases: Experience Conception → Delivery.
+  team. Phases: Discovery → Experience Conception.
+
+The design team reads those two words its own way: *experience/experimentation*
+is the discovery phase, and *conception* is their delivery. So the design view
+carries Discovery in the same green as the product view and Experience
+Conception in amber — and no Delivery, which belongs to the product view only.
 
 Both views share the same sprints and the same initiative library, but keep
 their own rows, ordering, labels, category bars and milestones: the design view
@@ -194,7 +199,8 @@ board rather than an empty grid. To load your own roadmap use `•••` →
 ## Known limits
 
 - A sprint holds at most two phases side by side.
-- The phase set is fixed per view (three for Product, two for Design).
+- The phase set is fixed per view: Discovery, Specs and Delivery for Product;
+  Discovery and Experience Conception for Design.
 - The presentation deck is the quarter you have open; `↑` `↓` reach the others.
 - PNG and PDF export use `html2canvas` and `jsPDF` from a CDN: with no network,
   those two buttons do not work.

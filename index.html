@@ -791,14 +791,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
      ======================================================== */
 
   var PHASES = {
-    discovery:  { label: "Discovery",             short: "D", views: ["product"] },
+    discovery:  { label: "Discovery",             short: "D", views: ["product", "design"] },
     specs:      { label: "Specs",                 short: "S", views: ["product"] },
-    delivery:   { label: "Delivery",              short: "Dl", views: ["product", "design"] },
+    delivery:   { label: "Delivery",              short: "Dl", views: ["product"] },
     conception: { label: "Experience Conception", short: "EC", views: ["design"] }
   };
   var VIEWS = {
     product: { name: "Product", brushes: ["discovery", "specs", "delivery"], sequence: ["discovery", "specs", "delivery"] },
-    design:  { name: "Design",  brushes: ["conception", "delivery"],         sequence: ["conception", "delivery"] }
+    design:  { name: "Design",  brushes: ["discovery", "conception"],       sequence: ["discovery", "conception"] }
   };
   /* What the category rail down the left of the slide means. */
   var ACCENT_META = {
@@ -882,12 +882,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           title: "Quarter design roadmap snapshot (Q4)",
           milestones: [],
           rows: [
-            { iid: "i-onb",    accent: "teal", box: false, label: "", cells: cells([0, "conception"], [1, "delivery"]) },
-            { iid: "i-push",   accent: "teal", box: false, label: "", cells: cells([1, "conception"], [2, "delivery"]) },
-            { iid: "i-check",  accent: "teal", box: false, label: "", cells: cells([2, "conception"], [3, "delivery"]) },
-            { iid: "i-search", accent: "lime", box: false, label: "", cells: cells([2, "conception"], [3, "delivery"]) },
-            { iid: "i-mob",    accent: "none", box: false, label: "Mobile app & Referral programme", cells: cells([3, "conception"], [4, "delivery"]) },
-            { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([4, "conception"], [5, "delivery"]) }
+            { iid: "i-onb",    accent: "teal", box: false, label: "", cells: cells([0, "discovery"], [1, "conception"]) },
+            { iid: "i-push",   accent: "teal", box: false, label: "", cells: cells([1, "discovery"], [2, "conception"]) },
+            { iid: "i-check",  accent: "teal", box: false, label: "", cells: cells([2, "discovery"], [3, "conception"]) },
+            { iid: "i-search", accent: "lime", box: false, label: "", cells: cells([2, "discovery"], [3, "conception"]) },
+            { iid: "i-mob",    accent: "none", box: false, label: "Mobile app & Referral programme", cells: cells([3, "discovery"], [4, "conception"]) },
+            { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([4, "discovery"], [5, "conception"]) }
           ]
         }
       }

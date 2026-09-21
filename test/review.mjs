@@ -185,6 +185,27 @@ check('help: ? opens the shortcut sheet', !(await Q(`document.getElementById('sh
 await p.keyboard.press('Escape'); await p.waitForTimeout(250);
 check('help: Esc closes it', await Q(`document.getElementById('sheet').hidden`));
 
+// ---------- 7b. DESIGN VIEW PHASES ----------
+await p.click('.vtab[data-view="design"]'); await p.waitForTimeout(400);
+const designBrushes = await Q(`[...document.querySelectorAll('#brushes .brush')].map(b=>b.dataset.brush+':'+b.textContent.replace(/[0-9]$/,'').trim())`);
+check('design: offers Discovery and Experience Conception only',
+  designBrushes.length === 3 &&
+  designBrushes[0].startsWith('discovery:') &&
+  designBrushes[1].startsWith('conception:') &&
+  designBrushes[2].startsWith(':'),
+  JSON.stringify(designBrushes));
+check('design: Delivery is no longer a design phase',
+  !designBrushes.some(b => b.startsWith('delivery:')));
+const swatches = await Q(`[...document.querySelectorAll('#brushes .brush .swatch')].slice(0,2).map(s=>getComputedStyle(s).backgroundColor)`);
+check('design: Discovery is green and Experience Conception amber',
+  swatches[0] === 'rgb(23, 195, 162)' && swatches[1] === 'rgb(244, 163, 42)', JSON.stringify(swatches));
+await p.click('.cell[data-row="0"][data-col="3"]', { modifiers: ['Shift'] }); await p.waitForTimeout(300);
+check('design: the sequence runs Discovery then Experience Conception',
+  (await Q(`[...document.querySelectorAll('.brow--data[data-row="0"] .cell[data-col="3"] .chip, .brow--data[data-row="0"] .cell[data-col="4"] .chip')].map(c=>c.className.replace('chip chip--','')).join('>')`)) === 'discovery>conception');
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(300);
+check('product: still has all three phases',
+  (await Q(`document.querySelectorAll('#brushes .brush').length`)) === 4);
+
 // ---------- 8. EXPORTS ----------
 const png = await p.evaluate(async () => {
   const slide=document.getElementById('slide'), inner=document.getElementById('canvasInner');
