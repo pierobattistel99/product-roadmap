@@ -23,12 +23,20 @@ design roadmap is free to carry requests the product roadmap has never heard of
 — a design system audit, an illustration refresh — and to leave out product work
 the design team is not involved in.
 
-In the library each row shows where it already appears: **P** for the product
-roadmap, **D** for the design one, both, or neither. The dropdown above the list
-narrows it to what is on the open view, or to what is missing from it, and
-*New initiative* adds to whichever view you have open. Renaming an initiative
-renames it everywhere, because it is one library; use the per-view label when
-one roadmap needs to word a row differently.
+**A row owns its own data.** Name, link, description and area live on the row,
+not in a shared record, so renaming a row on the design roadmap never touches
+the product one — the two can word the same piece of work differently, or carry
+work the other has never heard of.
+
+The library is a **catalogue to pick from**, not the source of truth. Ticking an
+entry copies its fields onto the roadmap you have open; from that moment the row
+is independent. **P** and **D** show where an entry has already been used, the
+dropdown narrows the list to what is on the open view or missing from it, and
+*New initiative* adds a catalogue entry plus a row on the open view.
+*Remove from library* drops the catalogue entry and leaves every roadmap alone.
+
+Boards saved before this are migrated on load: each row keeps the name it was
+showing, taking the per-view label where one was set.
 
 ## Using it
 
@@ -107,9 +115,9 @@ opens while you talk.
 ### Side panel
 
 - **Initiatives** — the persistent library. The checkbox says whether an
-  initiative is on the view you have open; the detail holds name, short
-  description, area, **documentation link**, an alternative label for that view
-  only, the category bar and the highlight box.
+  initiative is on the view you have open; the detail edits the selected row —
+  name, short description, area, **documentation link**, the category bar and the
+  highlight box — and those edits stay on that roadmap.
 - **Sprints** — generates the headers from a start date, a length and a number
   of sprints; numbering and quarters advance on their own. Phases already
   painted stay where they are.

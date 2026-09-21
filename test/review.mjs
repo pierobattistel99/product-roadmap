@@ -318,21 +318,41 @@ check('reorder: ▼ puts it back',
   (await Q(`document.querySelector('.brow--data .pill span').textContent`)) === firstBefore);
 
 // description + area
+const rowOf = (view, name) => Q(`(()=>{const d=JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  return (d.boards[0].views['${view}'].rows.find(r=>r.name===${JSON.stringify(name)})||null);})()`);
+
 await p.click('.lib-item:nth-child(3) .nm'); await p.waitForTimeout(250);
-await p.fill('#iArea', 'Finance'); await p.waitForTimeout(400);
-check('area: saved on the initiative',
-  (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.find(i=>i.name==='One-step checkout').area`)) === 'Finance');
-check('area: shown next to that initiative in the library',
-  (await Q(`[...document.querySelectorAll('.lib-item')].some(li=>li.querySelector('.nm').textContent==='One-step checkout' && li.querySelector('.lk').textContent==='Finance')`)));
-await p.fill('#iDesc', 'Collapse purchase into one reviewable step.'); await p.waitForTimeout(400);
-check('description: saved on the initiative',
-  (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.find(i=>i.name==='One-step checkout').desc`)) === 'Collapse purchase into one reviewable step.');
+await p.fill('#iArea', 'Finance'); await p.waitForTimeout(450);
+check('area: saved on the row',
+  ((await rowOf('product', 'One-step checkout')) || {}).area === 'Finance');
+await p.fill('#iDesc', 'Collapse purchase into one reviewable step.'); await p.waitForTimeout(450);
+check('description: saved on the row',
+  ((await rowOf('product', 'One-step checkout')) || {}).desc === 'Collapse purchase into one reviewable step.');
+const catEntry = await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.find(i=>i.name==='One-step checkout')`);
+check('catalogue: editing a row leaves the library entry unchanged',
+  catEntry && catEntry.area === 'Business', 'catalogue area is ' + (catEntry && catEntry.area));
 await p.fill('#libSearch', 'finance'); await p.waitForTimeout(300);
-check('area: library search matches it', (await Q(`document.querySelectorAll('.lib-item').length`)) === 2,
-  'Plans and billing + One-step checkout');
+check('area: library search still searches the catalogue',
+  (await Q(`document.querySelectorAll('.lib-item').length`)) === 1, 'Plans and billing');
+
+// the decisive one: a row that sits on BOTH roadmaps renames on one only
+await p.fill('#libSearch', ''); await p.waitForTimeout(250);
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(350);
+const sharedIdx = await Q(`[...document.querySelectorAll('.brow--data .pill span')].findIndex(s=>s.textContent==='Onboarding self-service')`);
+check('rename: the row is on the product roadmap to begin with', sharedIdx >= 0);
+await p.click('.label[data-labelrow="' + sharedIdx + '"]'); await p.waitForTimeout(250);
+await p.fill('#iName', 'Onboarding — product wording'); await p.waitForTimeout(500);
+check('rename: the product row takes the new name',
+  (await Q(`[...document.querySelectorAll('.brow--data .pill span')].some(s=>s.textContent==='Onboarding — product wording')`)));
+await p.click('.vtab[data-view="design"]'); await p.waitForTimeout(400);
+check('rename: the design roadmap keeps its own wording',
+  (await Q(`[...document.querySelectorAll('.brow--data .pill span')].some(s=>s.textContent==='Onboarding self-service')`)) &&
+  !(await Q(`[...document.querySelectorAll('.brow--data .pill span')].some(s=>s.textContent==='Onboarding — product wording')`)));
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(350);
 await p.fill('#libSearch', ''); await p.waitForTimeout(250);
 
 // ---------- the two roadmaps are independent ----------
+await p.fill('#libSearch', ''); await p.waitForTimeout(200);
 check('views: the library marks where each initiative is used',
   (await Q(`[...document.querySelectorAll('.lib-item')].some(li=>li.querySelector('.u-p')) && [...document.querySelectorAll('.lib-item')].some(li=>li.querySelector('.u-d'))`)));
 check('views: a design-only request carries D and not P',

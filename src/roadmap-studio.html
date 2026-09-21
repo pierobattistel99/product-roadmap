@@ -614,9 +614,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
             <option value="off">Only what is missing here</option>
           </select>
         </div>
-        <p class="help">The two roadmaps are independent. <b>P</b> and <b>D</b> show where an
-        initiative already appears; tick the box to put it on the view you have open, and use
-        <em>New initiative</em> for a request that belongs to one roadmap only.</p>
+        <p class="help">A catalogue to pick from. Ticking copies an entry onto the roadmap you
+        have open; from then on that row is its own — renaming it here never touches the other
+        roadmap. <b>P</b> and <b>D</b> show where an entry has already been used.</p>
         <ul class="lib" id="libList"></ul>
 
         <div id="inspector" hidden>
@@ -624,7 +624,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           <p class="eyebrow">Row detail</p>
           <div class="panel">
             <div class="field">
-              <label for="iName">Name</label>
+              <label for="iName">Name <span style="font-weight:500">— on this roadmap only</span></label>
               <input type="text" id="iName">
             </div>
             <div class="field">
@@ -648,10 +648,6 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
               <input type="url" id="iUrl" placeholder="https://…">
             </div>
             <div class="field">
-              <label for="iLabel">Label on this view only</label>
-              <input type="text" id="iLabel" placeholder="Leave empty to use the name">
-            </div>
-            <div class="field">
               <label>Category bar</label>
               <div class="swatches">
                 <button class="sw sw-teal" data-accent="teal" aria-label="Other initiatives" title="Other initiatives" aria-pressed="false"></button>
@@ -667,8 +663,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
               <button class="btn btn-sm" id="btnClearRow">Clear phases</button>
             </div>
             <div class="rowline">
-              <button class="btn btn-sm btn-danger" id="btnRemoveRow">Remove from view</button>
-              <button class="btn btn-sm btn-danger" id="btnDeleteInit">Delete from library</button>
+              <button class="btn btn-sm btn-danger" id="btnRemoveRow">Remove this row</button>
+              <button class="btn btn-sm btn-danger" id="btnDeleteInit">Remove from library</button>
             </div>
           </div>
         </div>
@@ -943,6 +939,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         Store.boards = starterBoards();
         Store.library = clone(LIB);
       }
+      migrateAll();
     },
 
     /* Asynchronous: upgrade to shared storage if this view can run it. */
@@ -997,7 +994,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           if (body.writer === CLIENT) return;
           if (Store._dirty[body.board.id]) return;
           var i = Store.boards.map(function (b) { return b.id; }).indexOf(body.board.id);
-          if (i < 0) Store.boards.push(body.board); else Store.boards[i] = body.board;
+          if (i < 0) Store.boards.push(migrateBoard(body.board)); else Store.boards[i] = migrateBoard(body.board);
           changed = true;
         });
         if (!Store.boards.length) return;
@@ -1080,10 +1077,34 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     return b || Store.boards[0];
   }
   function view() { return board().views[state.view]; }
-  function initiative(iid) {
-    return Store.library.filter(function (x) { return x.id === iid; })[0] || { id: iid, name: "(unnamed)", url: "" };
+  function libEntry(id) {
+    return Store.library.filter(function (x) { return x.id === id; })[0] || null;
   }
-  function rowLabel(row) { return row.label || initiative(row.iid).name; }
+  function rowLabel(row) { return row.name || "(unnamed)"; }
+
+  /* Each row carries its own name, link, description and area. The library is a
+     catalogue you pick from: a row remembers where it came from (libId) so the
+     P/D badges and the tick boxes still work, but renaming a row on one roadmap
+     never touches the other. Rows written before this migrate on load. */
+  function migrateRow(r) {
+    if (r.name !== undefined) return r;
+    var src = (r.iid && libEntry(r.iid)) || {};
+    r.libId = r.iid || null;
+    r.name = r.label || src.name || "(unnamed)";
+    r.url = src.url || "";
+    r.desc = src.desc || "";
+    r.area = src.area || "";
+    delete r.iid; delete r.label;
+    return r;
+  }
+  function migrateBoard(b) {
+    if (!b || !b.views) return b;
+    Object.keys(b.views).forEach(function (k) {
+      (b.views[k].rows || []).forEach(migrateRow);
+    });
+    return b;
+  }
+  function migrateAll() { Store.boards.forEach(migrateBoard); }
   function curRow() { return state.sel ? view().rows[state.sel.row] || null : null; }
 
   var toastTimer;
@@ -1286,7 +1307,6 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* rows */
     html += '<div class="board-body"><div class="brows">';
     v.rows.forEach(function (row, ri) {
-      var ini = initiative(row.iid);
       var prev = v.rows[ri - 1], next = v.rows[ri + 1];
       var first = !prev || prev.accent !== row.accent;
       var last = !next || next.accent !== row.accent;
@@ -1297,8 +1317,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       html += '<div class="rowtools"><button data-act="up" title="Move up" aria-label="Move up">▲</button><button data-act="down" title="Move down" aria-label="Move down">▼</button></div>';
       html += '<div class="rail rail--' + row.accent + (first ? " is-first" : "") + (last ? " is-last" : "") + '"></div>';
       html += '<div class="label' + (row.box ? " is-boxed" : "") + '" data-labelrow="' + ri + '">' +
-        '<div class="pill' + (ini.url ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + '"><span>' + esc(label) + "</span></div>" +
-        (ini.url ? '<button class="linkjump" data-open="' + ri + '" title="Open the documentation" aria-label="Open the documentation">↗</button>' : "") +
+        '<div class="pill' + (row.url ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + '"><span>' + esc(label) + "</span></div>" +
+        (row.url ? '<button class="linkjump" data-open="' + ri + '" title="Open the documentation" aria-label="Open the documentation">↗</button>' : "") +
         "</div>";
       html += '<div class="track">';
       for (var c = 0; c < cols; c++) {
@@ -1405,12 +1425,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var usedBy = {};
     ["product", "design"].forEach(function (k) {
       (b.views[k] ? b.views[k].rows : []).forEach(function (r) {
-        usedBy[r.iid] = usedBy[r.iid] || {};
-        usedBy[r.iid][k] = true;
+        if (!r.libId) return;
+        usedBy[r.libId] = usedBy[r.libId] || {};
+        usedBy[r.libId][k] = true;
       });
     });
     var inView = {};
-    v.rows.forEach(function (r, i) { inView[r.iid] = i; });
+    v.rows.forEach(function (r, i) { if (r.libId) inView[r.libId] = i; });
 
     var items = Store.library.filter(function (it) {
       if (q && (it.name + " " + (it.area || "")).toLowerCase().indexOf(q) < 0) return false;
@@ -1427,7 +1448,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("libList").innerHTML = items.map(function (it) {
       var on = inView[it.id] !== undefined;
       var u = usedBy[it.id] || {};
-      var selected = state.sel && v.rows[state.sel.row] && v.rows[state.sel.row].iid === it.id;
+      var selected = state.sel && v.rows[state.sel.row] && v.rows[state.sel.row].libId === it.id;
       return '<li class="lib-item' + (selected ? " is-sel" : "") + '" data-iid="' + esc(it.id) + '"' +
         (it.desc ? ' title="' + esc(it.desc) + '"' : "") + ">" +
         '<input type="checkbox" class="libchk"' + (on ? " checked" : "") + ' aria-label="On this view" style="accent-color:var(--ui-accent);width:15px;height:15px;margin:0">' +
@@ -1445,12 +1466,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var row = state.sel ? v.rows[state.sel.row] : null;
     if (!row) { box.hidden = true; return; }
     box.hidden = false;
-    var ini = initiative(row.iid);
-    $("iName").value = ini.name;
-    $("iDesc").value = ini.desc || "";
-    $("iArea").value = ini.area || "";
-    $("iUrl").value = ini.url || "";
-    $("iLabel").value = row.label || "";
+    $("iName").value = row.name || "";
+    $("iDesc").value = row.desc || "";
+    $("iArea").value = row.area || "";
+    $("iUrl").value = row.url || "";
     $("iBox").checked = !!row.box;
     Array.prototype.forEach.call(box.querySelectorAll(".sw"), function (sw) {
       sw.setAttribute("aria-pressed", String(sw.dataset.accent === row.accent));
@@ -1819,7 +1838,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
       var open = e.target.closest("[data-open]");
       if (open) {
-        var url = initiative(view().rows[+open.dataset.open].iid).url;
+        var url = view().rows[+open.dataset.open].url;
         if (url) window.open(url, "_blank", "noopener");
         e.preventDefault(); return;
       }
@@ -1861,7 +1880,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var lab = e.target.closest("[data-labelrow]");
       if (!lab) return;
       var row = view().rows[+lab.dataset.labelrow];
-      if (row) showTip(lab, initiative(row.iid));
+      if (row) showTip(lab, row);
     });
     slide.addEventListener("pointerout", function (e) {
       if (e.target.closest("[data-labelrow]")) hideTip();
@@ -1912,15 +1931,26 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     commit(); renderSlide(); renderMilestones();
   }
 
-  function addToView(iid) {
+  /* Adding from the catalogue COPIES its fields onto the new row: from then on
+     the row is its own thing and editing it never reaches the other roadmap. */
+  function addToView(it) {
     var v = view();
-    if (v.rows.some(function (r) { return r.iid === iid; })) return;
-    v.rows.push({ iid: iid, accent: "teal", box: false, label: "", cells: {} });
+    if (it.id && v.rows.some(function (r) { return r.libId === it.id; })) return;
+    v.rows.push({
+      libId: it.id || null,
+      name: it.name || "", url: it.url || "", desc: it.desc || "", area: it.area || "",
+      accent: "teal", box: false, cells: {}
+    });
     commit();
   }
-  function removeFromView(iid) {
+  function removeFromView(libId) {
     var v = view();
-    v.rows = v.rows.filter(function (r) { return r.iid !== iid; });
+    v.rows = v.rows.filter(function (r) { return r.libId !== libId; });
+    state.sel = null;
+    commit();
+  }
+  function removeRowAt(i) {
+    view().rows.splice(i, 1);
     state.sel = null;
     commit();
   }
@@ -1941,10 +1971,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("btnAddInit").addEventListener("click", function () {
       var name = $("newName").value.trim();
       if (!name) { $("newName").focus(); return; }
-      var it = { id: uid("i"), name: name, url: $("newUrl").value.trim() };
+      var it = { id: uid("i"), name: name, url: $("newUrl").value.trim(), desc: "", area: "" };
       Store.library.push(it);
       Store.saveLibrary();
-      addToView(it.id);
+      addToView(it);
       $("newName").value = ""; $("newUrl").value = "";
       state.sel = { row: view().rows.length - 1 };
       renderAll();
@@ -1958,40 +1988,37 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var li = e.target.closest(".lib-item");
       if (!li) return;
       var iid = li.dataset.iid;
+      var it = libEntry(iid);
+      if (!it) return;
       if (e.target.classList.contains("libchk")) {
-        if (e.target.checked) addToView(iid); else removeFromView(iid);
+        if (e.target.checked) addToView(it); else removeFromView(iid);
         renderAll();
         return;
       }
-      var idx = view().rows.map(function (r) { return r.iid; }).indexOf(iid);
-      if (idx < 0) { addToView(iid); idx = view().rows.length - 1; }
+      var idx = view().rows.map(function (r) { return r.libId; }).indexOf(iid);
+      if (idx < 0) { addToView(it); idx = view().rows.length - 1; }
       selectRow(idx);
     });
 
     $("iName").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
-      initiative(row.iid).name = $("iName").value;
-      Store.saveLibrary(); renderSlide(); renderLibrary();
+      row.name = $("iName").value;
+      commit(); renderSlide(); renderLibrary();
     });
     $("iUrl").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
-      initiative(row.iid).url = $("iUrl").value.trim();
-      Store.saveLibrary(); renderSlide(); renderLibrary();
+      row.url = $("iUrl").value.trim();
+      commit(); renderSlide(); renderLibrary();
     });
     $("iDesc").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
-      initiative(row.iid).desc = $("iDesc").value;
-      Store.saveLibrary(); renderLibrary();
+      row.desc = $("iDesc").value;
+      commit(); renderLibrary();
     });
     $("iArea").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
-      initiative(row.iid).area = $("iArea").value.trim();
-      Store.saveLibrary(); renderLibrary();
-    });
-    $("iLabel").addEventListener("input", function () {
-      var row = curRow(); if (!row) return;
-      row.label = $("iLabel").value;
-      commit(); renderSlide();
+      row.area = $("iArea").value.trim();
+      commit(); renderLibrary();
     });
     $("iBox").addEventListener("change", function () {
       var row = curRow(); if (!row) return;
@@ -2012,23 +2039,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       row.cells = {}; commit(); renderSlide();
     });
     $("btnRemoveRow").addEventListener("click", function () {
-      var row = curRow(); if (!row) return;
-      removeFromView(row.iid); renderAll();
+      if (!curRow()) return;
+      removeRowAt(state.sel.row); renderAll();
     });
     $("btnDeleteInit").addEventListener("click", function () {
       var row = curRow(); if (!row) return;
-      var iid = row.iid;
-      var ini = initiative(iid);
-      if (!confirm("Delete “" + ini.name + "” from the library and from every quarter?")) return;
-      Store.library = Store.library.filter(function (x) { return x.id !== iid; });
-      Store.boards.forEach(function (b) {
-        Object.keys(b.views).forEach(function (k) {
-          b.views[k].rows = b.views[k].rows.filter(function (r) { return r.iid !== iid; });
-        });
-        Store.saveBoard(b);
-      });
+      var it = row.libId && libEntry(row.libId);
+      if (!it) { toast("This row is not in the library"); return; }
+      if (!confirm("Remove “" + it.name + "” from the library? Rows already on a roadmap stay where they are.")) return;
+      Store.library = Store.library.filter(function (x) { return x.id !== it.id; });
       Store.saveLibrary();
-      state.sel = null;
       renderAll();
     });
 
@@ -2241,6 +2261,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
             var i = Store.library.map(function (x) { return x.id; }).indexOf(ni.id);
             if (i < 0) Store.library.push(ni); else Store.library[i] = ni;
           });
+          migrateAll();
           Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
           state.boardId = data.boards[0].id; state.sel = null;
           data.boards.forEach(function (b) { Store.saveBoard(b, true); });
@@ -2323,7 +2344,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var lab = e.target.closest("[data-labelrow]");
       if (!lab) return;
       var row = view().rows[+lab.dataset.labelrow];
-      var url = row && initiative(row.iid).url;
+      var url = row && row.url;
       if (url) window.open(url, "_blank", "noopener");
     });
 
