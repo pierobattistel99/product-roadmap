@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Costruisce le due slide di roadmap del quarter — vista stakeholder e vista design — dipingendo le fasi sulla griglia degli sprint.">
+<meta name="description" content="Builds the two quarterly roadmap slides, product and design, by painting phases on the sprint grid.">
 <meta name="color-scheme" content="light dark">
 <style>
   :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -34,6 +34,9 @@
   --pn-link:#1155cc;
   --pn-paper:#ffffff;
   --pn-muted:#6b6b72;
+  /* Editor marks drawn ON the slide (selection ring, focus outline). They sit
+     on white paper whatever the theme, so they never follow --ui-accent. */
+  --mark:#2151ff;
 
   --ui-bg:#f4f6fb;
   --ui-panel:#ffffff;
@@ -42,7 +45,7 @@
   --ui-line-soft:#e9edf6;
   --ui-text:#0f1422;
   --ui-muted:#5b6479;
-  --ui-faint:#8a92a6;
+  --ui-faint:#7d869b;
   --ui-accent:#2151ff;
   --ui-accent-ink:#ffffff;
   --ui-shadow:0 1px 2px rgba(17,25,50,.06),0 8px 24px -12px rgba(17,25,50,.20);
@@ -57,8 +60,8 @@
     --ui-line:#252d3d;
     --ui-line-soft:#1c2331;
     --ui-text:#e7eaf3;
-    --ui-muted:#939bb0;
-    --ui-faint:#6d7589;
+    --ui-muted:#a3abbf;
+    --ui-faint:#8b93a7;
     --ui-accent:#7b9bff;
     --ui-accent-ink:#06102b;
     --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
@@ -73,8 +76,8 @@
   --ui-line:#252d3d;
   --ui-line-soft:#1c2331;
   --ui-text:#e7eaf3;
-  --ui-muted:#939bb0;
-  --ui-faint:#6d7589;
+  --ui-muted:#a3abbf;
+  --ui-faint:#8b93a7;
   --ui-accent:#7b9bff;
   --ui-accent-ink:#06102b;
   --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
@@ -175,6 +178,11 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .check{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ui-muted);cursor:pointer}
 .check input{accent-color:var(--ui-accent);width:15px;height:15px;margin:0}
 
+/* the selected row's fields sit at the top of the panel, never below the fold */
+.inspector-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#inspector[hidden]{display:none}
+#inspectorEmpty[hidden]{display:none}
+
 /* library list */
 .lib{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}
 .lib-item{
@@ -186,14 +194,14 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .lib-item .nm{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .lib-item .nm.is-off{color:var(--ui-faint);font-weight:500}
 .lib-item .lk{font-size:10px;color:var(--ui-faint);font-family:"DM Mono",monospace}
-/* Which roadmap an initiative already sits on. The two views are independent,
-   so this is the only place that relationship is visible at a glance. */
 .libdel{
   border:0;background:transparent;color:var(--ui-faint);font-size:14px;line-height:1;
   cursor:pointer;padding:0 2px;visibility:hidden;border-radius:4px;
 }
-.lib-item:hover .libdel{visibility:visible}
+.lib-item:hover .libdel,.libdel:focus-visible{visibility:visible}
 .libdel:hover{color:#fff;background:#c0392b}
+/* Which roadmap an initiative already sits on. The two roadmaps are
+   independent, so this is the only place that relationship shows. */
 .uses{display:inline-flex;gap:3px}
 .uses i{
   font-style:normal;font-size:9.5px;font-weight:800;line-height:15px;
@@ -236,6 +244,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 }
 .brush[aria-pressed="true"]{border-color:var(--ui-text);background:var(--ui-sunk);box-shadow:var(--ui-shadow)}
 .brush[aria-pressed="true"] kbd{color:var(--ui-muted)}
+.rowsel{height:27px;font-size:12px;font-weight:600;border-radius:7px;padding:0 6px}
 
 /* The slide never shrinks below MIN_SCALE: past that the cells stop being
    clickable targets, so the canvas scrolls sideways instead. */
@@ -260,7 +269,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .hint kbd{font-family:"DM Mono",monospace;background:var(--ui-sunk);border:1px solid var(--ui-line);border-radius:4px;padding:1px 5px;font-size:10.5px}
 
 /* ============================================================
-   THE SLIDE — 1600x900 logical px, scaled to fit by JS.
+   THE SLIDE. 1600x900 logical px, scaled to fit by JS.
    Everything inside here is brand-fixed, light-only: it is the
    artwork that lands in the deck.
    ============================================================ */
@@ -271,7 +280,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   --label-w:480px;--label-gap:18px;
   --col-gap:10px;--cols:8;--row-h:54px;
   /* Offset of the sprint track from .board-body, which already begins at the
-     slide's left padding — do NOT add --pad-l here or every milestone line
+     slide's left padding. Do NOT add --pad-l here or every go-live line
      is drawn one padding too far right. */
   --track-left:calc(var(--rail-w) + var(--rail-gap) + var(--label-w) + var(--label-gap));
   position:relative;width:var(--slide-w);height:var(--slide-h);
@@ -292,7 +301,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   color:var(--pn-ink);font-size:17px;font-weight:600;line-height:1.3;
   display:flex;align-items:center;justify-content:center;text-align:center;
 }
-.slide-note:focus{outline:2px dashed rgba(0,0,0,.45);outline-offset:3px}
+.slide-note:focus-within{outline:2px dashed rgba(0,0,0,.45);outline-offset:3px}
 .slide-note[hidden]{display:none}
 
 .slide-board{margin-top:26px;display:flex;flex-direction:column;flex:1;min-height:0}
@@ -317,11 +326,20 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .sprint .nm .q{font-size:11.5px;font-weight:600;color:#3d3d44;flex:none;margin:0}
 .sprint .dt{font-size:12.5px;font-weight:500;color:#63636b;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sprint [contenteditable]:focus{outline:2px dashed rgba(0,0,0,.35);outline-offset:2px;border-radius:3px}
+/* Nine sprints or more: the header stacks and shrinks so every name and
+   date still fits; past nine the chips switch to their short labels too. */
+.slide.is-dense .sprint{padding:9px 6px 8px;gap:1px}
+.slide.is-dense .sprint .nm{font-size:13px;flex-direction:column;align-items:flex-start;gap:0}
+.slide.is-dense .sprint .nm > span:first-child{max-width:100%;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.slide.is-dense .sprint .nm .q{font-size:10px}
+.slide.is-dense .sprint .dt{font-size:11px;white-space:normal;line-height:1.15}
+.slide.is-crowded .chip{font-size:12px;padding:2px 4px}
 
 /* body + rows */
 .board-body{position:relative;flex:1;min-height:0}
 .brows{display:flex;flex-direction:column}
 .brow--data{height:var(--row-h);position:relative}
+.slide.is-live .brow--data:focus-within{z-index:5}
 
 .rail{border-radius:0}
 .rail--teal{background:var(--pn-teal)}
@@ -331,7 +349,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .rail.is-last{margin-bottom:4px;border-bottom-left-radius:3px;border-bottom-right-radius:3px}
 
 .pill{
-  width:100%;background:var(--pn-row);border-radius:7px;padding:8px 18px;
+  position:relative;width:100%;background:var(--pn-row);border-radius:7px;padding:8px 18px;
   font-size:15.5px;font-weight:700;line-height:1.2;color:var(--pn-ink);
   display:flex;align-items:center;
   min-height:clamp(34px,calc(var(--row-h) - 16px),50px);
@@ -341,11 +359,13 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 /* The row name is typed where it is read, like every other bit of slide text. */
 .slide.is-live .pill span{cursor:text;outline:none;min-width:40px}
 .slide.is-live .pill span:focus{
-  outline:2px dashed color-mix(in srgb,var(--ui-accent,#2151ff) 60%,transparent);
+  outline:2px dashed rgba(33,81,255,.6);
   outline-offset:3px;border-radius:4px;-webkit-line-clamp:unset;
 }
-.slide.is-live .pill span.is-blank::before{content:"Name this initiative";color:#a0a0a8;font-weight:600}
-.slide.is-export .pill span.is-blank::before{content:""}
+.slide.is-live .pill span.is-blank::before{content:"Type a name";color:#b0b0b8;font-weight:500}
+.slide.is-export .pill span.is-blank::before,.slide.is-present .pill span.is-blank::before{content:""}
+/* An unnamed row must not print as an empty grey box. */
+.slide.is-export .pill.is-empty,.slide.is-present .pill.is-empty{background:transparent}
 .pill.is-link span{color:var(--pn-link);text-decoration:underline;text-underline-offset:2px}
 .pill.is-long{font-size:13.5px}
 .brow .label{position:relative}
@@ -354,12 +374,13 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 
 .cell{display:flex;gap:4px;align-items:center;min-width:0}
 /* A cell holds one full-width chip, or two half-sprint slots where either
-   half may be empty — that is how a phase occupies half a sprint. */
+   half may be empty. That is how a phase occupies half a sprint. */
 .chip--ph{flex:1;min-width:0;height:1px;background:transparent}
 .chip{
   flex:1;min-width:0;height:clamp(30px,calc(var(--row-h) - 26px),46px);border-radius:9px;color:#fff;
   font-size:14px;font-weight:700;letter-spacing:-.005em;line-height:1.1;
   display:flex;align-items:center;justify-content:center;text-align:center;padding:2px 6px;
+  overflow:hidden;
 }
 .chip--discovery{background:var(--pn-teal)}
 .chip--specs{background:var(--pn-orange)}
@@ -367,15 +388,19 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .chip--conception{background:var(--pn-orange);font-size:11px;line-height:1.12}
 .chip.is-tight{font-size:11px;line-height:1.12}
 
-/* milestones */
+/* go-live lines */
 .ms-layer{position:absolute;top:0;bottom:0;left:var(--track-left);right:0;pointer-events:none}
 .ms{position:absolute;width:2px;background:var(--pn-teal)}
 .ms .cap{
-  position:absolute;bottom:calc(100% + 6px);left:9px;width:max-content;max-width:320px;
+  position:absolute;bottom:calc(100% + 6px);left:4px;width:max-content;max-width:320px;
   font-size:15px;font-weight:600;line-height:1.28;color:var(--pn-teal);
+  background:rgba(255,255,255,.92);padding:0 5px;border-radius:4px;
 }
-/* Milestones are edited where they live: the caption types in place, the line
-   drags between sprints and its ends drag across rows. */
+/* Near the right edge the caption sits on the left of the line, so it
+   never runs off the slide. */
+.ms.is-right .cap{left:auto;right:4px;text-align:right}
+/* Go-live lines are edited where they live: the caption types in place, the
+   line drags between sprints and its ends drag across rows. */
 .slide.is-live .ms{pointer-events:auto}
 .slide.is-live .ms::before{
   content:"";position:absolute;left:-9px;right:-9px;top:0;bottom:0;cursor:ew-resize;
@@ -390,32 +415,32 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .ms .grip-top{top:-6px}
 .ms .grip-bot{bottom:-6px}
 .ms .msdel{
-  position:absolute;left:8px;top:-9px;width:20px;height:20px;border-radius:50%;
+  position:absolute;left:8px;top:-9px;width:22px;height:22px;border-radius:50%;
   border:1.5px solid var(--pn-teal);background:#fff;color:var(--pn-teal);
   font-size:12px;line-height:1;cursor:pointer;display:none;padding:0;
 }
-.slide.is-live .ms:hover .grip,.slide.is-live .ms:hover .msdel{display:block}
+.slide.is-live .ms:hover .grip,.slide.is-live .ms:hover .msdel,.slide.is-live .ms:focus-within .msdel{display:block}
 .slide.is-export .ms::before,.slide.is-export .grip,.slide.is-export .msdel{display:none!important}
 
-/* legend — what the category rails mean, printed on the slide */
+/* legend: what the category rails mean, printed on the slide */
 .legend{
   display:flex;gap:28px;align-items:center;flex-wrap:wrap;
   margin-left:calc(var(--rail-w) + var(--rail-gap));padding-top:14px;
 }
 .legend[hidden]{display:none}
 .legend .lg{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:#3d3d44}
-.legend .sw{width:10px;height:18px;border-radius:2px;flex:none}
-.legend .sw--lime{background:var(--pn-lime)}
-.legend .sw--teal{background:var(--pn-teal)}
+.legend .mark{display:inline-block;width:10px;height:18px;border-radius:2px;flex:none}
+.legend .mark--lime{background:var(--pn-lime)}
+.legend .mark--teal{background:var(--pn-teal)}
 
 /* note (the "to validate" sticky) is off by default and added on demand */
 .slide-note{position:relative}
 .notedel{
-  position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;
+  position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;
   border:1.5px solid #8a8a2a;background:#fff;color:#4a4a12;font-size:12px;line-height:1;
   cursor:pointer;display:none;padding:0;
 }
-.slide.is-live .slide-note:hover .notedel{display:block}
+.slide.is-live .slide-note:hover .notedel,.slide.is-live .slide-note:focus-within .notedel{display:block}
 .slide.is-export .notedel{display:none!important}
 
 /* hover card for an initiative's description and area */
@@ -478,7 +503,7 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 .sheet[hidden]{display:none}
 .sheet-card{
   background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:16px;
-  box-shadow:var(--ui-shadow);padding:20px;max-width:520px;width:100%;
+  box-shadow:var(--ui-shadow);padding:20px;max-width:560px;width:100%;
   max-height:85vh;overflow-y:auto;
 }
 .sheet-card h2{margin:0 0 14px;font-size:17px;letter-spacing:-.02em}
@@ -499,6 +524,7 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 .histgroup button[disabled]{opacity:.3;cursor:default}
 
 /* editor affordances drawn on the slide (never exported) */
+.slide.is-live .sprint [contenteditable]:empty{min-height:1em;min-width:24px}
 .slide.is-live .cell{cursor:crosshair;border-radius:9px;touch-action:manipulation}
 .slide.is-live .cell:empty::after{
   content:"";display:block;flex:1;height:clamp(30px,calc(var(--row-h) - 26px),46px);border-radius:9px;
@@ -506,43 +532,50 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 }
 .slide.is-live .cell:hover:empty::after{border-color:#c9c9d2;background:#fafafb}
 .slide.is-live .cell:hover:not(:empty){box-shadow:0 0 0 2px #c9c9d2}
-.slide.is-live .label{cursor:pointer}
-.slide.is-live .brow--data.is-sel .pill{box-shadow:0 0 0 2px var(--ui-accent,#2151ff)}
+.slide.is-live .label{cursor:text}
+/* Anything you can type on shows a faint frame when the pointer rests on it. */
+.slide.is-live .label:hover .pill{box-shadow:0 0 0 1.5px #c3cdf5}
+.slide.is-live .slide-title:hover,
+.slide.is-live .slide-note span:hover,
+.slide.is-live .sprint [contenteditable]:hover,
+.slide.is-live .ms .cap:hover{outline:1.5px dashed rgba(33,81,255,.4);outline-offset:3px;border-radius:4px}
+.slide.is-live .brow--data.is-sel .pill{box-shadow:0 0 0 3px var(--mark);background:#eef2ff;padding-right:124px}
+/* Row tools sit inside the pill's right end: at once on the selected row, and
+   after a short pause on hover, so a quick click on the end of a pill lands
+   on the name and never on a button that has just appeared. */
 .rowtools{
-  position:absolute;left:calc(var(--pad-l) * -1 + 4px);top:50%;transform:translateY(-50%);
-  display:none;flex-direction:column;gap:1px;z-index:3;
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  display:none;gap:3px;z-index:3;align-items:center;
+  background:rgba(255,255,255,.92);padding:2px;border-radius:8px;
+  opacity:0;visibility:hidden;transition:opacity .1s,visibility 0s;
 }
-/* The reorder buttons sit in the slide margin, OUTSIDE the row's own box, so
-   moving the pointer onto them used to drop :hover and hide them mid-reach.
-   This pad extends the row's hover area across that margin. */
-.slide.is-live .brow--data::before{
-  content:"";position:absolute;left:calc(var(--pad-l) * -1);top:0;bottom:0;
-  width:var(--pad-l);
+.slide.is-live .brow--data:hover .rowtools,.slide.is-live .brow--data.is-sel .rowtools,
+.slide.is-live .rowtools:focus-within{display:flex}
+.slide.is-live .brow--data:hover .rowtools{opacity:1;visibility:visible;transition:opacity .12s .25s,visibility 0s .25s}
+.slide.is-live .brow--data.is-sel .rowtools,.slide.is-live .rowtools:focus-within{opacity:1;visibility:visible;transition:none}
+.rowtools button,.rowtools a{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:24px;border:1px solid #d0d0d8;background:#fff;color:#3a3a42;
+  border-radius:6px;font-size:12px;line-height:1;cursor:pointer;padding:0;text-decoration:none;
 }
-.slide.is-live .brow--data:hover .rowtools{display:flex}
-.rowtools button{
-  width:22px;height:18px;border:1px solid #d7d7de;background:#fff;color:#4a4a52;
-  border-radius:5px;font-size:10px;line-height:1;cursor:pointer;padding:0;
-}
-.rowtools button:hover{background:#eeeef1}
+.rowtools button:hover,.rowtools a:hover{background:#eeeef1}
 .rowtools button.del:hover{background:#c0392b;border-color:#c0392b;color:#fff}
 
 /* a ghost row that adds another initiative without leaving the slide */
-.brow--add{height:30px;align-items:center}
+.brow--add{height:38px;align-items:center}
 .brow--add .addrow{
-  border:1.5px dashed #c9c9d2;background:transparent;color:#75757e;border-radius:7px;
-  font:600 13px "Figtree",sans-serif;padding:4px 14px;cursor:pointer;width:100%;text-align:left;
+  border:1.5px dashed #b9b9c2;background:transparent;color:#5f5f68;border-radius:7px;
+  font:600 15px "Figtree",sans-serif;padding:6px 16px;cursor:pointer;width:100%;text-align:left;
 }
-.brow--add .addrow:hover{border-color:var(--ui-accent,#2151ff);color:var(--ui-accent,#2151ff)}
+.brow--add .addrow:hover{border-color:var(--mark);color:var(--mark)}
 .slide.is-export .brow--add,.slide.is-present .brow--add{display:none}
-.linkjump{
-  position:absolute;right:6px;top:50%;transform:translateY(-50%);
-  width:22px;height:22px;border-radius:6px;border:1px solid #d7d7de;background:#fff;
-  color:#4a4a52;font-size:11px;line-height:1;cursor:pointer;display:none;
+/* what an empty roadmap says, in the editor only */
+.empty-hint{
+  padding:16px 0 0 calc(var(--rail-w) + var(--rail-gap));
+  font-size:18px;font-weight:500;line-height:1.4;color:#8a8a92;max-width:900px;
 }
-.slide.is-live .label:hover .linkjump{display:block}
 
-.slide.is-export .rowtools,.slide.is-export .linkjump{display:none!important}
+.slide.is-export .rowtools{display:none!important}
 .slide.is-export .cell:empty::after{display:none}
 
 /* read-only / narrow notices */
@@ -556,26 +589,31 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 body.is-readonly .sidebar,body.is-readonly .brushbar{display:none}
 body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
-/* toast */
+/* toast, with an optional Undo */
 .toast{
   position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
   z-index:90;background:var(--ui-text);color:var(--ui-bg);padding:9px 15px;border-radius:10px;
   font-size:13px;font-weight:600;box-shadow:var(--ui-shadow);max-width:calc(100vw - 32px);
+  display:flex;align-items:center;gap:14px;
 }
 .toast[hidden]{display:none}
+.toast-act{
+  border:0;background:transparent;color:inherit;font-weight:700;font-size:13px;cursor:pointer;
+  padding:0;text-decoration:underline;text-underline-offset:3px;
+}
 
-/* modal-ish popover for the ⋯ menu */
+/* popover for the ... menu; JS puts it right under the top bar */
 .menu{
-  position:absolute;right:16px;top:calc(52px + env(safe-area-inset-top,0px));z-index:60;
+  position:fixed;right:16px;top:60px;z-index:60;
   background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:12px;
-  box-shadow:var(--ui-shadow);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:216px;
+  box-shadow:var(--ui-shadow);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:236px;
 }
 .menu[hidden]{display:none}
 .menu button{
   text-align:left;border:0;background:transparent;border-radius:8px;padding:8px 10px;
   font-size:13px;font-weight:600;cursor:pointer;color:var(--ui-text);
 }
-.menu button:hover{background:var(--ui-sunk)}
+.menu button:hover,.menu button:focus-visible{background:var(--ui-sunk)}
 .menu button.danger:hover{background:#c0392b;color:#fff}
 .menu hr{border:0;height:1px;background:var(--ui-line-soft);margin:4px 2px}
 
@@ -595,7 +633,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       <button class="btn btn-ghost" id="btnNewBoard" title="New quarter" aria-label="New quarter">+</button>
     </div>
 
-    <div class="viewtabs" role="tablist" aria-label="View">
+    <div class="viewtabs" role="tablist" aria-label="Roadmap">
       <button class="vtab is-on" id="tabProduct" data-view="product" role="tab" aria-selected="true">Product</button>
       <button class="vtab" id="tabDesign" data-view="design" role="tab" aria-selected="false">Design</button>
     </div>
@@ -608,20 +646,20 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     <div class="spacer"></div>
     <div class="sync" id="sync" data-state="idle" aria-live="polite"></div>
     <button class="btn" id="btnPresent" title="Present full screen (P)">▶ Present</button>
-    <button class="btn" id="btnCopy">Copy PNG</button>
-    <button class="btn btn-primary" id="btnPng">Download PNG</button>
+    <button class="btn" id="btnCopy" title="Copy this slide as an image">Copy PNG</button>
+    <button class="btn btn-primary" id="btnPng" title="Download this slide as an image">Download PNG</button>
     <button class="btn btn-ghost" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="More actions">•••</button>
   </header>
 
   <div class="menu" id="menu" hidden role="menu">
-    <button id="mDuplicate" role="menuitem">Duplicate into next quarter</button>
-    <button id="mRename" role="menuitem">Rename quarter</button>
-    <button id="mLegend" role="menuitem">Show legend on the slide</button>
-    <button id="mPrune" role="menuitem">Remove unused library entries</button>
+    <button id="mDuplicate" role="menuitem">Duplicate this quarter</button>
+    <button id="mRename" role="menuitem">Rename this quarter</button>
+    <button id="mLegend" role="menuitem">Show the legend</button>
+    <button id="mPrune" role="menuitem">Remove unused initiatives</button>
     <hr>
-    <button id="mPdf" role="menuitem">Export deck as PDF</button>
-    <button id="mExport" role="menuitem">Export everything (JSON)</button>
-    <button id="mImport" role="menuitem">Import JSON</button>
+    <button id="mPdf" role="menuitem">Save both roadmaps as PDF</button>
+    <button id="mExport" role="menuitem">Back up everything (JSON)</button>
+    <button id="mImport" role="menuitem">Import a backup (JSON)</button>
     <hr>
     <button id="mKeys" role="menuitem">Keyboard shortcuts</button>
     <hr>
@@ -633,47 +671,30 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       <div class="sidetabs" role="tablist" aria-label="Panels">
         <button class="stab is-on" data-panel="init" role="tab" aria-selected="true">Initiatives</button>
         <button class="stab" data-panel="sprint" role="tab" aria-selected="false">Sprints</button>
-        <button class="stab" data-panel="ms" role="tab" aria-selected="false">Milestones</button>
+        <button class="stab" data-panel="ms" role="tab" aria-selected="false">Go-live lines</button>
       </div>
 
       <!-- INITIATIVES -->
       <section class="panel" id="panel-init">
-        <div class="field">
-          <label for="newName">New initiative</label>
-          <input type="text" id="newName" placeholder="e.g. Push notifications">
-          <input type="url" id="newUrl" placeholder="Link to the documentation (optional)">
-          <button class="btn btn-primary btn-sm" id="btnAddInit" style="align-self:flex-start">Add to this view</button>
-        </div>
-        <hr class="divider">
-        <div class="field">
-          <label for="libSearch">Library · <span id="libCount"></span></label>
-          <input type="text" id="libSearch" placeholder="Search name or area…">
-          <select id="libFilter">
-            <option value="all">Show every initiative</option>
-            <option value="on">Only what is on this view</option>
-            <option value="off">Only what is missing here</option>
-          </select>
-        </div>
-        <p class="help">A catalogue to pick from. Ticking copies an entry onto the roadmap you
-        have open; from then on that row is its own — renaming it here never touches the other
-        roadmap. <b>P</b> and <b>D</b> show where an entry has already been used.</p>
-        <ul class="lib" id="libList"></ul>
+        <p class="help" id="inspectorEmpty">Click a row on the slide to edit it here.</p>
 
         <div id="inspector" hidden>
-          <hr class="divider">
-          <p class="eyebrow">Row detail</p>
           <div class="panel">
+            <div class="inspector-head">
+              <p class="eyebrow">Selected row</p>
+              <button class="btn btn-ghost btn-sm" id="btnDeselect" title="Deselect (Esc)">Done</button>
+            </div>
             <div class="field">
-              <label for="iName">Name <span style="font-weight:500">— on this roadmap only</span></label>
+              <label for="iName">Name</label>
               <input type="text" id="iName">
             </div>
             <div class="field">
-              <label for="iDesc">Short description <span style="font-weight:500">— shown on hover</span></label>
-              <textarea id="iDesc" rows="2" placeholder="One line on what this initiative delivers"></textarea>
+              <label for="iDesc">Description (shown on hover)</label>
+              <textarea id="iDesc" rows="2" placeholder="One line on what this initiative does"></textarea>
             </div>
             <div class="field">
               <label for="iArea">Area</label>
-              <input type="text" id="iArea" list="areaList" placeholder="Finance, Operations, Business, Legal…">
+              <input type="text" id="iArea" list="areaList" placeholder="Finance, Operations, Business, Legal">
               <datalist id="areaList">
                 <option value="Business"></option>
                 <option value="Finance"></option>
@@ -684,82 +705,107 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
               </datalist>
             </div>
             <div class="field">
-              <label for="iUrl">Documentation link</label>
-              <input type="url" id="iUrl" placeholder="https://…">
+              <label for="iUrl">Link (documentation, Notion, Figma)</label>
+              <input type="url" id="iUrl" placeholder="https://">
             </div>
             <div class="field">
-              <label>Category bar</label>
+              <label>Colour bar</label>
               <div class="swatches">
-                <button class="sw sw-teal" data-accent="teal" aria-label="Other initiatives" title="Other initiatives" aria-pressed="false"></button>
-                <button class="sw sw-lime" data-accent="lime" aria-label="Legal obligation" title="Legal obligation" aria-pressed="false"></button>
+                <button class="sw sw-teal" data-accent="teal" aria-label="Green: other initiatives" title="Green: other initiatives" aria-pressed="false"></button>
+                <button class="sw sw-lime" data-accent="lime" aria-label="Yellow: legal obligation" title="Yellow: legal obligation" aria-pressed="false"></button>
                 <button class="sw sw-none" data-accent="none" aria-label="No bar" title="No bar" aria-pressed="false"></button>
               </div>
               <p class="help" id="accentHint"></p>
             </div>
-            <label class="check"><input type="checkbox" id="iBox"> Highlight box</label>
+            <label class="check"><input type="checkbox" id="iBox"> Box around the name</label>
             <div class="rowline">
               <button class="btn btn-sm" id="btnUp">↑ Up</button>
               <button class="btn btn-sm" id="btnDown">↓ Down</button>
               <button class="btn btn-sm" id="btnClearRow">Clear phases</button>
-            </div>
-            <div class="rowline">
-              <button class="btn btn-sm btn-danger" id="btnRemoveRow">Remove this row</button>
-              <button class="btn btn-sm btn-danger" id="btnDeleteInit">Remove from library</button>
+              <button class="btn btn-sm btn-danger" id="btnRemoveRow">Delete row</button>
             </div>
           </div>
+          <hr class="divider" style="margin-top:12px">
         </div>
+
+        <div class="field">
+          <label for="newName">Add an initiative</label>
+          <input type="text" id="newName" placeholder="Name, then Enter">
+          <input type="url" id="newUrl" placeholder="Link (optional)">
+          <button class="btn btn-primary btn-sm" id="btnAddInit" style="align-self:flex-start">Add to this roadmap</button>
+        </div>
+        <hr class="divider">
+        <div class="field">
+          <label for="libSearch">Library · <span id="libCount"></span></label>
+          <input type="text" id="libSearch" placeholder="Search by name or area">
+          <select id="libFilter">
+            <option value="all">All initiatives</option>
+            <option value="on">On this roadmap</option>
+            <option value="off">Not on this roadmap</option>
+          </select>
+        </div>
+        <p class="help">Tick an initiative to add it to this roadmap, untick to remove it.
+        <b>P</b> and <b>D</b> show where it is already used. Each roadmap keeps its own names.</p>
+        <ul class="lib" id="libList"></ul>
       </section>
 
       <!-- SPRINTS -->
       <section class="panel" id="panel-sprint" hidden>
-        <p class="eyebrow">Generate the grid</p>
+        <p class="eyebrow">Set up the sprints</p>
         <div class="grid2">
           <div class="field"><label for="genStart">First sprint starts</label><input type="date" id="genStart"></div>
-          <div class="field"><label for="genWeeks">Length (weeks)</label><input type="number" id="genWeeks" min="1" max="8" value="2"></div>
+          <div class="field"><label for="genWeeks">Sprint length (weeks)</label><input type="number" id="genWeeks" min="1" max="8" value="2"></div>
           <div class="field"><label for="genCount">Number of sprints</label><input type="number" id="genCount" min="2" max="12" value="8"></div>
-          <div class="field"><label for="genFrom">Start at sprint no.</label><input type="number" id="genFrom" min="1" max="13" value="7"></div>
+          <div class="field"><label for="genFrom">First sprint number</label><input type="number" id="genFrom" min="1" max="13" value="7"></div>
           <div class="field"><label for="genQ">First quarter</label><select id="genQ"><option>Q1</option><option>Q2</option><option selected>Q3</option><option>Q4</option></select></div>
           <div class="field"><label for="genPerQ">Sprints per quarter</label><input type="number" id="genPerQ" min="2" max="13" value="7"></div>
         </div>
-        <button class="btn btn-primary btn-sm" id="btnGen" style="align-self:flex-start">Generate headers</button>
-        <p class="help">Overwrites every column's name and dates; phases already painted stay where they are.</p>
+        <button class="btn btn-primary btn-sm" id="btnGen" style="align-self:flex-start">Create sprints</button>
+        <p class="help">This replaces every sprint name and date. Painted phases stay where they are.</p>
         <hr class="divider">
-        <p class="eyebrow">Columns</p>
+        <p class="eyebrow">Sprint headers</p>
         <div class="panel" id="sprintList"></div>
         <div class="rowline">
-          <button class="btn btn-sm" id="btnAddSprint">+ Column</button>
-          <button class="btn btn-sm" id="btnDelSprint">− Last column</button>
+          <button class="btn btn-sm" id="btnAddSprint">+ Sprint</button>
+          <button class="btn btn-sm" id="btnDelSprint">− Last sprint</button>
         </div>
         <hr class="divider">
-        <label class="check"><input type="checkbox" id="noteShow"> Show the sticky note</label>
-        <label class="check"><input type="checkbox" id="legendShow"> Show the legend</label>
+        <label class="check"><input type="checkbox" id="noteShow"> Show the note</label>
+        <label class="check"><input type="checkbox" id="legendShow"> Show the legend on the slide</label>
       </section>
 
-      <!-- MILESTONES -->
+      <!-- GO-LIVE LINES -->
       <section class="panel" id="panel-ms" hidden>
-        <p class="help">A milestone is the green vertical line with a caption: a go-live that happens on its own date, independent of any initiative's delivery. Drag <strong>⇥ Go-live</strong> from the toolbar onto the slide, or add one here.</p>
+        <p class="help">A go-live line is the green vertical line with a caption. Drag <strong>⇥ Go-live</strong> from the toolbar onto the slide, or add one here.</p>
         <div class="panel" id="msList"></div>
-        <button class="btn btn-primary btn-sm" id="btnAddMs" style="align-self:flex-start">+ Milestone</button>
+        <button class="btn btn-primary btn-sm" id="btnAddMs" style="align-self:flex-start">+ Go-live line</button>
       </section>
     </aside>
 
     <main class="stage">
       <div class="notice" id="roNotice" hidden>
-        <strong>Read only.</strong> You can browse and export this roadmap, but not change it.
+        <strong>Read only.</strong> You can look at this roadmap and export it, but not change it.
       </div>
+      <div class="notice" id="fitNotice" hidden></div>
 
       <div class="brushbar">
-        <div class="brushes" id="brushes" role="group" aria-label="Phase to apply"></div>
-        <button class="btn btn-sm" id="btnHalf" aria-pressed="false" title="Paint only the half of the sprint you click">½ Half sprint</button>
-        <button class="btn btn-sm glsrc" id="glDrag" title="Drag this onto the slide to drop a go-live line">⇥ Go-live</button>
-        <button class="btn btn-sm" id="btnNote" title="Add the sticky note back to the slide">+ Note</button>
+        <div class="brushes" id="brushes" role="group" aria-label="Phase to paint"></div>
+        <button class="btn btn-sm" id="btnHalf" aria-pressed="false" title="Paint half a sprint (H)">½ Half sprint</button>
+        <button class="btn btn-sm glsrc" id="glDrag" title="Drag onto the slide, or click to add a go-live line">⇥ Go-live</button>
+        <button class="btn btn-sm" id="btnNote" title="Add the note to the slide">+ Note</button>
         <div class="spacer" style="flex:1"></div>
         <div class="zoom" role="group" aria-label="Zoom">
           <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
-          <button class="lvl" id="zoomLvl" title="Back to fitting the window" aria-pressed="true">Fit</button>
+          <button class="lvl" id="zoomLvl" title="Fit the slide to the window" aria-pressed="true">Fit</button>
           <button id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
         </div>
-        <button class="btn btn-sm" id="btnFitRows" title="Row height">Rows: auto</button>
+        <label class="sr-only" for="rowH">Row height</label>
+        <select id="rowH" class="rowsel" title="Row height">
+          <option value="auto">Rows: auto</option>
+          <option value="78">Rows: large</option>
+          <option value="58">Rows: medium</option>
+          <option value="42">Rows: small</option>
+        </select>
       </div>
 
       <div class="canvas-wrap" id="canvasWrap">
@@ -769,13 +815,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       </div>
 
       <p class="hint">
-        <kbd>click</kbd> paints the selected phase · <kbd>drag</kbd> fills several sprints ·
-        <kbd>Shift</kbd>+click lays the whole sequence from that sprint on ·
-        <kbd>Alt</kbd>+click puts a second phase beside it in the same sprint ·
-        <kbd>right-click</kbd> erases · <kbd>1</kbd>–<kbd>4</kbd> pick a phase, <kbd>0</kbd> is the eraser.
-        Title, sticky note, sprint headers and milestone captions are edited by typing on them;
-        the green line drags between sprints and its ends stretch across rows.
-        <kbd>P</kbd> presents full screen, <kbd>Ctrl/Cmd+Z</kbd> undoes, <kbd>?</kbd> lists every shortcut.
+        <kbd>click</kbd> a cell to paint the selected phase · <kbd>drag</kbd> to paint several sprints ·
+        <kbd>right-click</kbd> to erase · click any text on the slide to edit it ·
+        <kbd>?</kbd> shows every shortcut.
       </p>
     </main>
   </div>
@@ -797,19 +839,23 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   <div class="sheet-card">
     <h2 id="sheetTitle">Shortcuts</h2>
     <dl>
-      <dt><kbd>1</kbd>…<kbd>4</kbd></dt><dd>Pick the phase to paint</dd>
+      <dt><kbd>1</kbd>…<kbd>4</kbd></dt><dd>Choose a phase</dd>
       <dt><kbd>0</kbd> / <kbd>E</kbd></dt><dd>Eraser</dd>
-      <dt><kbd>click</kbd> + <kbd>drag</kbd></dt><dd>Paint one cell or a run of them</dd>
-      <dt><kbd>Shift</kbd>+click</dt><dd>Lay the whole sequence from that sprint</dd>
-      <dt><kbd>Alt</kbd>+click</dt><dd>Put a second phase beside it in the same sprint</dd>
-      <dt><kbd>H</kbd></dt><dd>Half-sprint mode: paint only the half you click</dd>
-      <dt>right-click</dt><dd>Erase the cell — drag to erase a run</dd>
-      <dt><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></dt><dd>Undo · with <kbd>Shift</kbd> redo</dd>
-      <dt><kbd>P</kbd></dt><dd>Presentation mode</dd>
-      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Presenting: change slide</dd>
-      <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Presenting: change quarter</dd>
-      <dt><kbd>Esc</kbd></dt><dd>Leave presentation, or clear the selection</dd>
-      <dt><kbd>?</kbd></dt><dd>Open and close this panel</dd>
+      <dt><kbd>click</kbd> + <kbd>drag</kbd></dt><dd>Paint one cell or several</dd>
+      <dt><kbd>Shift</kbd>+click</dt><dd>Paint the whole sequence from that sprint</dd>
+      <dt><kbd>Alt</kbd>+click</dt><dd>Add a second phase in the same sprint</dd>
+      <dt><kbd>H</kbd></dt><dd>Half sprint on or off</dd>
+      <dt>right-click</dt><dd>Erase (drag to erase several)</dd>
+      <dt><kbd>Enter</kbd></dt><dd>Finish the name. On the last row it starts a new row</dd>
+      <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt><dd>Insert a row below</dd>
+      <dt><kbd>Tab</kbd></dt><dd>Next row name</dd>
+      <dt><kbd>Backspace</kbd> / <kbd>Delete</kbd></dt><dd>Delete the selected row, or an empty row</dd>
+      <dt><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></dt><dd>Undo (add <kbd>Shift</kbd> to redo)</dd>
+      <dt><kbd>P</kbd></dt><dd>Present</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>While presenting: previous or next slide</dd>
+      <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>While presenting: previous or next quarter</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Stop presenting, leave a text field, or deselect</dd>
+      <dt><kbd>?</kbd></dt><dd>Show or hide this list</dd>
     </dl>
     <button class="btn btn-primary btn-sm" id="sheetClose">Close</button>
   </div>
@@ -840,12 +886,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     product: { name: "Product", brushes: ["discovery", "specs", "delivery"], sequence: ["discovery", "specs", "delivery"] },
     design:  { name: "Design",  brushes: ["discovery", "conception"],       sequence: ["discovery", "conception"] }
   };
-  /* What the category rail down the left of the slide means. */
+  /* What the colour bar down the left of the slide means. */
   var ACCENT_META = {
-    lime: { label: "Legal obligation", hint: "Yellow: on the roadmap because of a legal obligation." },
-    teal: { label: "Other initiatives", hint: "Green: on the roadmap for every other reason." },
-    none: { label: "No bar", hint: "No bar: the initiative is left out of the legend." }
+    lime: { label: "Legal obligation", hint: "Yellow bar: a legal obligation." },
+    teal: { label: "Other initiatives", hint: "Green bar: any other initiative." },
+    none: { label: "No bar", hint: "No bar: not listed in the legend." }
   };
+  var MAX_SPRINTS = 12, MIN_SPRINTS = 2;
 
   function uid(p) { return (p || "x") + Math.random().toString(36).slice(2, 9); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -854,10 +901,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  /* Only web links open from the slide. */
+  function safeUrl(u) { return /^(https?:|mailto:)/i.test(String(u || "").trim()) ? String(u).trim() : ""; }
+  function quote(s) { return '"' + s + '"'; }
 
   /* Starter content: a worked example quarter, so the tool opens on a real
      board instead of an empty grid. Replace it with your own roadmap via
-     Importa JSON — nothing here is meant to survive first use. */
+     Import a backup; nothing here is meant to survive first use. */
   function cells() {
     var out = {};
     for (var i = 0; i < arguments.length; i++) {
@@ -869,27 +919,27 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   var LIB = [
     { id: "i-onb",    name: "Onboarding self-service",   url: "https://example.com/spec/onboarding", area: "Growth",
-      desc: "Let new customers finish sign-up on their own, without an agent call." },
+      desc: "New customers finish sign-up on their own, without a call." },
     { id: "i-push",   name: "Push notifications",        url: "", area: "Growth",
-      desc: "Transactional and lifecycle pushes on mobile, driven by the same triggers as email." },
+      desc: "Mobile push messages for orders and account events, using the same triggers as email." },
     { id: "i-check",  name: "One-step checkout",         url: "", area: "Business",
-      desc: "Collapse the three-page purchase flow into a single reviewable step." },
+      desc: "Turn the three-page purchase flow into one page." },
     { id: "i-search", name: "Advanced search",           url: "", area: "Legal",
-      desc: "Searchable contract archive required by the new record-keeping rules." },
-    { id: "i-mob",    name: "Mobile app — launch",       url: "", area: "Business",
-      desc: "First public release of the mobile client on both stores." },
+      desc: "A searchable contract archive, required by the new record-keeping rules." },
+    { id: "i-mob",    name: "Mobile app launch",         url: "", area: "Business",
+      desc: "First public release of the mobile app on both stores." },
     { id: "i-ref",    name: "Referral programme",        url: "", area: "Growth",
-      desc: "Reward existing customers for invites that convert." },
+      desc: "Reward customers whose invited friends sign up." },
     { id: "i-rep",    name: "Reporting dashboard",       url: "", area: "Operations",
-      desc: "Self-serve operational reporting so the team stops exporting spreadsheets." },
+      desc: "Reports the operations team can build alone, without exporting spreadsheets." },
     { id: "i-cal",    name: "Calendar integration",      url: "", area: "Operations",
       desc: "Two-way sync of appointments with the customer's own calendar." },
     { id: "i-exp",    name: "Data export",               url: "", area: "Legal",
-      desc: "Portability export covering every record we hold on a customer." },
+      desc: "Export of every record we hold on a customer, as the law requires." },
     { id: "i-bill",   name: "Plans and billing",         url: "", area: "Finance",
-      desc: "Plan changes, proration and invoices handled in product." },
+      desc: "Plan changes and invoices handled inside the product." },
     { id: "i-ds",     name: "Design system audit",       url: "", area: "Design",
-      desc: "Inventory the component library and retire the duplicates. Design roadmap only." },
+      desc: "List every component in the design system and remove the duplicates. Design roadmap only." },
     { id: "i-illu",   name: "Illustration set refresh",  url: "", area: "Design",
       desc: "New illustrations for the empty states. Design roadmap only." }
   ];
@@ -930,7 +980,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
             { iid: "i-onb",    accent: "teal", box: false, label: "", cells: cells([1, "discovery"], [2, "conception"]) },
             { iid: "i-search", accent: "lime", box: false, label: "", cells: cells([2, "discovery"], [3, "conception"]) },
             { iid: "i-illu",   accent: "teal", box: false, label: "", cells: cells([3, "discovery"], [4, "conception"]) },
-            { iid: "i-mob",    accent: "none", box: false, label: "Mobile app & Referral programme", cells: cells([4, "discovery"], [5, "conception"]) },
+            { iid: "i-mob",    accent: "none", box: false, label: "Mobile app and referral programme", cells: cells([4, "discovery"], [5, "conception"]) },
             { iid: "i-rep",    accent: "teal", box: false, label: "", cells: cells([5, "discovery"], [6, "conception"]) }
           ]
         }
@@ -940,7 +990,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   /* ========================================================
-     2. Storage — artifact db when available, localStorage otherwise
+     2. Storage: artifact db when available, localStorage otherwise
      ======================================================== */
 
   var LS_KEY = "roadmap-studio-v1";
@@ -952,6 +1002,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     canWrite: true,
     boards: [],
     library: [],
+    libRev: 0,
     onRemote: null,
     _timers: {},
     _dirty: {},
@@ -965,7 +1016,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     lsWrite: function () {
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({ boards: Store.boards, library: Store.library }));
-      } catch (e) { /* private mode, quota — the session still works */ }
+      } catch (e) { /* private mode, quota: the session still works */ }
     },
 
     /* Synchronous: the page must paint on the first frame, never wait on
@@ -980,9 +1031,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         Store.library = clone(LIB);
       }
       migrateAll();
+      /* Persist what was loaded, so storage and memory agree from the first frame. */
+      Store.lsWrite();
     },
 
-    /* Asynchronous: upgrade to shared storage if this view can run it. */
+    /* Asynchronous: upgrade to shared storage if this page can run it. */
     initRemote: function (onRemote) {
       Store.onRemote = onRemote;
       if (!window.claude || !window.claude.use) return;
@@ -1049,6 +1102,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         var body = snap.data() || {};
         if (!body.items || body.writer === CLIENT || Store._dirty.__lib) return;
         Store.library = body.items;
+        Store.libRev++;
         Store.lsWrite();
         if (Store.onRemote) Store.onRemote();
       }, function () {});
@@ -1086,6 +1140,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     },
 
     saveLibrary: function (now) {
+      Store.libRev++;
       Store.lsWrite();
       if (Store.mode !== "db" || !Store.canWrite) { setSync("idle"); return; }
       Store._dirty.__lib = true;
@@ -1117,10 +1172,19 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     return b || Store.boards[0];
   }
   function view() { return board().views[state.view]; }
+  function roadmapName(k) { return VIEWS[k || state.view].name + " roadmap"; }
   function libEntry(id) {
     return Store.library.filter(function (x) { return x.id === id; })[0] || null;
   }
-  function rowLabel(row) { return row.name || "(unnamed)"; }
+  function findLibByName(name) {
+    var key = String(name || "").trim().toLowerCase();
+    if (!key) return null;
+    return Store.library.filter(function (x) { return String(x.name || "").trim().toLowerCase() === key; })[0] || null;
+  }
+  function rowLabel(row) { return row.name || "(no name)"; }
+  function isBlankRow(row) {
+    return !row.name && !Object.keys(row.cells || {}).length && !row.desc && !row.url && !row.area;
+  }
 
   /* Each row carries its own name, link, description and area. The library is a
      catalogue you pick from: a row remembers where it came from (libId) so the
@@ -1130,7 +1194,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (r.name !== undefined) return r;
     var src = (r.iid && libEntry(r.iid)) || {};
     r.libId = r.iid || null;
-    r.name = r.label || src.name || "(unnamed)";
+    r.name = r.label || src.name || "(no name)";
     r.url = src.url || "";
     r.desc = src.desc || "";
     r.area = src.area || "";
@@ -1142,106 +1206,250 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     Object.keys(b.views).forEach(function (k) {
       (b.views[k].rows || []).forEach(migrateRow);
     });
+    /* An empty row left behind by a closed tab is scratch, not content. */
+    purgeBlankRows(b);
     return b;
   }
   function migrateAll() { Store.boards.forEach(migrateBoard); }
   function curRow() { return state.sel ? view().rows[state.sel.row] || null : null; }
 
   /* Changing quarter must also be remembered, or the next load reopens whatever
-     was last picked from the dropdown — which is how an imported roadmap
+     was last picked from the dropdown, which is how an imported roadmap
      silently gave way to the example board on the following visit. */
   function setBoard(id) {
     state.boardId = id;
     try { localStorage.setItem(LS_KEY + ":last", id); } catch (e) {}
   }
 
+  /* A toast can carry an Undo, so a deleted row is never a dead end. */
   var toastTimer;
-  function toast(msg) {
+  function toast(msg, opts) {
     var el = $("toast");
-    el.textContent = msg; el.hidden = false;
+    el.textContent = "";
+    el.appendChild(document.createTextNode(msg));
+    if (opts && opts.undo) {
+      /* The button undoes the action it names, and only while that action is
+         still the latest step. */
+      var mark = History.baseline;
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "toast-act"; b.textContent = "Undo";
+      b.addEventListener("click", function () {
+        el.hidden = true;
+        if (History.baseline === mark && !History.pendingKind) History.undo();
+        else toast("Something changed since then. Use Ctrl/Cmd+Z to undo step by step.");
+      });
+      el.appendChild(b);
+    }
+    el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 2600);
+    toastTimer = setTimeout(function () { el.hidden = true; }, opts && opts.undo ? 6000 : 2600);
   }
   function setSync(stateName, text) {
     var el = $("sync");
     el.dataset.state = stateName;
-    el.textContent = text || (stateName === "saving" ? "saving…" : (Store.mode === "db" ? "synced" : "saved locally"));
+    el.textContent = text || (stateName === "saving" ? "saving…" : "saved");
   }
-  /* Undo history, per quarter. Edits are coalesced on a short pause so a burst
-     of typing or a painted stroke is one step, not one step per keystroke. */
-  var History = {
-    past: [], future: [], baseline: null, timer: null,
 
-    /* Every save stamps updatedAt, so compare boards without it — otherwise
-       restoring a snapshot looks like a fresh edit and wipes the redo stack. */
+  /* Undo history, per quarter. A step is one action: the typing done in one
+     field, one painted stroke, one structural change. Typing in a field stays
+     one step until the next action of another kind; strokes and structure
+     settle on a short pause. So Ctrl+Z after "type a name, paint a cell"
+     removes only the paint. The snapshot carries the open roadmap and the
+     library too: undo switches back to the roadmap it edits, and a removed
+     library entry comes back. Empty rows are scratch state: they never enter
+     the history, and an undo drops any it would bring back. */
+  var TEXT_KIND = /^text:/;
+  var History = {
+    past: [], future: [], baseline: null, timer: null, pendingKind: null, pendingSnap: null,
+    _libRev: -1, _libJson: "[]",
+
+    /* Every save stamps updatedAt, so compare boards without it. Otherwise
+       restoring a snapshot looks like a fresh edit and wipes the redo stack.
+       The library rarely changes, so its JSON is reused until it does. */
     snap: function () {
-      var b = clone(board());
-      delete b.updatedAt;
-      return JSON.stringify(b);
+      var b = board();
+      if (History._libRev !== Store.libRev) {
+        History._libJson = JSON.stringify(Store.library);
+        History._libRev = Store.libRev;
+      }
+      var bj = JSON.stringify(b, function (k, v) { return (k === "updatedAt" && this === b) ? undefined : v; });
+      return '{"view":' + JSON.stringify(state.view) + ',"board":' + bj + ',"library":' + History._libJson + "}";
     },
     reset: function () {
-      clearTimeout(History.timer);
+      clearTimeout(History.timer); History.timer = null;
       History.past = []; History.future = [];
+      History.pendingKind = null; History.pendingSnap = null;
       History.baseline = History.snap();
       History.ui();
     },
-    record: function () {
-      clearTimeout(History.timer);
-      History.timer = setTimeout(function () {
-        var now = History.snap();
-        if (now === History.baseline) return;
-        History.past.push(History.baseline);
-        if (History.past.length > 60) History.past.shift();
-        History.baseline = now;
-        History.future = [];
-        History.ui();
-      }, 420);
+    push: function (snapshot) {
+      if (snapshot === History.baseline) return;
+      History.past.push(History.baseline);
+      if (History.past.length > 60) History.past.shift();
+      History.baseline = snapshot;
+      History.future = [];
     },
-    /* Flush a pending coalesce window so undo never skips the newest edit. */
-    settle: function () {
-      clearTimeout(History.timer);
+    record: function (kind) {
+      kind = kind || "edit";
       var now = History.snap();
-      if (now !== History.baseline) {
-        History.past.push(History.baseline);
-        History.baseline = now;
-        History.future = [];
+      /* A new kind closes the step in progress at the snapshot taken before
+         this edit, so the two never merge. */
+      if (History.pendingKind && History.pendingKind !== kind && History.pendingSnap) {
+        History.push(History.pendingSnap);
       }
+      History.pendingKind = kind; History.pendingSnap = now;
+      clearTimeout(History.timer); History.timer = null;
+      if (!TEXT_KIND.test(kind)) History.timer = setTimeout(History.settle, 420);
+      History.ui();
     },
-    apply: function (json) {
-      var b = JSON.parse(json);
+    /* Close the step in progress so undo never skips the newest edit. */
+    settle: function () {
+      clearTimeout(History.timer); History.timer = null;
+      History.push(History.snap());
+      History.pendingKind = null; History.pendingSnap = null;
+      History.ui();
+    },
+    /* Fold a bookkeeping change (an empty row added or dropped, a row linked
+       to the library) into the current state without an undo step of its own. */
+    absorb: function () {
+      var now = History.snap();
+      if (History.pendingKind) { History.pendingSnap = now; return; }
+      History.baseline = now;
+    },
+    /* Restore `json`, the step we move to, given `fromJson`, the step we leave.
+       The board is per quarter and comes back whole. The library is shared
+       with every other quarter (and, on the artifact, every other editor), so
+       only what changed between the two steps is applied to it. */
+    apply: function (json, fromJson) {
+      var s = JSON.parse(json), b = s.board;
+      var from = fromJson ? JSON.parse(fromJson) : null;
       var i = Store.boards.map(function (x) { return x.id; }).indexOf(b.id);
       if (i < 0) Store.boards.push(b); else Store.boards[i] = b;
-      setBoard(b.id); state.sel = null;
+      setBoard(b.id);
+      if (s.view && VIEWS[s.view] && s.view !== state.view) { state.view = s.view; state.sel = null; }
+      if (s.library && from && from.library) applyLibraryDelta(from.library, s.library);
+      purgeBlankRows(b);
+      History.baseline = History.snap();
+      var rows = b.views[state.view].rows;
+      if (state.sel && state.sel.row >= rows.length) state.sel = null;
       Store.saveBoard(b, true);
+      syncViewTabs();
       renderAll();
       History.ui();
     },
     undo: function () {
       History.settle();
       if (!History.past.length) { toast("Nothing to undo"); return; }
-      var prev = History.past.pop();
-      History.future.push(History.baseline);
+      var prev = History.past.pop(), from = History.baseline;
+      History.future.push(from);
       History.baseline = prev;
-      History.apply(prev);
+      History.apply(prev, from);
     },
     redo: function () {
       History.settle();
       if (!History.future.length) { toast("Nothing to redo"); return; }
-      var next = History.future.pop();
-      History.past.push(History.baseline);
+      var next = History.future.pop(), from = History.baseline;
+      History.past.push(from);
       History.baseline = next;
-      History.apply(next);
+      History.apply(next, from);
     },
     ui: function () {
       var u = $("btnUndo"), r = $("btnRedo");
-      if (u) u.disabled = !History.past.length;
+      if (u) u.disabled = !History.past.length && !History.pendingKind;
       if (r) r.disabled = !History.future.length;
     }
   };
 
-  function commit() {
-    History.record();
+  /* Rows and go-live lines share one index space: every insert or removal
+     moves the lines along with the rows they sit on. */
+  function clampMilestones(v) {
+    var n = v.rows.length;
+    if (!n) return;
+    (v.milestones || []).forEach(function (m) {
+      m.row = Math.max(0, Math.min(m.row, n - 1));
+      m.endRow = Math.max(m.row, Math.min(m.endRow, n - 1));
+    });
+  }
+  function removeRowsAt(v, indexes) {
+    indexes.slice().sort(function (a, b) { return b - a; }).forEach(function (i) {
+      v.rows.splice(i, 1);
+      (v.milestones || []).forEach(function (m) {
+        if (i < m.row) { m.row--; m.endRow--; }
+        else if (i <= m.endRow && m.endRow > m.row) { m.endRow--; }
+      });
+    });
+    clampMilestones(v);
+  }
+  function insertRowAt(v, i, row) {
+    v.rows.splice(i, 0, row);
+    (v.milestones || []).forEach(function (m) {
+      if (i <= m.row) { m.row++; m.endRow++; }
+      else if (i <= m.endRow) { m.endRow++; }
+    });
+  }
+  function blankIndexes(rows) {
+    var out = [];
+    rows.forEach(function (r, i) { if (isBlankRow(r)) out.push(i); });
+    return out;
+  }
+  function purgeBlankRows(b) {
+    Object.keys(b.views).forEach(function (k) {
+      var v = b.views[k];
+      v.rows = v.rows || [];
+      var gone = blankIndexes(v.rows);
+      if (gone.length) removeRowsAt(v, gone);
+    });
+  }
+  /* Rows with a name or any content; empty scratch rows do not count. */
+  function hasContent(v) {
+    return !!(v && v.rows && v.rows.some(function (r) { return !isBlankRow(r); }));
+  }
+  /* Bring the live library from one step's library to another's: entries the
+     step removed go, entries it added come back, entries it changed take that
+     shape. Anything the two steps agree on is left as it is now. */
+  function applyLibraryDelta(fromLib, toLib) {
+    var byId = function (list) { var o = {}; list.forEach(function (x) { o[x.id] = x; }); return o; };
+    var fromBy = byId(fromLib), toBy = byId(toLib), changed = false;
+    var same = function (a, b) { return JSON.stringify(a) === JSON.stringify(b); };
+    fromLib.forEach(function (x) {
+      if (toBy[x.id]) return;
+      var i = Store.library.map(function (l) { return l.id; }).indexOf(x.id);
+      if (i >= 0) { Store.library.splice(i, 1); changed = true; }
+    });
+    toLib.forEach(function (x) {
+      var f = fromBy[x.id];
+      if (f && same(f, x)) return;
+      var i = Store.library.map(function (l) { return l.id; }).indexOf(x.id);
+      if (i < 0) { if (!f) { Store.library.push(clone(x)); changed = true; } }
+      else if (!same(Store.library[i], x)) { Store.library[i] = clone(x); changed = true; }
+    });
+    if (changed) Store.saveLibrary();
+  }
+
+  /* Which roadmap of the board a row object sits on, and where. */
+  function locateRow(b, row) {
+    var keys = Object.keys(b.views);
+    for (var j = 0; j < keys.length; j++) {
+      var i = b.views[keys[j]].rows.indexOf(row);
+      if (i >= 0) return { view: keys[j], index: i, rows: b.views[keys[j]].rows };
+    }
+    return null;
+  }
+
+  /* `kind` names the action so History can merge a burst of the same one. */
+  function commit(kind) {
+    History.record(kind);
     Store.saveBoard(board());
+  }
+  /* Structural changes (add, delete, move) are one step each, at once. */
+  function commitStep() {
+    commit("struct");
+    History.settle();
+  }
+  function commitLibrary() {
+    Store.saveLibrary();
+    History.record("struct");
+    History.settle();
   }
 
   /* ========================================================
@@ -1253,14 +1461,17 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
      under ~70x36 css px), so the canvas scrolls sideways instead of shrinking. */
   var MIN_SCALE = 0.62;
   var ZOOM_STEPS = [0.5, 0.62, 0.75, 0.9, 1, 1.25, 1.5];
+  var MIN_ROW_H = 34, ADD_ROW_H = 38;
+  /* Column counts past which the header stacks, and the chips go short. */
+  var DENSE_HEADER_FROM = 8, DENSE_CHIPS_FROM = 9;
   var lastK = 0;
 
-  /* Rows fill the slide the way the reference decks do: ~58px pitch for a
-     ten-row quarter, ~82px when a view only carries seven. */
+  /* First guess at the row pitch: ~58px for a ten-row quarter, ~82px when a
+     roadmap only carries seven. fitRowHeight() then measures the real room. */
   function autoRowHeight(n) {
     if (state.rowH !== "auto") return state.rowH;
     if (n <= 0) return 58;
-    return Math.max(34, Math.min(84, Math.round(575 / n)));
+    return Math.max(MIN_ROW_H, Math.min(84, Math.round(575 / n)));
   }
 
   /* Sprint track geometry in screen pixels, derived from the live layout so it
@@ -1276,7 +1487,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     return { lay: lay, gap: gap, cols: cols, unit: (lay.width + gap) / cols };
   }
 
-  /* A go-live lands on a real date, which is rarely a sprint boundary — so the
+  /* A go-live lands on a real date, which is rarely a sprint boundary, so the
      line snaps to quarters of a sprint, not just to the edges. */
   var MS_STEP = 0.25;
 
@@ -1288,30 +1499,31 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     return Math.max(0, Math.min(m.cols, Math.round(c * 100) / 100));
   }
 
-  /* Milestone geometry, shared by the initial render and by dragging, so a
-     dragged line lands exactly where a re-render would put it. */
-  function msStyle(m, rowCount, rh) {
+  /* Go-live geometry, shared by the initial render and by dragging, so a
+     dragged line lands exactly where a re-render would put it. Rows are
+     expressed in --row-h so a later row-height fit moves the lines too. */
+  function msStyle(m, rowCount) {
     var r0 = Math.max(0, Math.min(m.row, rowCount - 1));
     var r1 = Math.max(r0, Math.min(m.endRow, rowCount - 1));
     return "left:calc((100% + var(--col-gap)) / var(--cols) * " + m.col + " - var(--col-gap) / 2);" +
-      "top:" + (r0 * rh + 6) + "px;height:" + ((r1 - r0 + 1) * rh - 12) + "px";
+      "top:calc(var(--row-h) * " + r0 + " + 6px);height:calc(var(--row-h) * " + (r1 - r0 + 1) + " - 12px)";
   }
+  function msIsRight(m) { return m.col > (board().sprints.length || 1) * 0.72; }
 
   /* A cell is an array of slots. One slot = a full-width chip. Two slots =
-     half sprints, and a null slot is an empty half — that is how a phase
+     half sprints, and a null slot is an empty half. That is how a phase
      occupies half a sprint. */
   function cellInner(row, c) {
     var ph = row.cells[String(c)] || [];
     var half = ph.length > 1;
-    var both = ph.filter(Boolean).length > 1;
+    var dense = board().sprints.length > DENSE_CHIPS_FROM;
     var out = "";
     ph.forEach(function (p) {
       if (!p) { out += '<span class="chip--ph"></span>'; return; }
       var def = PHASES[p]; if (!def) return;
-      /* Only a genuine two-phase split needs the short label; a lone
-         half-sprint chip still has room for the real one. */
+      /* A half-width slot, or a crowded grid, only has room for the short label. */
       out += '<span class="chip chip--' + p + (half ? " is-tight" : "") + '">' +
-        esc(both ? def.short : def.label) + "</span>";
+        esc(half || dense ? def.short : def.label) + "</span>";
     });
     return out;
   }
@@ -1326,13 +1538,22 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function renderSlide() {
     var b = board(), v = view(), slide = $("slide");
+    /* A rebuild drops the focused name without a blur, so settle its library
+       link first; the row itself stays whatever it holds. */
+    if (focusedRowRef && locateRow(b, focusedRowRef)) linkRowToLibrary(focusedRowRef);
+    focusedRowRef = null;
     /* Presentation and read-only views must not hand out editable fields. */
     var edit = Store.canWrite && !present.on;
     var ce = edit ? ' contenteditable="true" spellcheck="false"' : "";
+    /* Sprint header fields stay clickable but leave the Tab order, so Tab
+       walks the row names instead of 24 header cells. */
+    var ceH = edit ? ce + ' tabindex="-1"' : "";
     var cols = b.sprints.length || 1;
     var rh = autoRowHeight(v.rows.length);
     slide.style.setProperty("--cols", cols);
     slide.style.setProperty("--row-h", rh + "px");
+    slide.classList.toggle("is-dense", cols > DENSE_HEADER_FROM);
+    slide.classList.toggle("is-crowded", cols > DENSE_CHIPS_FROM);
 
     var html = "";
 
@@ -1341,16 +1562,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     html += '<h1 class="slide-title" id="slideTitle"' + ce + ">" + esc(v.title) + "</h1>";
     html += '<div class="slide-note" id="slideNote"' + (b.note.show ? "" : " hidden") + ">" +
       '<span id="slideNoteText"' + ce + ">" + esc(b.note.text) + "</span>" +
-      '<button class="notedel" id="noteDel" title="Remove the note" aria-label="Remove the note">×</button></div>';
+      (edit ? '<button type="button" class="notedel" id="noteDel" title="Remove the note" aria-label="Remove the note">×</button>' : "") + "</div>";
     html += "</div>";
 
     /* sprint header */
     html += '<div class="slide-board"><div class="brow brow--head"><div class="rail"></div><div class="label"></div><div class="track">';
     b.sprints.forEach(function (s, i) {
       html += '<div class="sprint">' +
-        '<div class="nm"><span' + ce + ' data-sprint="' + i + '" data-key="name">' + esc(s.name) + "</span>" +
-        '<span class="q"' + ce + ' data-sprint="' + i + '" data-key="quarter">' + esc(s.quarter) + "</span></div>" +
-        '<div class="dt"' + ce + ' data-sprint="' + i + '" data-key="dates">' + esc(s.dates) + "</div>" +
+        '<div class="nm"><span' + ceH + ' data-sprint="' + i + '" data-key="name">' + esc(s.name) + "</span>" +
+        '<span class="q"' + ceH + ' data-sprint="' + i + '" data-key="quarter">' + esc(s.quarter) + "</span></div>" +
+        '<div class="dt"' + ceH + ' data-sprint="' + i + '" data-key="dates">' + esc(s.dates) + "</div>" +
         "</div>";
     });
     html += "</div></div>";
@@ -1363,18 +1584,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var last = !next || next.accent !== row.accent;
       var label = row.name || "";
       var sel = state.sel && state.sel.row === ri ? " is-sel" : "";
+      var link = safeUrl(row.url);
 
       html += '<div class="brow brow--data' + sel + '" data-row="' + ri + '">';
-      html += '<div class="rowtools">' +
-        '<button data-act="up" title="Move up" aria-label="Move up">▲</button>' +
-        '<button data-act="down" title="Move down" aria-label="Move down">▼</button>' +
-        '<button class="del" data-act="del" title="Delete this row" aria-label="Delete this row">×</button></div>';
       html += '<div class="rail rail--' + row.accent + (first ? " is-first" : "") + (last ? " is-last" : "") + '"></div>';
       html += '<div class="label' + (row.box ? " is-boxed" : "") + '" data-labelrow="' + ri + '">' +
-        '<div class="pill' + (row.url ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + '">' +
-          '<span class="' + (row.name ? "" : "is-blank") + '"' + ce + ' data-namerow="' + ri + '">' + esc(row.name || "") + "</span></div>" +
-        (row.url ? '<button class="linkjump" data-open="' + ri + '" title="Open the documentation" aria-label="Open the documentation">↗</button>' : "") +
-        "</div>";
+        '<div class="pill' + (link ? " is-link" : "") + (label.length > 38 ? " is-long" : "") + (label ? "" : " is-empty") + '">' +
+          '<span class="' + (label ? "" : "is-blank") + '"' + ce + ' data-namerow="' + ri + '">' + esc(label) + "</span></div>";
+      if (edit) {
+        html += '<div class="rowtools">' +
+          (link ? '<a class="linkjump" href="' + esc(link) + '" target="_blank" rel="noopener" title="Open the link" aria-label="Open the link">↗</a>' : "") +
+          '<button type="button" data-act="up" title="Move up" aria-label="Move up">▲</button>' +
+          '<button type="button" data-act="down" title="Move down" aria-label="Move down">▼</button>' +
+          '<button type="button" class="del" data-act="del" title="Delete row" aria-label="Delete row">×</button></div>';
+      }
+      html += "</div>";
       html += '<div class="track">';
       for (var c = 0; c < cols; c++) {
         html += '<div class="cell" data-row="' + ri + '" data-col="' + c + '">' + cellInner(row, c) + "</div>";
@@ -1382,18 +1606,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       html += "</div></div>";
     });
     if (edit) {
+      if (!v.rows.length) {
+        html += '<p class="empty-hint">No initiatives on the ' + esc(roadmapName()) + ' yet. Click <b>+ Initiative</b> below and type a name, or tick initiatives in the library on the left.</p>';
+      }
       html += '<div class="brow brow--add"><div class="rail"></div>' +
-        '<div class="label"><button class="addrow" id="rowAdd">+ Initiative</button></div>' +
+        '<div class="label"><button type="button" class="addrow" id="rowAdd">+ Initiative</button></div>' +
         '<div class="track"></div></div>';
     }
     html += "</div>";
 
-    /* milestones */
+    /* go-live lines */
     html += '<div class="ms-layer">';
     (v.milestones || []).forEach(function (m, mi) {
-      html += '<div class="ms" data-ms="' + mi + '" style="' + msStyle(m, v.rows.length, rh) + '">' +
+      html += '<div class="ms' + (msIsRight(m) ? " is-right" : "") + '" data-ms="' + mi + '" style="' + msStyle(m, v.rows.length) + '">' +
         '<div class="cap"' + ce + ' data-mscap="' + mi + '">' + esc(m.label) + "</div>" +
-        '<button class="msdel" data-msdel="' + mi + '" title="Delete this milestone" aria-label="Delete this milestone">×</button>' +
+        (edit ? '<button type="button" class="msdel" data-msdel="' + mi + '" title="Delete this go-live line" aria-label="Delete this go-live line">×</button>' : "") +
         '<span class="grip grip-top" data-msgrip="top"></span>' +
         '<span class="grip grip-bot" data-msgrip="bot"></span>' +
         "</div>";
@@ -1406,12 +1633,35 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     html += '<div class="legend"' + (legendOn ? "" : " hidden") + ">";
     ["lime", "teal"].forEach(function (k) {
       if (!used[k]) return;
-      html += '<span class="lg"><i class="sw sw--' + k + '"></i>' + esc(ACCENT_META[k].label) + "</span>";
+      html += '<span class="lg"><i class="mark mark--' + k + '"></i>' + esc(ACCENT_META[k].label) + "</span>";
     });
     html += "</div>";
 
     slide.innerHTML = html;
+    fitRowHeight(v, edit);
     if (present.on) fitPresent(); else fitSlide();
+  }
+
+  /* Rows must never run over the legend or off the slide: measure the room
+     the header and title leave, and shrink the pitch to fit. Past the
+     minimum pitch the editor says how many rows are too many. */
+  function fitRowHeight(v, edit) {
+    var slide = $("slide"), body = slide.querySelector(".board-body");
+    var n = v.rows.length, notice = $("fitNotice");
+    if (!body || !n) { if (notice) notice.hidden = true; return; }
+    var avail = body.clientHeight - (edit ? ADD_ROW_H : 0);
+    var rh = parseFloat(slide.style.getPropertyValue("--row-h")) || 54;
+    if (n * rh > avail) {
+      rh = Math.max(MIN_ROW_H, Math.floor(avail / n));
+      slide.style.setProperty("--row-h", rh + "px");
+    }
+    var over = n * rh > avail + 1 ? n - Math.floor(avail / rh) : 0;
+    if (!notice) return;
+    notice.hidden = !(edit && over > 0);
+    if (over > 0) {
+      notice.textContent = over + (over === 1 ? " row does" : " rows do") +
+        " not fit on the slide. Delete some rows, or shorten the title.";
+    }
   }
 
   function scaleFor() {
@@ -1453,7 +1703,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function renderBrushes() {
     var host = $("brushes"), list = VIEWS[state.view].brushes;
-    /* "" is the eraser and is deliberately absent from the phase list — don't
+    /* "" is the eraser and is deliberately absent from the phase list: don't
        treat it as an unknown brush and reset it, or it can never stay picked. */
     if (state.brush !== "" && list.indexOf(state.brush) < 0) state.brush = list[0];
     var colors = { discovery: "var(--pn-teal)", specs: "var(--pn-orange)", delivery: "var(--pn-indigo)", conception: "var(--pn-orange)" };
@@ -1480,7 +1730,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var mode = $("libFilter").value;
     var b = board(), v = view();
 
-    /* Usage is read per view, because the two roadmaps share only the library:
+    /* Usage is read per roadmap, because the two share only the library:
        an initiative can sit on one, both, or neither. */
     var usedBy = {};
     ["product", "design"].forEach(function (k) {
@@ -1502,7 +1752,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("libCount").textContent = Store.library.length + " initiatives";
 
     if (!items.length) {
-      $("libList").innerHTML = '<li><p class="lib-empty">Nothing matches.</p></li>';
+      $("libList").innerHTML = '<li><p class="lib-empty">No initiative matches.</p></li>';
       return;
     }
     $("libList").innerHTML = items.map(function (it) {
@@ -1511,20 +1761,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var selected = state.sel && v.rows[state.sel.row] && v.rows[state.sel.row].libId === it.id;
       return '<li class="lib-item' + (selected ? " is-sel" : "") + '" data-iid="' + esc(it.id) + '"' +
         (it.desc ? ' title="' + esc(it.desc) + '"' : "") + ">" +
-        '<input type="checkbox" class="libchk"' + (on ? " checked" : "") + ' aria-label="On this view" style="accent-color:var(--ui-accent);width:15px;height:15px;margin:0">' +
+        '<input type="checkbox" class="libchk"' + (on ? " checked" : "") + ' aria-label="On this roadmap" style="accent-color:var(--ui-accent);width:15px;height:15px;margin:0">' +
         '<span class="nm' + (on ? "" : " is-off") + '">' + esc(it.name) + "</span>" +
         '<span class="uses">' +
-          (u.product ? '<i class="u u-p" title="On the product roadmap">P</i>' : "") +
-          (u.design ? '<i class="u u-d" title="On the design roadmap">D</i>' : "") +
+          (u.product ? '<i class="u u-p" title="On the Product roadmap">P</i>' : "") +
+          (u.design ? '<i class="u u-d" title="On the Design roadmap">D</i>' : "") +
         "</span>" +
         '<span class="lk">' + esc(it.area || (it.url ? "link" : "")) + "</span>" +
-        '<button class="libdel" title="Remove from the library" aria-label="Remove from the library">×</button></li>';
+        '<button type="button" class="libdel" title="Remove from library" aria-label="Remove from library">×</button></li>';
     }).join("");
   }
 
   function renderInspector() {
     var box = $("inspector"), v = view();
     var row = state.sel ? v.rows[state.sel.row] : null;
+    $("inspectorEmpty").hidden = !!row;
     if (!row) { box.hidden = true; return; }
     box.hidden = false;
     $("iName").value = row.name || "";
@@ -1551,6 +1802,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("legendShow").checked = !!(b.legend && b.legend.show);
   }
 
+  var OFFSETS = [[0, "start"], [0.25, "1/4"], [0.5, "middle"], [0.75, "3/4"], [1, "end"]];
+
   function renderMilestones() {
     var v = view(), b = board();
     var opts = function (n, sel, labels) {
@@ -1559,14 +1812,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       return o;
     };
     var sprintLabels = b.sprints.map(function (s) { return s.name + " " + s.quarter; });
-    var rowLabels = v.rows.map(function (r, i) { return (i + 1) + ". " + rowLabel(r).slice(0, 22); });
+    var rowLabels = v.rows.map(function (r, i) { return (i + 1) + ". " + rowLabel(r).slice(0, 40); });
 
     if (!v.milestones || !v.milestones.length) {
-      $("msList").innerHTML = '<p class="lib-empty">No milestone on this view.</p>';
+      $("msList").innerHTML = '<p class="lib-empty">No go-live line on the ' + esc(roadmapName()) + ' yet.</p>';
       return;
     }
-    var OFFSETS = [[0, "at the start"], [0.25, "a quarter in"], [0.5, "in the middle"],
-                   [0.75, "three quarters in"], [1, "at the end"]];
 
     $("msList").innerHTML = v.milestones.map(function (m, i) {
       var last = b.sprints.length - 1;
@@ -1577,16 +1828,21 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         return '<option value="' + o[0] + '"' + (Math.abs(off - o[0]) < 0.01 ? " selected" : "") + ">" + o[1] + "</option>";
       }).join("");
       return '<div class="ms-card" data-ms="' + i + '">' +
-        '<textarea rows="2" data-key="label" aria-label="Milestone caption">' + esc(m.label) + "</textarea>" +
+        '<textarea rows="2" data-key="label" aria-label="Caption">' + esc(m.label) + "</textarea>" +
         '<div class="field"><label>Sprint</label><select data-key="sprintIdx">' + opts(b.sprints.length, si, sprintLabels) + "</select></div>" +
-        '<div class="field"><label>Position in that sprint</label><select data-key="offset">' + offOpts + "</select></div>" +
+        '<div class="field"><label>Position in the sprint</label><select data-key="offset">' + offOpts + "</select></div>" +
         '<div class="grid2">' +
         '<div class="field"><label>From row</label><select data-key="row">' + opts(v.rows.length, m.row, rowLabels) + "</select></div>" +
         '<div class="field"><label>To row</label><select data-key="endRow">' + opts(v.rows.length, m.endRow, rowLabels) + "</select></div>" +
         "</div>" +
-        '<button class="btn btn-sm btn-danger" data-act="del-ms" style="align-self:flex-start">Delete</button>' +
+        '<button type="button" class="btn btn-sm btn-danger" data-act="del-ms" style="align-self:flex-start">Delete</button>' +
         "</div>";
     }).join("");
+  }
+
+  function renderMenu() {
+    var b = board();
+    $("mLegend").textContent = (b.legend && b.legend.show) ? "Hide the legend" : "Show the legend";
   }
 
   function renderAll() {
@@ -1610,7 +1866,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function buildDeck() {
     var b = board();
     return ["product", "design"]
-      .filter(function (k) { return b.views[k] && b.views[k].rows.length; })
+      .filter(function (k) { return hasContent(b.views[k]); })
       .map(function (k) { return { view: k }; });
   }
 
@@ -1640,11 +1896,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function enterPresent() {
     if (present.on) return;
     var deck = buildDeck();
-    if (!deck.length) { toast("No view with initiatives to present"); return; }
+    if (!deck.length) { toast("Add an initiative first"); return; }
     present.deck = deck;
     present.savedView = state.view;
     present.on = true;
     var here = deck.map(function (d) { return d.view; }).indexOf(state.view);
+    if (here < 0) toast("The " + roadmapName() + " is empty. Showing the " + roadmapName(deck[0].view) + ".");
     present.idx = here < 0 ? 0 : here;
 
     var slide = $("slide");
@@ -1689,7 +1946,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var prevId = state.boardId;
     setBoard(ids[i]);
     var deck = buildDeck();
-    if (!deck.length) { setBoard(prevId); toast("That quarter has no initiatives"); return; }
+    if (!deck.length) { setBoard(prevId); toast("That quarter is empty"); return; }
     present.deck = deck;
     present.idx = Math.min(present.idx, deck.length - 1);
     History.reset();
@@ -1704,6 +1961,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
   }
 
+  function showPanel(name) {
+    Array.prototype.forEach.call(document.querySelectorAll(".stab"), function (t) {
+      var on = t.dataset.panel === name;
+      t.classList.toggle("is-on", on);
+      t.setAttribute("aria-selected", String(on));
+      $("panel-" + t.dataset.panel).hidden = !on;
+    });
+  }
+
   function markSelection() {
     Array.prototype.forEach.call($("slide").querySelectorAll(".brow--data"), function (el) {
       el.classList.toggle("is-sel", !!state.sel && +el.dataset.row === state.sel.row);
@@ -1711,11 +1977,17 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   /* keepFocus skips the slide rebuild so a caret placed in a row name survives
-     the selection that the same click triggers. */
-  function selectRow(ri, keepFocus) {
+     the selection that the same click triggers. reveal brings the row's fields
+     into view: the Initiatives panel, scrolled to the top. */
+  function selectRow(ri, keepFocus, reveal) {
     state.sel = ri === null ? null : { row: ri };
     renderLibrary(); renderInspector();
     if (keepFocus) markSelection(); else renderSlide();
+    if (reveal && ri !== null) {
+      showPanel("init");
+      var sb = document.querySelector(".sidebar");
+      if (sb) sb.scrollTop = 0;
+    }
   }
 
   function halfIndex(cellEl, clientX) {
@@ -1746,9 +2018,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       row.cells[key] = have.filter(Boolean).concat([state.brush]).slice(0, 2);
     } else if (mode === "sequence") {
       touched = [];
-      VIEWS[state.view].sequence.forEach(function (ph, k) {
-        if (ci + k < board().sprints.length) { row.cells[String(ci + k)] = [ph]; touched.push(ci + k); }
+      var seq = VIEWS[state.view].sequence, cols = board().sprints.length;
+      seq.forEach(function (ph, k) {
+        if (ci + k < cols) { row.cells[String(ci + k)] = [ph]; touched.push(ci + k); }
       });
+      if (ci + seq.length > cols) toast("Not enough sprints left for the whole sequence");
     } else if (state.half) {
       var slots = (cur && cur.length === 2) ? cur.slice() : [null, null];
       if (slots[slot] === state.brush) return;
@@ -1758,11 +2032,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if ((cur || []).join() === state.brush) return;
       row.cells[key] = [state.brush];
     }
-    commit();
+    commit("paint");
     touched.forEach(function (c) { patchCell(ri, c); });
   }
 
   /* ---- hover card: what an initiative actually is ---------------------- */
+
+  var tipTimer = null;
 
   function showTip(el, ini) {
     if (!ini || (!ini.desc && !ini.area)) return;
@@ -1778,7 +2054,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     t.style.left = left + "px";
     t.style.top = Math.max(8, top) + "px";
   }
-  function hideTip() { $("tip").hidden = true; }
+  function hideTip() { clearTimeout(tipTimer); tipTimer = null; $("tip").hidden = true; }
 
   /* ---- go-live line, dragged from the toolbar onto the slide ------------ */
 
@@ -1822,18 +2098,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* A plain click on the button, with no drag, still adds one. */
     if (!dragged) { addMilestone(); return; }
     var at = glPointForDrop(e);
-    if (!at) { toast("Drop the line over the sprint grid"); return; }
+    if (!at) { toast("Drop the line on the sprint grid"); return; }
     var v = view();
     v.milestones = v.milestones || [];
     v.milestones.push({
       id: uid("m"), label: "Go-live",
       col: at.col, row: at.row, endRow: Math.min(at.row + 2, v.rows.length - 1)
     });
-    commit(); renderMilestones(); renderSlide();
-    toast("Go-live line added — type on the caption to name it");
+    commitStep(); renderMilestones(); renderSlide();
+    toast("Go-live line added. Click the caption to name it.");
   }
 
-  /* ---- milestones, dragged where they sit -------------------------------- */
+  /* ---- go-live lines, dragged where they sit ------------------------------ */
 
   var msDrag = null;
 
@@ -1856,7 +2132,6 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var slide = $("slide");
     var layer = slide.querySelector(".ms-layer");
     if (!layer) return;
-    var v = view(), n = v.rows.length;
     if (msDrag.kind === "move") {
       m.col = colFromX(e.clientX);
     } else {
@@ -1866,87 +2141,160 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     }
   }
 
+  /* Added from the button or the panel: on the selected row when there is
+     one, otherwise near the top, always in the middle of the grid. */
   function addMilestone() {
     var v = view();
     if (!v.rows.length) { toast("Add an initiative first"); return; }
     v.milestones = v.milestones || [];
-    var r0 = Math.min(1, v.rows.length - 1);
+    var r0 = state.sel ? Math.min(state.sel.row, v.rows.length - 1) : Math.min(1, v.rows.length - 1);
+    var r1 = state.sel ? r0 : Math.min(r0 + 2, v.rows.length - 1);
     v.milestones.push({
       id: uid("m"), label: "Go-live",
       col: Math.min(3, board().sprints.length - 1),
-      row: r0, endRow: Math.min(r0 + 2, v.rows.length - 1)
+      row: r0, endRow: r1
     });
-    commit(); renderMilestones(); renderSlide();
-    toast("Milestone added — drag the line or type on the caption");
+    commitStep(); renderMilestones(); renderSlide();
+    toast("Go-live line added. Drag it, or click the caption to name it.");
   }
 
   /* While a stroke is down this holds its mode ("set" or "erase"), never the
      brush: a right-button drag erases all the way, it does not switch to
-     painting halfway. paintedLast guards re-entry — patching a cell swaps the
+     painting halfway. paintedLast guards re-entry: patching a cell swaps the
      element under the pointer, which fires a fresh pointerover for the very
      cell just painted and would undo an erase on the spot. */
   var painting = null;
   var paintedLast = null;
+  /* The row whose name holds the caret, as an object: indices shift under it. */
+  var focusedRowRef = null;
+
+  /* Where the caret is, so a row removed under the pointer can put it back. */
+  function captureFocus() {
+    var ae = document.activeElement, slide = $("slide");
+    if (!ae || !slide.contains(ae) || !ae.isContentEditable) return null;
+    var f = { id: ae.id || null, namerow: ae.dataset.namerow, mscap: ae.dataset.mscap,
+              sprint: ae.dataset.sprint, key: ae.dataset.key, offset: null };
+    try {
+      var s = window.getSelection();
+      if (s.rangeCount && ae.contains(s.anchorNode)) f.offset = s.anchorOffset;
+    } catch (e) {}
+    return f;
+  }
+  function restoreFocus(f, removedRow) {
+    if (!f) return;
+    var slide = $("slide"), el = null;
+    if (f.id) el = $(f.id);
+    else if (f.namerow !== undefined) {
+      var i = +f.namerow;
+      if (removedRow !== undefined && removedRow < i) i--;
+      el = slide.querySelector('[data-namerow="' + i + '"]');
+    } else if (f.mscap !== undefined) el = slide.querySelector('[data-mscap="' + f.mscap + '"]');
+    else if (f.sprint !== undefined) el = slide.querySelector('[data-sprint="' + f.sprint + '"][data-key="' + f.key + '"]');
+    if (!el) return;
+    el.focus();
+    placeCaret(el, f.offset);
+  }
+  function placeCaret(el, offset) {
+    try {
+      var r = document.createRange();
+      var text = el.firstChild;
+      if (offset !== null && offset !== undefined && text && text.nodeType === 3 && offset <= text.length) {
+        r.setStart(text, offset); r.collapse(true);
+      } else {
+        r.selectNodeContents(el); r.collapse(false);
+      }
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r);
+    } catch (e) {}
+  }
+  function selectAllIn(el) {
+    try {
+      var r = document.createRange();
+      r.selectNodeContents(el);
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r);
+    } catch (e) {}
+  }
 
   function wireSlide() {
     var slide = $("slide");
 
     slide.addEventListener("pointerdown", function (e) {
-      if (!Store.canWrite) return;
+      if (!Store.canWrite || present.on) return;
+      var t = e.target;
+      hideTip();
 
-      if (e.target.id === "noteDel") {
-        board().note.show = false; commit(); renderSprints(); renderSlide();
-        e.preventDefault(); return;
-      }
-      var del = e.target.closest("[data-msdel]");
-      if (del) {
-        view().milestones.splice(+del.dataset.msdel, 1);
-        commit(); renderMilestones(); renderSlide();
-        e.preventDefault(); return;
-      }
-      var grip = e.target.closest("[data-msgrip]");
+      /* Links open on their own; buttons act on click and must not steal the
+         caret, or a blank row would vanish under the pointer. */
+      if (t.closest("a")) return;
+      if (t.closest("button")) { e.preventDefault(); return; }
+
+      var grip = t.closest("[data-msgrip]");
       if (grip) {
         msDrag = { i: +grip.closest("[data-ms]").dataset.ms, kind: grip.dataset.msgrip };
         e.preventDefault(); return;
       }
-      if (e.target.closest("[data-mscap]")) return;   /* caption types in place */
-      var msEl = e.target.closest("[data-ms]");
+      var cap = t.closest("[data-mscap]");
+      if (cap) { cap.dataset.fresh = document.activeElement === cap ? "" : "1"; return; }   /* caption types in place */
+      var msEl = t.closest("[data-ms]");
       if (msEl) {
         msDrag = { i: +msEl.dataset.ms, kind: "move" };
         e.preventDefault(); return;
       }
+      if (t.id === "slideNoteText") { t.dataset.fresh = document.activeElement === t ? "" : "1"; return; }
 
-      var open = e.target.closest("[data-open]");
-      if (open) {
-        var url = view().rows[+open.dataset.open].url;
-        if (url) window.open(url, "_blank", "noopener");
-        e.preventDefault(); return;
-      }
-      if (e.target.id === "rowAdd") { addBlankRow(); e.preventDefault(); return; }
-      var tool = e.target.closest(".rowtools button");
-      if (tool) {
-        var ri = +e.target.closest("[data-row]").dataset.row;
-        if (tool.dataset.act === "del") { removeRowAt(ri); renderAll(); }
-        else moveRow(ri, tool.dataset.act === "up" ? -1 : 1);
-        e.preventDefault(); return;
-      }
-      var lab = e.target.closest("[data-labelrow]");
+      var lab = t.closest("[data-labelrow]");
       if (lab) {
-        /* Clicking the name itself must leave the caret alone. */
-        var typing = !!e.target.closest("[data-namerow]");
-        selectRow(+lab.dataset.labelrow, typing);
-        if (!typing) e.preventDefault();
+        /* On the text itself the browser places the caret. Anywhere else on
+           the pill, the name takes the caret at its end. */
+        if (t.closest("[data-namerow]")) return;
+        e.preventDefault();
+        focusRowName(+lab.dataset.labelrow);
         return;
       }
 
-      var cell = e.target.closest(".cell");
+      var cell = t.closest(".cell");
       if (!cell) return;
       e.preventDefault();
+      /* Painting releases a caret left in a name, so the number keys pick a
+         phase again instead of typing into the row. */
+      var ae = document.activeElement;
+      if (ae && ae !== document.body && slide.contains(ae)) ae.blur();
       var r = +cell.dataset.row, c = +cell.dataset.col;
       var mode = e.button === 2 ? "erase" : (e.shiftKey ? "sequence" : (e.altKey ? "add" : "set"));
       painting = (mode === "set" || mode === "erase") ? mode : null;
       paintedLast = r + ":" + c + (state.half ? ":" + halfIndex(cell, e.clientX) : "");
       paint(r, c, mode, halfIndex(cell, e.clientX));
+    });
+
+    /* Buttons on the slide act on click, so Enter and Space work on them too. */
+    slide.addEventListener("click", function (e) {
+      if (!Store.canWrite || present.on) return;
+      var t = e.target;
+      if (t.id === "noteDel") {
+        board().note.show = false; commitStep(); renderSprints(); renderSlide();
+        toast("Note removed", { undo: true });
+        return;
+      }
+      var del = t.closest("[data-msdel]");
+      if (del) {
+        view().milestones.splice(+del.dataset.msdel, 1);
+        commitStep(); renderMilestones(); renderSlide();
+        toast("Go-live line deleted", { undo: true });
+        return;
+      }
+      if (t.id === "rowAdd") { addBlankRow(); return; }
+      var tool = t.closest(".rowtools button");
+      if (tool) {
+        var ri = +tool.closest("[data-row]").dataset.row;
+        if (tool.dataset.act === "del") deleteRow(ri);
+        else moveRow(ri, tool.dataset.act === "up" ? -1 : 1);
+        return;
+      }
+      /* First click on a caption or the note selects the whole text, so
+         typing replaces "Go-live" instead of adding to it. */
+      var cap = t.closest("[data-mscap]") || (t.id === "slideNoteText" ? t : null);
+      if (cap && cap.dataset.fresh === "1") { cap.dataset.fresh = ""; selectAllIn(cap); }
     });
 
     slide.addEventListener("pointerover", function (e) {
@@ -1964,11 +2312,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (e.target.closest(".cell")) e.preventDefault();
     });
 
+    /* The hover card waits a moment and stays away while a name is being typed. */
     slide.addEventListener("pointerover", function (e) {
       var lab = e.target.closest("[data-labelrow]");
       if (!lab) return;
+      if (lab.contains(document.activeElement)) return;
       var row = view().rows[+lab.dataset.labelrow];
-      if (row) showTip(lab, row);
+      if (!row) return;
+      clearTimeout(tipTimer);
+      tipTimer = setTimeout(function () { showTip(lab, row); }, 300);
     });
     slide.addEventListener("pointerout", function (e) {
       if (e.target.closest("[data-labelrow]")) hideTip();
@@ -1977,38 +2329,106 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* contenteditable fields on the slide */
     slide.addEventListener("input", function (e) {
       var t = e.target;
-      if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit(); return; }
-      if (t.id === "slideNoteText") { board().note.text = t.textContent.trim(); commit(); return; }
+      if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit("text:title"); return; }
+      if (t.id === "slideNoteText") { board().note.text = t.textContent.trim(); commit("text:note"); return; }
       if (t.dataset && t.dataset.namerow !== undefined) {
-        var nrow = view().rows[+t.dataset.namerow];
+        var ri = +t.dataset.namerow, nrow = view().rows[ri];
         if (nrow) {
-          nrow.name = t.textContent.trim();
+          setRowName(nrow, t.textContent);
           t.classList.toggle("is-blank", !nrow.name);
-          /* Keep the catalogue label in step with what was typed. Rows own their
-             names, so this never reaches the other roadmap's row. */
-          var le = nrow.libId && libEntry(nrow.libId);
-          if (le && nrow.name && le.name !== nrow.name) { le.name = nrow.name; Store.saveLibrary(); }
-          commit(); renderLibrary(); renderInspector();
+          var pill = t.closest(".pill");
+          if (pill) {
+            pill.classList.toggle("is-empty", !nrow.name);
+            pill.classList.toggle("is-long", nrow.name.length > 38);
+          }
+          commit("text:name:" + ri); renderLibrary(); renderInspector();
         }
         return;
       }
       if (t.dataset && t.dataset.mscap !== undefined) {
         var m = view().milestones[+t.dataset.mscap];
-        if (m) { m.label = t.textContent.trim(); commit(); renderMilestones(); }
+        if (m) { m.label = t.textContent.trim(); commit("text:cap:" + t.dataset.mscap); renderMilestones(); }
         return;
       }
       if (t.dataset && t.dataset.sprint !== undefined) {
         board().sprints[+t.dataset.sprint][t.dataset.key] = t.textContent.trim();
-        commit(); renderSprints();
+        commit("text:sprint:" + t.dataset.sprint + ":" + t.dataset.key); renderSprints();
       }
     });
+
+    /* Slide text is plain, single-line text: a paste drops its formatting
+       and line breaks, and Ctrl+B or a drop cannot change the look. */
+    slide.addEventListener("paste", function (e) {
+      var t = e.target;
+      if (!t.isContentEditable) return;
+      e.preventDefault();
+      var data = e.clipboardData || window.clipboardData;
+      var text = data ? (data.getData("text/plain") || "") : "";
+      text = text.replace(/\s*[\r\n]+\s*/g, " ").trim();
+      if (text) document.execCommand("insertText", false, text);
+    });
+    slide.addEventListener("beforeinput", function (e) {
+      if (!e.target.isContentEditable) return;
+      var it = e.inputType || "";
+      if (/^format/.test(it) || it === "insertParagraph" || it === "insertLineBreak" || it === "insertFromDrop") e.preventDefault();
+    });
+
     slide.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && e.target.dataset && e.target.dataset.namerow !== undefined) {
-        e.preventDefault();
-        addBlankRow(+e.target.dataset.namerow);
+      var t = e.target;
+      if (!t.isContentEditable) return;
+      var nr = t.dataset ? t.dataset.namerow : undefined;
+      if (nr !== undefined) {
+        var ri = +nr, rows = view().rows, row = rows[ri];
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (!t.textContent.trim()) { t.blur(); return; }           /* an empty row goes away on blur */
+          if (row) finalizeRow(row);
+          if (e.shiftKey || ri === rows.length - 1) { addBlankRow(ri); return; }
+          focusRowName(ri + 1);
+          return;
+        }
+        if (e.key === "Tab") {
+          var to = ri + (e.shiftKey ? -1 : 1);
+          if (!rows[to]) return;
+          e.preventDefault();
+          if (row) finalizeRow(row);
+          /* If that emptied row went away, the next row now sits at its index. */
+          if (row && view().rows.indexOf(row) < 0 && !e.shiftKey) to = ri;
+          focusRowName(to);
+          return;
+        }
+        if (e.key === "Backspace" && row && !t.textContent.trim() && isBlankRow(row)) {
+          e.preventDefault();
+          deleteRow(ri);
+          if (ri > 0) focusRowName(ri - 1);
+          return;
+        }
         return;
       }
-      if (e.key === "Enter" && e.target.isContentEditable) { e.preventDefault(); e.target.blur(); }
+      if (e.key === "Enter") { e.preventDefault(); t.blur(); }
+    });
+
+    /* A name reached by Tab or a click is the selected row, always. */
+    slide.addEventListener("focusin", function (e) {
+      var t = e.target;
+      hideTip();
+      if (t.dataset && t.dataset.namerow !== undefined) {
+        var ri = +t.dataset.namerow;
+        focusedRowRef = view().rows[ri] || null;
+        if (!state.sel || state.sel.row !== ri) selectRow(ri, true, true);
+      }
+    });
+
+    /* Leaving a name settles the row: an empty one is removed, a named one
+       joins the library. Deferred, so a click into the row's own fields in
+       the panel does not count as leaving. */
+    slide.addEventListener("focusout", function (e) {
+      var t = e.target;
+      if (!t.dataset || t.dataset.namerow === undefined) return;
+      var row = focusedRowRef || view().rows[+t.dataset.namerow];
+      focusedRowRef = null;
+      if (!row) return;
+      setTimeout(function () { finalizeRow(row); }, 0);
     });
   }
 
@@ -2019,12 +2439,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (!m) { msDrag = null; return; }
     msApplyPointer(e, m);
     var el = $("slide").querySelector('.ms[data-ms="' + msDrag.i + '"]');
-    if (el) el.setAttribute("style", msStyle(m, v.rows.length, autoRowHeight(v.rows.length)));
+    if (el) {
+      el.setAttribute("style", msStyle(m, v.rows.length));
+      el.classList.toggle("is-right", msIsRight(m));
+    }
   });
 
   window.addEventListener("pointerup", function (e) {
     if (glDrag) { dropGlDrag(e); return; }
-    if (msDrag) { msDrag = null; commit(); renderMilestones(); }
+    if (msDrag) { msDrag = null; commitStep(); renderMilestones(); }
     painting = null;
     paintedLast = null;
   });
@@ -2034,86 +2457,187 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (to < 0 || to >= rows.length) return;
     var tmp = rows[ri]; rows[ri] = rows[to]; rows[to] = tmp;
     if (state.sel && state.sel.row === ri) state.sel.row = to;
-    commit(); renderSlide(); renderMilestones();
+    commitStep(); renderSlide(); renderMilestones();
   }
 
-  /* Adding from the catalogue COPIES its fields onto the new row: from then on
+  /* Adding from the library COPIES its fields onto the new row: from then on
      the row is its own thing and editing it never reaches the other roadmap. */
   function addToView(it) {
     var v = view();
-    if (it.id && v.rows.some(function (r) { return r.libId === it.id; })) return;
+    var have = it.id ? v.rows.map(function (r) { return r.libId; }).indexOf(it.id) : -1;
+    if (have >= 0) return have;
     v.rows.push({
       libId: it.id || null,
       name: it.name || "", url: it.url || "", desc: it.desc || "", area: it.area || "",
       accent: "teal", box: false, cells: {}
     });
-    commit();
+    commitStep();
+    return v.rows.length - 1;
   }
+  /* Every row linked to that entry leaves this roadmap, with one Undo. */
   function removeFromView(libId) {
     var v = view();
-    v.rows = v.rows.filter(function (r) { return r.libId !== libId; });
+    var gone = v.rows.filter(function (r) { return r.libId === libId; });
+    if (!gone.length) return;
+    var idx = [];
+    v.rows.forEach(function (r, i) { if (r.libId === libId) idx.push(i); });
+    removeRowsAt(v, idx);
     state.sel = null;
-    commit();
+    commitStep(); renderAll();
+    toast(quote(rowLabel(gone[0])) + " removed from the " + roadmapName(), { undo: true });
   }
   function focusRowName(i) {
     var el = $("slide").querySelector('[data-namerow="' + i + '"]');
     if (!el) return;
     el.focus();
-    try {
-      var r = document.createRange();
-      r.selectNodeContents(el); r.collapse(false);
-      var sel = window.getSelection();
-      sel.removeAllRanges(); sel.addRange(r);
-    } catch (e) {}
+    placeCaret(el, null);
   }
 
-  /* A blank row, ready to be typed into. Pass an index to insert just below it
-     — that is what Enter at the end of a row name does. */
+  /* The row's name is the same in the row and in its library entry; the other
+     roadmap's row keeps its own wording. When the new name already belongs to
+     another entry the rename waits: the row is re-linked to that entry once
+     the name is left (see linkRowToLibrary). */
+  function setRowName(row, name) {
+    row.name = String(name || "").trim();
+    var le = row.libId && libEntry(row.libId);
+    if (!le || !row.name || le.name === row.name) return;
+    var twin = findLibByName(row.name);
+    if (!twin || twin === le) { le.name = row.name; Store.saveLibrary(); }
+  }
+
+  /* A named row not yet in the library joins it, reusing an entry with the
+     same name, so the other roadmap can pick it with one tick. A row whose
+     entry was removed on purpose keeps its old id and is left alone.
+     Bookkeeping only: it never becomes an undo step of its own. */
+  function linkRowToLibrary(row) {
+    if (!row.name) return;
+    var it;
+    if (row.libId) {
+      var le = libEntry(row.libId);
+      if (!le || le.name === row.name) return;
+      it = findLibByName(row.name);
+      if (!it || it === le) return;
+    } else {
+      it = findLibByName(row.name);
+      if (!it) {
+        it = { id: uid("i"), name: row.name, url: row.url || "", desc: row.desc || "", area: row.area || "" };
+        Store.library.push(it);
+      }
+    }
+    row.libId = it.id;
+    Store.saveLibrary(); Store.saveBoard(board());
+    History.absorb();
+    renderLibrary();
+  }
+
+  /* Called when a name is left: an empty row goes away, a named row joins the
+     library. A click into the row's own fields in the panel is not leaving. */
+  function finalizeRow(row) {
+    var b = board(), at = locateRow(b, row);
+    if (!at) return;
+    var ae = document.activeElement;
+    var inPanel = !!(ae && ae.closest && ae.closest("#inspector"));
+    if (isBlankRow(row)) {
+      if (inPanel) return;
+      var focus = captureFocus();
+      removeRowsAt(b.views[at.view], [at.index]);
+      if (at.view === state.view && state.sel) {
+        if (state.sel.row === at.index) state.sel = null; else if (state.sel.row > at.index) state.sel.row--;
+      }
+      Store.saveBoard(b); History.absorb();
+      renderAll();
+      restoreFocus(focus, at.view === state.view ? at.index : undefined);
+      return;
+    }
+    linkRowToLibrary(row);
+  }
+
+  /* A blank row, ready to be typed into. Pass an index to insert just below
+     it. With no index, an empty last row is reused instead of adding another.
+     Empty rows are scratch state, so this is never an undo step. */
   function addBlankRow(afterIdx) {
     if (!Store.canWrite) return;
-    var v = view();
-    var at = (afterIdx === undefined || afterIdx === null) ? v.rows.length : afterIdx + 1;
-    v.rows.splice(at, 0, {
+    var v = view(), n = v.rows.length;
+    if (afterIdx === undefined || afterIdx === null) {
+      if (n && isBlankRow(v.rows[n - 1])) { focusRowName(n - 1); return; }
+      /* One empty row at a time: the button never piles them up. */
+      var blanks = blankIndexes(v.rows);
+      if (blanks.length) removeRowsAt(v, blanks);
+      if (state.sel && state.sel.row >= v.rows.length) state.sel = null;
+      afterIdx = v.rows.length - 1;
+    }
+    var at = afterIdx + 1;
+    insertRowAt(v, at, {
       libId: null, name: "", url: "", desc: "", area: "",
-      accent: v.rows.length ? (v.rows[Math.max(0, at - 1)] || {}).accent || "teal" : "teal",
+      accent: (v.rows[afterIdx] || {}).accent || "teal",
       box: false, cells: {}
     });
-    commit();
     state.sel = { row: at };
+    Store.saveBoard(board()); History.absorb();
     renderAll();
     focusRowName(at);
   }
 
-  function removeRowAt(i) {
-    view().rows.splice(i, 1);
-    state.sel = null;
-    commit();
+  /* Deleting a row is one undo step with a toast, unless the row was empty:
+     that is scratch state and just goes. */
+  function deleteRow(ri, opts) {
+    opts = opts || {};
+    var v = view(), row = v.rows[ri];
+    if (!row) return;
+    var blank = isBlankRow(row);
+    removeRowsAt(v, [ri]);
+    if (state.sel) {
+      if (state.sel.row === ri) state.sel = null; else if (state.sel.row > ri) state.sel.row--;
+    }
+    if (blank) { Store.saveBoard(board()); History.absorb(); } else commitStep();
+    renderAll();
+    if (!blank && !opts.quiet) toast(opts.message || (row.name ? quote(row.name) + " deleted" : "Row deleted"), { undo: true });
   }
 
   /* ---- sidebar wiring ---- */
   function wireSidebar() {
     Array.prototype.forEach.call(document.querySelectorAll(".stab"), function (tab) {
-      tab.addEventListener("click", function () {
-        Array.prototype.forEach.call(document.querySelectorAll(".stab"), function (t) {
-          var on = t === tab;
-          t.classList.toggle("is-on", on);
-          t.setAttribute("aria-selected", String(on));
-          $("panel-" + t.dataset.panel).hidden = !on;
-        });
-      });
+      tab.addEventListener("click", function () { showPanel(tab.dataset.panel); });
     });
 
-    $("btnAddInit").addEventListener("click", function () {
+    function addFromForm() {
       var name = $("newName").value.trim();
       if (!name) { $("newName").focus(); return; }
-      var it = { id: uid("i"), name: name, url: $("newUrl").value.trim(), desc: "", area: "" };
-      Store.library.push(it);
+      var url = $("newUrl").value.trim();
+      var it = findLibByName(name);
+      if (it) {
+        if (url && !it.url) it.url = url;
+      } else {
+        it = { id: uid("i"), name: name, url: url, desc: "", area: "" };
+        Store.library.push(it);
+      }
       Store.saveLibrary();
-      addToView(it);
+      /* Already here, by entry or by name? Then point at that row instead of
+         adding a twin, and link it if it was typed on the slide. */
+      var v = view(), key = name.toLowerCase(), idx = -1;
+      v.rows.forEach(function (r, i) {
+        if (idx < 0 && (r.libId === it.id || String(r.name || "").trim().toLowerCase() === key)) idx = i;
+      });
+      if (idx >= 0) {
+        if (v.rows[idx].libId !== it.id && !(v.rows[idx].libId && libEntry(v.rows[idx].libId))) {
+          v.rows[idx].libId = it.id; Store.saveBoard(board()); History.absorb();
+        }
+        toast(quote(name) + " is already on the " + roadmapName());
+        selectRow(idx);
+        return;
+      }
+      idx = addToView(it);
       $("newName").value = ""; $("newUrl").value = "";
-      state.sel = { row: view().rows.length - 1 };
+      state.sel = { row: idx };
       renderAll();
-      toast("“" + name + "” added");
+      toast(quote(name) + " added to the " + roadmapName());
+      $("newName").focus();
+    }
+    $("btnAddInit").addEventListener("click", addFromForm);
+    ["newName", "newUrl"].forEach(function (id) {
+      $(id).addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); addFromForm(); }
+      });
     });
 
     $("libSearch").addEventListener("input", renderLibrary);
@@ -2126,73 +2650,75 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var it = libEntry(iid);
       if (!it) return;
       if (e.target.classList.contains("libdel")) {
-        /* The catalogue entry goes; rows already on a roadmap are untouched. */
-        if (!confirm("Remove “" + it.name + "” from the library?\n\nRows already on a roadmap stay where they are.")) return;
+        /* The library entry goes; rows already on a roadmap are untouched. */
         Store.library = Store.library.filter(function (x) { return x.id !== iid; });
-        Store.saveLibrary();
+        commitLibrary();
         renderLibrary();
+        toast(quote(it.name) + " removed from the library", { undo: true });
         return;
       }
       if (e.target.classList.contains("libchk")) {
-        if (e.target.checked) addToView(it); else removeFromView(iid);
-        renderAll();
+        if (e.target.checked) {
+          addToView(it); renderAll();
+          toast(quote(it.name) + " added to the " + roadmapName());
+        } else {
+          removeFromView(iid);
+        }
         return;
       }
       var idx = view().rows.map(function (r) { return r.libId; }).indexOf(iid);
-      if (idx < 0) { addToView(it); idx = view().rows.length - 1; }
+      if (idx < 0) {
+        idx = addToView(it); renderAll();
+        toast(quote(it.name) + " added to the " + roadmapName());
+      }
       selectRow(idx);
     });
 
+    $("btnDeselect").addEventListener("click", function () { selectRow(null); });
+
     $("iName").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
-      row.name = $("iName").value;
-      commit(); renderSlide(); renderLibrary();
+      setRowName(row, $("iName").value);
+      commit("text:name:" + state.sel.row); renderSlide(); renderLibrary();
     });
+    $("iName").addEventListener("change", function () { var row = curRow(); if (row) finalizeRow(row); });
     $("iUrl").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
       row.url = $("iUrl").value.trim();
-      commit(); renderSlide(); renderLibrary();
+      commit("text:url:" + state.sel.row); renderSlide(); renderLibrary();
     });
     $("iDesc").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
       row.desc = $("iDesc").value;
-      commit(); renderLibrary();
+      commit("text:desc:" + state.sel.row); renderLibrary();
     });
     $("iArea").addEventListener("input", function () {
       var row = curRow(); if (!row) return;
       row.area = $("iArea").value.trim();
-      commit(); renderLibrary();
+      commit("text:area:" + state.sel.row); renderLibrary();
     });
     $("iBox").addEventListener("change", function () {
       var row = curRow(); if (!row) return;
       row.box = $("iBox").checked;
-      commit(); renderSlide();
+      commitStep(); renderSlide();
     });
     Array.prototype.forEach.call(document.querySelectorAll("#inspector .sw"), function (sw) {
       sw.addEventListener("click", function () {
         var row = curRow(); if (!row) return;
         row.accent = sw.dataset.accent;
-        commit(); renderInspector(); renderSlide();
+        commitStep(); renderInspector(); renderSlide();
       });
     });
     $("btnUp").addEventListener("click", function () { if (curRow()) { moveRow(state.sel.row, -1); renderInspector(); } });
     $("btnDown").addEventListener("click", function () { if (curRow()) { moveRow(state.sel.row, 1); renderInspector(); } });
     $("btnClearRow").addEventListener("click", function () {
       var row = curRow(); if (!row) return;
-      row.cells = {}; commit(); renderSlide();
+      row.cells = {}; commitStep(); renderSlide();
+      toast("Phases cleared", { undo: true });
     });
     $("btnRemoveRow").addEventListener("click", function () {
       if (!curRow()) return;
-      removeRowAt(state.sel.row); renderAll();
-    });
-    $("btnDeleteInit").addEventListener("click", function () {
-      var row = curRow(); if (!row) return;
-      var it = row.libId && libEntry(row.libId);
-      if (!it) { toast("This row is not in the library"); return; }
-      if (!confirm("Remove “" + it.name + "” from the library? Rows already on a roadmap stay where they are.")) return;
-      Store.library = Store.library.filter(function (x) { return x.id !== it.id; });
-      Store.saveLibrary();
-      renderAll();
+      deleteRow(state.sel.row);
     });
 
     /* sprints */
@@ -2200,31 +2726,33 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var wrap = e.target.closest("[data-sprint]");
       if (!wrap) return;
       board().sprints[+wrap.dataset.sprint][e.target.dataset.key] = e.target.value;
-      commit(); renderSlide();
+      commit("text:sprint:" + wrap.dataset.sprint + ":" + e.target.dataset.key); renderSlide();
     });
     $("btnAddSprint").addEventListener("click", function () {
       var b = board();
-      if (b.sprints.length >= 12) return;
-      b.sprints.push({ id: uid("s"), name: "Sprint " + (b.sprints.length + 1), quarter: "Q4", dates: "—" });
-      commit(); renderSprints(); renderSlide(); renderMilestones();
+      if (b.sprints.length >= MAX_SPRINTS) { toast(MAX_SPRINTS + " sprints is the maximum"); return; }
+      var lastQ = b.sprints.length ? b.sprints[b.sprints.length - 1].quarter : "Q1";
+      b.sprints.push({ id: uid("s"), name: "Sprint " + (b.sprints.length + 1), quarter: lastQ, dates: "" });
+      commitStep(); renderSprints(); renderSlide(); renderMilestones();
     });
     $("btnDelSprint").addEventListener("click", function () {
       var b = board();
-      if (b.sprints.length <= 2) return;
+      if (b.sprints.length <= MIN_SPRINTS) { toast("A roadmap needs at least " + MIN_SPRINTS + " sprints"); return; }
       var last = b.sprints.length - 1;
       b.sprints.pop();
       Object.keys(b.views).forEach(function (k) {
         b.views[k].rows.forEach(function (r) { delete r.cells[String(last)]; });
         b.views[k].milestones = b.views[k].milestones.filter(function (m) { return m.col <= last; });
       });
-      commit(); renderSprints(); renderSlide(); renderMilestones();
+      commitStep(); renderSprints(); renderSlide(); renderMilestones();
+      toast("Last sprint removed", { undo: true });
     });
     $("btnGen").addEventListener("click", generateSprints);
     $("noteShow").addEventListener("change", function () {
-      board().note.show = $("noteShow").checked; commit(); renderSlide();
+      board().note.show = $("noteShow").checked; commitStep(); renderSlide();
     });
 
-    /* milestones */
+    /* go-live lines */
     $("btnAddMs").addEventListener("click", addMilestone);
     $("msList").addEventListener("input", function (e) {
       var card = e.target.closest("[data-ms]");
@@ -2241,7 +2769,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         m[key] = +e.target.value;
       }
       if (m.endRow < m.row) m.endRow = m.row;
-      commit(); renderSlide();
+      commit((key === "label" ? "text:ms:" : "ms:") + card.dataset.ms + ":" + key); renderSlide();
     });
     $("msList").addEventListener("change", function (e) {
       if (e.target.tagName === "SELECT") renderMilestones();
@@ -2250,16 +2778,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (e.target.dataset.act !== "del-ms") return;
       var i = +e.target.closest("[data-ms]").dataset.ms;
       view().milestones.splice(i, 1);
-      commit(); renderMilestones(); renderSlide();
+      commitStep(); renderMilestones(); renderSlide();
+      toast("Go-live line deleted", { undo: true });
     });
   }
 
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function generateSprints() {
     var start = $("genStart").value;
-    if (!start) { toast("Pick the start date"); return; }
+    if (!start) { toast("Pick the start date first"); return; }
     var weeks = Math.max(1, +$("genWeeks").value || 2);
-    var count = Math.max(2, Math.min(12, +$("genCount").value || 8));
+    var asked = +$("genCount").value || 8;
+    var count = Math.max(MIN_SPRINTS, Math.min(MAX_SPRINTS, asked));
     var from = Math.max(1, +$("genFrom").value || 1);
     var perQ = Math.max(2, +$("genPerQ").value || 7);
     var qIdx = ["Q1", "Q2", "Q3", "Q4"].indexOf($("genQ").value);
@@ -2278,7 +2808,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (from > perQ) { from = 1; qIdx = (qIdx + 1) % 4; }
       d = new Date(d.getTime() + weeks * 7 * 86400000);
     }
-    /* keep painted phases that still have a column */
+    /* keep painted phases that still have a sprint */
     Object.keys(b.views).forEach(function (k) {
       b.views[k].rows.forEach(function (r) {
         Object.keys(r.cells).forEach(function (c) { if (+c >= out.length) delete r.cells[c]; });
@@ -2286,11 +2816,28 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       b.views[k].milestones = (b.views[k].milestones || []).filter(function (m) { return m.col < out.length; });
     });
     b.sprints = out;
-    commit(); renderSprints(); renderMilestones(); renderSlide();
-    toast("Headers regenerated");
+    commitStep(); renderSprints(); renderMilestones(); renderSlide();
+    toast(count === asked ? "Sprints updated" : "Sprints updated (" + count + " is the limit)", { undo: true });
   }
 
   /* ---- top bar wiring ---- */
+  function openMenu() {
+    var m = $("menu"), bar = document.querySelector(".topbar");
+    renderMenu();
+    if (bar) m.style.top = (bar.getBoundingClientRect().bottom + 4) + "px";
+    m.hidden = false;
+    $("btnMore").setAttribute("aria-expanded", "true");
+    var first = m.querySelector("button");
+    if (first) first.focus();
+  }
+  function closeMenu(refocus) {
+    var m = $("menu");
+    if (m.hidden) return;
+    m.hidden = true;
+    $("btnMore").setAttribute("aria-expanded", "false");
+    if (refocus) $("btnMore").focus();
+  }
+
   function wireTopbar() {
     $("boardSel").addEventListener("change", function () {
       setBoard($("boardSel").value);
@@ -2301,20 +2848,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     Array.prototype.forEach.call(document.querySelectorAll(".vtab"), function (tab) {
       tab.addEventListener("click", function () {
+        History.settle();
         state.view = tab.dataset.view;
         state.sel = null;
+        History.absorb();          /* same board, other roadmap: not an undo step */
         syncViewTabs();
         renderAll();
       });
     });
 
     $("btnNewBoard").addEventListener("click", function () {
-      var name = prompt("Name of the new quarter", "Q1 2026");
+      var src = board();
+      var name = prompt("New quarter name", nextQuarterName(src.name));
       if (!name) return;
       var b = {
         id: uid("b"), name: name, createdAt: Date.now(), updatedAt: Date.now(),
-        note: { show: true, text: "To validate" },
-        sprints: board().sprints.map(function (s) { return { id: uid("s"), name: s.name, quarter: s.quarter, dates: "—" }; }),
+        note: { show: false, text: "To validate" },
+        legend: { show: true },
+        sprints: src.sprints.map(function (s) { return { id: uid("s"), name: s.name, quarter: s.quarter, dates: s.dates }; }),
         views: {
           product: { title: "Quarter roadmap snapshot (" + name.split(" ")[0] + ")", milestones: [], rows: [] },
           design: { title: "Quarter design roadmap snapshot (" + name.split(" ")[0] + ")", milestones: [], rows: [] }
@@ -2323,21 +2874,27 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Store.boards.unshift(b);
       setBoard(b.id); state.sel = null;
       Store.saveBoard(b, true);
+      History.reset();
       renderAll();
+      toast("Quarter created with the sprints of " + quote(src.name) + ". Edit them on the slide or in Sprints.");
     });
 
     $("btnMore").addEventListener("click", function (e) {
       e.stopPropagation();
-      var m = $("menu");
-      m.hidden = !m.hidden;
-      $("btnMore").setAttribute("aria-expanded", String(!m.hidden));
+      if ($("menu").hidden) openMenu(); else closeMenu();
     });
-    document.addEventListener("click", function () { $("menu").hidden = true; $("btnMore").setAttribute("aria-expanded", "false"); });
+    document.addEventListener("click", function () { closeMenu(); });
     $("menu").addEventListener("click", function (e) { e.stopPropagation(); });
+    $("menu").addEventListener("keydown", function (e) {
+      var items = Array.prototype.slice.call($("menu").querySelectorAll("button"));
+      var i = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    });
 
     $("mDuplicate").addEventListener("click", function () {
       var src = board();
-      var name = prompt("Name of the duplicated quarter", nextQuarterName(src.name));
+      var name = prompt("Name for the copy", nextQuarterName(src.name));
       if (!name) return;
       var copy = clone(src);
       copy.id = uid("b"); copy.name = name; copy.createdAt = Date.now();
@@ -2347,36 +2904,39 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         copy.views[k].milestones = [];
         copy.views[k].rows.forEach(function (r) { r.cells = {}; });
       });
-      copy.sprints.forEach(function (s) { s.id = uid("s"); s.dates = "—"; });
+      copy.sprints.forEach(function (s) { s.id = uid("s"); });
       Store.boards.unshift(copy);
       setBoard(copy.id); state.sel = null;
       Store.saveBoard(copy, true);
-      $("menu").hidden = true;
+      closeMenu();
+      History.reset();
       renderAll();
-      toast("Duplicated — rows and sprints kept, phases cleared");
+      toast("Quarter duplicated. Rows and sprints kept, phases cleared.");
     });
 
     $("mRename").addEventListener("click", function () {
       var b = board();
       var name = prompt("Quarter name", b.name);
       if (!name) return;
-      b.name = name; commit(); renderBoardSel(); $("menu").hidden = true;
+      b.name = name; commitStep(); renderBoardSel(); closeMenu();
     });
 
     $("mDelete").addEventListener("click", function () {
       if (Store.boards.length <= 1) { toast("You need at least one quarter"); return; }
       var b = board();
-      if (!confirm("Delete “" + b.name + "”?")) return;
+      if (!confirm("Delete " + quote(b.name) + "? This cannot be undone.")) return;
       Store.removeBoard(b.id);
       setBoard(Store.boards[0].id); state.sel = null;
-      $("menu").hidden = true;
+      closeMenu();
+      History.reset();
       renderAll();
+      toast(quote(b.name) + " deleted");
     });
 
     $("mExport").addEventListener("click", function () {
       var payload = JSON.stringify({ version: 1, boards: Store.boards, library: Store.library }, null, 2);
       saveFile("roadmap-studio.json", payload, "application/json");
-      $("menu").hidden = true;
+      closeMenu();
     });
 
     $("mImport").addEventListener("click", function () {
@@ -2405,10 +2965,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           (data.library || []).forEach(function (ni) {
             var byId = Store.library.map(function (x) { return x.id; }).indexOf(ni.id);
             if (byId >= 0) { Store.library[byId] = ni; return; }
-            var key = (ni.name || "").trim().toLowerCase();
-            var twin = key && Store.library.filter(function (x) {
-              return (x.name || "").trim().toLowerCase() === key;
-            })[0];
+            var twin = findLibByName(ni.name);
             if (twin) remap[ni.id] = twin.id; else Store.library.push(ni);
           });
           data.boards.forEach(function (nb) {
@@ -2427,18 +2984,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           renderAll();
           toast(added + " quarter(s) added, " + updated + " updated");
         }).catch(function () {
-          toast("That file is not valid");
+          toast("This file cannot be imported");
         }).then(function () { input.remove(); });
       });
       input.click();
-      $("menu").hidden = true;
+      closeMenu();
     });
 
-    $("btnFitRows").addEventListener("click", function () {
-      var opts = ["auto", 78, 64, 52, 42];
-      var i = opts.indexOf(state.rowH);
-      state.rowH = opts[(i + 1) % opts.length];
-      $("btnFitRows").textContent = "Rows: " + (state.rowH === "auto" ? "auto" : state.rowH + "px");
+    $("rowH").addEventListener("change", function () {
+      var v = $("rowH").value;
+      state.rowH = v === "auto" ? "auto" : +v;
       renderSlide();
     });
 
@@ -2449,8 +3004,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("zoomOut").addEventListener("click", function () { stepZoom(-1); });
     $("zoomLvl").addEventListener("click", function () { setZoom("fit"); });
 
-    $("mPdf").addEventListener("click", function () { $("menu").hidden = true; exportPdf(); });
-    $("mKeys").addEventListener("click", function () { $("menu").hidden = true; toggleSheet(true); });
+    $("mPdf").addEventListener("click", function () { closeMenu(); exportPdf(); });
+    $("mKeys").addEventListener("click", function () { closeMenu(); toggleSheet(true); });
     $("sheetClose").addEventListener("click", function () { toggleSheet(false); });
     $("sheet").addEventListener("click", function (e) { if (e.target === $("sheet")) toggleSheet(false); });
 
@@ -2466,27 +3021,27 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       state.half = !state.half;
       $("btnHalf").setAttribute("aria-pressed", String(state.half));
       $("btnHalf").classList.toggle("btn-primary", state.half);
-      toast(state.half ? "Half-sprint mode on — click the half you want" : "Half-sprint mode off");
+      toast(state.half ? "Half sprint on: click the half you want to paint" : "Half sprint off");
     });
 
     $("btnNote").addEventListener("click", function () {
       var b = board();
       b.note.show = true;
       if (!b.note.text) b.note.text = "To validate";
-      commit(); renderSprints(); renderSlide();
+      commitStep(); renderSprints(); renderSlide();
       var el = $("slideNoteText");
-      if (el) el.focus();
+      if (el) { el.focus(); selectAllIn(el); }
     });
 
     $("legendShow").addEventListener("change", function () {
       var b = board();
       b.legend = b.legend || {};
       b.legend.show = $("legendShow").checked;
-      commit(); renderSlide();
+      commitStep(); renderSlide();
     });
 
     $("mPrune").addEventListener("click", function () {
-      $("menu").hidden = true;
+      closeMenu();
       var used = {};
       Store.boards.forEach(function (b) {
         Object.keys(b.views).forEach(function (k) {
@@ -2494,31 +3049,35 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         });
       });
       var gone = Store.library.filter(function (x) { return !used[x.id]; }).length;
-      if (!gone) { toast("Every library entry is in use"); return; }
-      if (!confirm("Remove " + gone + " library entries that no roadmap uses?")) return;
+      if (!gone) { toast("Every initiative in the library is in use"); return; }
+      if (!confirm("Remove " + gone + " initiative" + (gone === 1 ? "" : "s") + " that no roadmap uses?")) return;
       Store.library = Store.library.filter(function (x) { return used[x.id]; });
-      Store.saveLibrary();
+      commitLibrary();
       renderAll();
-      toast(gone + " entries removed");
+      toast(gone + " initiative" + (gone === 1 ? "" : "s") + " removed from the library", { undo: true });
     });
 
     $("mLegend").addEventListener("click", function () {
       var b = board();
       b.legend = b.legend || {};
       b.legend.show = !b.legend.show;
-      commit(); renderSprints(); renderSlide();
-      $("menu").hidden = true;
-      toast(b.legend.show ? "Legend shown on the slide" : "Legend hidden");
+      commitStep(); renderSprints(); renderSlide();
+      closeMenu();
+      var hasBar = view().rows.some(function (r) { return r.accent !== "none"; });
+      toast(b.legend.show ? (hasBar ? "Legend shown" : "Legend on. It appears once a row has a colour bar.") : "Legend hidden");
     });
 
     $("glDrag").addEventListener("pointerdown", startGlDrag);
+    $("glDrag").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); addMilestone(); }
+    });
 
     /* In presentation the slide is the deck: a linked row opens its doc. */
     $("presentHost").addEventListener("pointerdown", function (e) {
       var lab = e.target.closest("[data-labelrow]");
       if (!lab) return;
       var row = view().rows[+lab.dataset.labelrow];
-      var url = row && row.url;
+      var url = row && safeUrl(row.url);
       if (url) window.open(url, "_blank", "noopener");
     });
 
@@ -2532,7 +3091,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function nextQuarterName(name) {
     var m = /^Q([1-4])\s*(\d{4})?/.exec(name.trim());
-    if (!m) return name + " (copia)";
+    if (!m) return name + " copy";
     var q = +m[1], y = m[2] ? +m[2] : new Date().getFullYear();
     q++; if (q > 4) { q = 1; y++; }
     return "Q" + q + " " + y;
@@ -2568,6 +3127,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     } catch (e) { toast("Downloads are not available here"); }
   }
 
+  /* html2canvas does not draw the "..." the browser shows on clipped text, so
+     a long name would print cut mid-word. Shorten it by hand before the
+     capture; the slide is rendered again afterwards. */
+  function clampSlideText(slide) {
+    Array.prototype.forEach.call(slide.querySelectorAll(".pill span"), function (el) {
+      var guard = 0;
+      while (el.scrollHeight > el.clientHeight + 2 && el.textContent.length > 4 && guard++ < 400) {
+        el.textContent = el.textContent.replace(/…$/, "").slice(0, -3).replace(/\s+$/, "") + "…";
+      }
+    });
+    Array.prototype.forEach.call(slide.querySelectorAll(".sprint .nm > span:first-child, .sprint .dt"), function (el) {
+      var guard = 0;
+      while (el.scrollWidth > el.clientWidth + 1 && el.textContent.length > 3 && guard++ < 100) {
+        el.textContent = el.textContent.replace(/…$/, "").slice(0, -2).replace(/\s+$/, "") + "…";
+      }
+    });
+  }
+
   function withCleanSlide(fn) {
     var slide = $("slide"), inner = $("canvasInner");
     var holder = document.createElement("div");
@@ -2577,11 +3154,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     slide.classList.remove("is-live");
     slide.style.transform = "none";
     holder.appendChild(slide);
+    clampSlideText(slide);
     var restore = function () {
       inner.appendChild(slide);
       slide.classList.remove("is-export");
       if (Store.canWrite) slide.classList.add("is-live");
       holder.remove();
+      renderSlide();
       fitSlide(true);
     };
     return Promise.resolve()
@@ -2591,8 +3170,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   function exportPng(toClipboard) {
-    if (typeof html2canvas !== "function") { toast("Export engine did not load"); return; }
-    toast(toClipboard ? "Preparing the image…" : "Rendering the PNG…");
+    if (typeof html2canvas !== "function") { toast("Export needs an internet connection"); return; }
+    if (!hasContent(view())) { toast("The " + roadmapName() + " is empty. Add an initiative first."); return; }
+    toast("Creating the image…");
     withCleanSlide(function (slide) {
       return html2canvas(slide, {
         scale: 2, backgroundColor: "#ffffff",
@@ -2607,21 +3187,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (!toClipboard) return saveFile(name, blob, "image/png");
       if (!navigator.clipboard || !window.ClipboardItem) throw new Error("no clipboard");
       return navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })])
-        .then(function () { toast("Copied — paste it into your deck"); })
+        .then(function () { toast("Image copied"); })
         .catch(function () { saveFile(name, blob, "image/png"); });
     }).catch(function () {
-      toast("Export failed — try again or take a screenshot");
+      toast("Export failed. Please try again.");
     });
   }
 
-  /* One PDF per quarter, one page per view — what you send the people who
+  /* One PDF per quarter, one page per roadmap: what you send the people who
      were not in the room. */
   function exportPdf() {
-    if (typeof html2canvas !== "function" || !window.jspdf) { toast("Export engine did not load"); return; }
+    if (typeof html2canvas !== "function" || !window.jspdf) { toast("Export needs an internet connection"); return; }
     var deck = buildDeck();
-    if (!deck.length) { toast("No view with initiatives to export"); return; }
+    if (!deck.length) { toast("Add an initiative first"); return; }
+    var skipped = ["product", "design"].filter(function (k) {
+      return !deck.some(function (d) { return d.view === k; });
+    });
     var savedView = state.view;
-    toast("Building the PDF…");
+    toast("Creating the PDF…");
 
     var doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "px", format: [SLIDE_W, SLIDE_H] });
     var chain = Promise.resolve();
@@ -2647,9 +3230,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       restore();
       var name = board().name.replace(/[^\w\s.-]/g, "").trim().replace(/\s+/g, "-") + "-roadmap.pdf";
       saveFile(name, doc.output("blob"), "application/pdf");
+      if (skipped.length) toast("The " + roadmapName(skipped[0]) + " is empty and was left out of the PDF");
     }).catch(function () {
       restore();
-      toast("PDF export failed");
+      toast("PDF export failed. Please try again.");
     });
   }
 
@@ -2660,20 +3244,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function toggleSheet(force) {
     var s = $("sheet");
     s.hidden = force === undefined ? !s.hidden : !force;
+    if (!s.hidden) $("sheetClose").focus();
   }
 
   function wireKeys() {
     document.addEventListener("keydown", function (e) {
       var t = e.target;
       var typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
-
-      /* Undo/redo stay live even while a field has focus. */
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
-        if (!Store.canWrite) return;
-        e.preventDefault();
-        if (e.shiftKey) History.redo(); else History.undo();
-        return;
-      }
+      var mod = e.metaKey || e.ctrlKey;
 
       if (present.on) {
         if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); presentGo(1); }
@@ -2684,14 +3262,34 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         return;
       }
 
-      if (typing) return;
+      /* Inside a field, Ctrl+Z is the field's own text undo. Everywhere else
+         it steps the roadmap back. */
+      if (mod && !e.altKey && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+        if (typing || !Store.canWrite) return;
+        e.preventDefault();
+        if (e.key.toLowerCase() === "y" || e.shiftKey) History.redo(); else History.undo();
+        return;
+      }
 
       if (e.key === "Escape") {
         if (!$("sheet").hidden) { toggleSheet(false); return; }
-        selectRow(null); $("menu").hidden = true; return;
+        if (!$("menu").hidden) { closeMenu(true); return; }
+        if (typing) { t.blur(); return; }
+        selectRow(null); return;
+      }
+
+      if (typing) return;
+
+      /* Delete works from the slide and the toolbar, never from a panel,
+         the menu or the shortcut sheet, where it would act unseen. */
+      if ((e.key === "Delete" || e.key === "Backspace") && state.sel && Store.canWrite) {
+        var inChrome = t && t !== document.body && t.closest &&
+          (t.closest(".sidebar") || t.closest(".topbar") || t.closest("#menu") || t.closest("#sheet"));
+        if (inChrome) return;
+        e.preventDefault(); deleteRow(state.sel.row); return;
       }
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); toggleSheet(); return; }
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (mod || e.altKey) return;
       if (e.key.toLowerCase() === "p") { e.preventDefault(); enterPresent(); return; }
       if (e.key.toLowerCase() === "h") { e.preventDefault(); $("btnHalf").click(); return; }
 

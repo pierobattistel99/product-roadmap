@@ -16,11 +16,11 @@ out="$here/index.html"
 
 cat > "$out" <<'HEAD'
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Costruisce le due slide di roadmap del quarter — vista stakeholder e vista design — dipingendo le fasi sulla griglia degli sprint.">
+<meta name="description" content="Builds the two quarterly roadmap slides, product and design, by painting phases on the sprint grid.">
 <meta name="color-scheme" content="light dark">
 <style>
   :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}

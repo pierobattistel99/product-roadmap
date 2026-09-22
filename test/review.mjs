@@ -468,9 +468,13 @@ await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch
 await p.reload(); await p.waitForTimeout(900);
 
 const names = () => Q(`[...document.querySelectorAll('.brow--data .pill span')].map(s=>s.textContent)`);
+const focusedRow = () => Q(`(a=>a && a.dataset && a.dataset.namerow !== undefined ? a.dataset.namerow : null)(document.activeElement)`);
+const libNames = () => Q(`[...document.querySelectorAll('.lib-item .nm')].map(n=>n.textContent)`);
 
 check('slide: row names are editable in place',
   (await Q(`!!document.querySelector('.brow--data .pill span[contenteditable="true"]')`)));
+check('slide: the panel offers no "Remove from library" button',
+  await Q(`!document.getElementById('btnDeleteInit') && ![...document.querySelectorAll('#inspector button')].some(b=>/library/i.test(b.textContent))`));
 await p.click('.brow--data[data-row="1"] .pill span');
 await p.keyboard.press('Control+a');
 await p.keyboard.type('Renamed straight on the slide');
@@ -479,40 +483,178 @@ check('slide: typing on the pill renames the row',
   (await names())[1] === 'Renamed straight on the slide');
 check('slide: and it reaches the model',
   (await Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.rows[1].name`)) === 'Renamed straight on the slide');
-check('slide: the caret stays in the pill while typing',
-  (await Q(`document.activeElement && document.activeElement.dataset && document.activeElement.dataset.namerow === '1'`)));
+check('slide: the caret stays in the pill while typing', (await focusedRow()) === '1');
 check('slide: the library entry follows the new wording',
-  (await Q(`[...document.querySelectorAll('.lib-item .nm')].some(n=>n.textContent==='Renamed straight on the slide')`)));
+  (await libNames()).includes('Renamed straight on the slide'));
+check('slide: the selected row opens at the top of the panel, above the library',
+  await Q(`(()=>{const i=document.getElementById('inspector'), r=i.getBoundingClientRect(), l=document.getElementById('libList').getBoundingClientRect();
+    return !i.hidden && r.top < l.top && r.top >= 0 && r.top < 300;})()`));
 
 const nBefore = (await names()).length;
-await p.keyboard.press('Enter'); await p.waitForTimeout(500);
-check('slide: Enter opens the next initiative below',
-  (await names()).length === nBefore + 1 && (await names())[2] === '');
-check('slide: the new row is focused and ready to type',
-  (await Q(`document.activeElement && document.activeElement.dataset && document.activeElement.dataset.namerow === '2'`)));
+await p.keyboard.press('Enter'); await p.waitForTimeout(400);
+check('slide: Enter confirms the name and moves to the next row, no new row',
+  (await names()).length === nBefore && (await focusedRow()) === '2');
+await p.click('.brow--data[data-row="' + (nBefore - 1) + '"] .pill span');
+await p.keyboard.press('End'); await p.keyboard.press('Enter'); await p.waitForTimeout(500);
+check('slide: Enter on the last row starts a new row',
+  (await names()).length === nBefore + 1 && (await names())[nBefore] === '');
+check('slide: the new row is focused and ready to type', (await focusedRow()) === String(nBefore));
 await p.keyboard.type('Typed without touching the panel'); await p.waitForTimeout(500);
-check('slide: it takes the typing', (await names())[2] === 'Typed without touching the panel');
+check('slide: it takes the typing', (await names())[nBefore] === 'Typed without touching the panel');
+await p.keyboard.press('Enter'); await p.waitForTimeout(350);
+check('slide: Enter on a named last row adds one empty row', (await names()).length === nBefore + 2);
+await p.keyboard.press('Enter'); await p.waitForTimeout(450);
+check('slide: Enter on the empty row removes it instead of adding another (the reported bug)',
+  (await names()).length === nBefore + 1 && !(await names()).includes(''),
+  JSON.stringify(await names()));
+check('slide: a row typed on the slide joins the library',
+  (await libNames()).includes('Typed without touching the panel'));
 
 await p.click('#rowAdd'); await p.waitForTimeout(500);
-check('slide: + Initiative appends another row', (await names()).length === nBefore + 2);
-await p.keyboard.type('Appended from the ghost row'); await p.waitForTimeout(450);
-check('slide: the appended row takes the typing',
-  (await names())[nBefore + 1] === 'Appended from the ghost row');
+check('slide: + Initiative appends another row, focused',
+  (await names()).length === nBefore + 2 && (await focusedRow()) === String(nBefore + 1));
+await p.keyboard.press('Escape'); await p.waitForTimeout(450);
+check('slide: Escape on an empty row removes it', (await names()).length === nBefore + 1);
+await p.click('#rowAdd'); await p.waitForTimeout(400);
+await p.keyboard.press('Backspace'); await p.waitForTimeout(450);
+check('slide: Backspace on an empty name removes the row', (await names()).length === nBefore + 1);
+check('slide: and puts the caret in the row above', (await focusedRow()) === String(nBefore));
+check('slide: no blank pill is left anywhere', !(await names()).includes(''));
 
-await p.hover('.brow--data[data-row="2"]');
-await p.click('.brow--data[data-row="2"] .rowtools button[data-act="del"]'); await p.waitForTimeout(450);
-check('slide: × deletes that row',
-  (await names()).length === nBefore + 1 && !(await names()).includes('Typed without touching the panel'));
+await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+check('slide: Escape leaves the field but keeps the row selected',
+  (await focusedRow()) === null && (await Q(`document.querySelectorAll('.brow--data.is-sel').length`)) === 1);
+await p.keyboard.press('Delete'); await p.waitForTimeout(450);
+check('slide: Delete removes the selected row',
+  (await names()).length === nBefore && !(await names()).includes('Typed without touching the panel'));
+check('slide: the toast offers Undo',
+  await Q(`!document.getElementById('toast').hidden && !!document.querySelector('#toast .toast-act')`));
+await p.click('#toast .toast-act'); await p.waitForTimeout(450);
+check('slide: Undo brings the row back', (await names()).includes('Typed without touching the panel'));
 
-// ---------- 11e. THE LIBRARY CAN BE CLEANED OUT ----------
+const idxTyped = (await names()).indexOf('Typed without touching the panel');
+await p.hover('.brow--data[data-row="' + idxTyped + '"]');
+const toolBox = await p.locator('.brow--data[data-row="' + idxTyped + '"] .rowtools button[data-act="del"]').boundingBox();
+check('slide: the row tools are a real target (at least 17px wide on a fitted slide)',
+  toolBox && toolBox.width >= 17, JSON.stringify(toolBox));
+await p.click('.brow--data[data-row="' + idxTyped + '"] .rowtools button[data-act="del"]'); await p.waitForTimeout(450);
+check('slide: × deletes that row', !(await names()).includes('Typed without touching the panel'));
+
+// ---------- 11d2. UNDO IS PER ACTION ----------
+await p.click('.brush[data-brush="specs"]');
+await p.click('.brow--data[data-row="0"] .pill span'); await p.keyboard.press('End');
+await p.keyboard.type(' v2');
+await p.click('.cell[data-row="0"][data-col="7"]'); await p.waitForTimeout(600);
+check('undo: painting a cell releases the caret from the name',
+  await Q(`!(document.activeElement && document.activeElement.isContentEditable)`));
+check('undo: the paint landed', (await Q(`document.querySelectorAll('.cell[data-row="0"][data-col="7"] .chip').length`)) === 1);
+await p.keyboard.press('Control+z'); await p.waitForTimeout(450);
+check('undo: Ctrl+Z right after removes only the paint, the typed text stays',
+  (await Q(`document.querySelectorAll('.cell[data-row="0"][data-col="7"] .chip').length`)) === 0 && (await names())[0].endsWith(' v2'),
+  (await names())[0]);
+await p.keyboard.press('Control+z'); await p.waitForTimeout(450);
+check('undo: the next Ctrl+Z removes the typed text', !(await names())[0].endsWith(' v2'));
+
+await p.click('.vtab[data-view="design"]'); await p.waitForTimeout(350);
+await p.click('.brush[data-brush="discovery"]');
+await p.click('.cell[data-row="0"][data-col="7"]'); await p.waitForTimeout(600);
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(350);
+await p.keyboard.press('Control+z'); await p.waitForTimeout(500);
+check('undo: goes back to the roadmap it edits',
+  await Q(`document.querySelector('.vtab[data-view="design"]').classList.contains('is-on')`));
+check('undo: and the design paint is gone',
+  (await Q(`document.querySelectorAll('.cell[data-row="0"][data-col="7"] .chip').length`)) === 0);
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(350);
+
+await p.click('.brush[data-brush="specs"]');
+await p.click('.cell[data-row="1"][data-col="7"]'); await p.waitForTimeout(600);
+const chipsB = await Q(`document.querySelectorAll('.chip').length`);
+await p.click('#newName'); await p.keyboard.type('Draft'); await p.keyboard.press('Control+z'); await p.waitForTimeout(300);
+check('undo: Ctrl+Z inside a text box does not touch the roadmap',
+  (await Q(`document.querySelectorAll('.chip').length`)) === chipsB);
+await p.fill('#newName', '');
+
+// ---------- 11d3. EMPTY ROWS NEVER ENTER THE HISTORY ----------
+await p.click('.brow--data[data-row="' + ((await names()).length - 1) + '"] .pill span');
+await p.keyboard.press('End'); await p.keyboard.press('Enter'); await p.waitForTimeout(300);
+await p.keyboard.type('Scratch test'); await p.waitForTimeout(200);
+await p.keyboard.press('Enter'); await p.waitForTimeout(250);   // a new empty row
+await p.keyboard.press('Enter'); await p.waitForTimeout(400);   // removed again
+check('undo: the scratch rows left no blank row', !(await names()).includes(''));
+await p.keyboard.press('Control+z'); await p.waitForTimeout(450);
+check('undo: one Ctrl+Z removes the typed row, not a blank one first',
+  !(await names()).includes('Scratch test') && !(await names()).includes(''), JSON.stringify(await names()));
+await p.keyboard.press('Control+Shift+z'); await p.waitForTimeout(450);
+check('undo: redo brings the typed row back', (await names()).includes('Scratch test'));
+const scratchIdx = (await names()).indexOf('Scratch test');
+await p.click('.brow--data[data-row="' + scratchIdx + '"] .pill span'); await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+await p.keyboard.press('Delete'); await p.waitForTimeout(400);
+
+// Tab out of an empty row lands on the row that took its place
+await p.click('.brow--data[data-row="1"] .pill span'); await p.keyboard.press('End');
+await p.keyboard.press('Shift+Enter'); await p.waitForTimeout(300);        // empty row at index 2
+check('slide: Shift+Enter inserts a row below', (await names())[2] === '' && (await focusedRow()) === '2');
+const rowThree = (await names())[3];
+await p.keyboard.press('Tab'); await p.waitForTimeout(400);
+check('slide: Tab out of an empty row removes it and lands on the next row',
+  !(await names()).includes('') && (await focusedRow()) === '2' && (await names())[2] === rowThree,
+  'focused ' + (await focusedRow()) + ' names ' + JSON.stringify((await names()).slice(0, 4)));
+await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
+// A library entry removed on purpose does not come back when its row is edited
+const pushIdx = (await names()).indexOf('Renamed straight on the slide');
+const pushLib = await Q(`(()=>{const li=[...document.querySelectorAll('.lib-item')].find(l=>l.querySelector('.nm').textContent==='Renamed straight on the slide'); return li ? li.dataset.iid : null;})()`);
+await p.hover('.lib-item[data-iid="' + pushLib + '"]');
+await p.click('.lib-item[data-iid="' + pushLib + '"] .libdel'); await p.waitForTimeout(400);
+await p.click('.brow--data[data-row="' + pushIdx + '"] .pill span'); await p.keyboard.press('End');
+await p.keyboard.type(' again'); await p.keyboard.press('Enter'); await p.waitForTimeout(450);
+check('library: an entry removed on purpose stays removed when its row is edited',
+  !(await libNames()).some(n => /Renamed straight on the slide/.test(n)), JSON.stringify(await libNames()));
+await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+
+// Two rows typed with the same name share one entry; unticking removes both
+await p.click('#rowAdd'); await p.keyboard.type('Twin row'); await p.keyboard.press('Enter'); await p.waitForTimeout(250);
+await p.keyboard.type('Twin row'); await p.keyboard.press('Escape'); await p.waitForTimeout(450);
+check('library: the same name typed twice makes one entry',
+  (await libNames()).filter(n => n === 'Twin row').length === 1 && (await names()).filter(n => n === 'Twin row').length === 2);
+const twinLib = await Q(`(()=>{const li=[...document.querySelectorAll('.lib-item')].find(l=>l.querySelector('.nm').textContent==='Twin row'); return li ? li.dataset.iid : null;})()`);
+await p.click('.lib-item[data-iid="' + twinLib + '"] .libchk'); await p.waitForTimeout(450);
+check('library: unticking removes every row linked to the entry',
+  !(await names()).includes('Twin row') && (await Q(`document.querySelector('.lib-item[data-iid="${twinLib}"] .libchk').checked`)) === false);
+
+// ---------- 11e. THE LIBRARY ----------
+const libCount = () => Q(`JSON.parse(localStorage.getItem('roadmap-studio-v1')).library.length`);
+const libN = await libCount();
+const rowsN0 = (await names()).length;
+await p.fill('#newName', 'Data export'); await p.keyboard.press('Enter'); await p.waitForTimeout(400);
+check('library: adding a name already on the roadmap adds nothing',
+  (await libCount()) === libN && (await names()).length === rowsN0);
+await p.fill('#newName', 'Loyalty points'); await p.keyboard.press('Enter'); await p.waitForTimeout(500);
+check('library: Enter in the add box adds the row', (await names()).includes('Loyalty points'));
+check('library: and exactly one library entry', (await libCount()) === libN + 1);
+check('library: focus stays in the box for the next name',
+  await Q(`document.activeElement && document.activeElement.id === 'newName'`));
+
+const rowsN = (await names()).length;
+const oneStep = await Q(`(()=>{const li=[...document.querySelectorAll('.lib-item')].find(l=>l.querySelector('.nm').textContent==='One-step checkout'); return li ? li.dataset.iid : null;})()`);
+await p.click('.lib-item[data-iid="' + oneStep + '"] .libchk'); await p.waitForTimeout(450);
+check('library: unticking removes the row from this roadmap',
+  (await names()).length === rowsN - 1 && !(await names()).includes('One-step checkout'));
+check('library: with an Undo in the toast', await Q(`!!document.querySelector('#toast .toast-act')`));
+await p.click('#toast .toast-act'); await p.waitForTimeout(500);
+check('library: Undo restores the row with its phases',
+  (await names()).includes('One-step checkout') &&
+  (await Q(`(()=>{const i=[...document.querySelectorAll('.brow--data .pill span')].findIndex(s=>s.textContent==='One-step checkout');
+    return document.querySelectorAll('.brow--data[data-row="'+i+'"] .chip').length;})()`)) > 0);
+
 const libBefore = await Q(`document.querySelectorAll('.lib-item').length`);
-p.once('dialog', d => d.accept());
 await p.hover('.lib-item:nth-child(1)');
-await p.click('.lib-item:nth-child(1) .libdel'); await p.waitForTimeout(500);
-check('library: × removes a catalogue entry',
+await p.click('.lib-item:nth-child(1) .libdel'); await p.waitForTimeout(450);
+check('library: × removes a library entry, no dialog',
   (await Q(`document.querySelectorAll('.lib-item').length`)) === libBefore - 1);
-check('library: removing it leaves the roadmap rows alone',
-  (await names()).length === nBefore + 1);
+check('library: removing it leaves the roadmap rows alone', (await names()).length === rowsN);
+await p.keyboard.press('Control+z'); await p.waitForTimeout(450);
+check('library: Ctrl+Z brings the entry back', (await Q(`document.querySelectorAll('.lib-item').length`)) === libBefore);
 
 const unusedBefore = await Q(`(()=>{const d=JSON.parse(localStorage.getItem('roadmap-studio-v1'));
   const used={}; d.boards.forEach(b=>Object.keys(b.views).forEach(k=>(b.views[k].rows||[]).forEach(r=>{if(r.libId)used[r.libId]=1})));
@@ -524,7 +666,131 @@ check('library: prune removes exactly the unused ones',
   (await Q(`(()=>{const d=JSON.parse(localStorage.getItem('roadmap-studio-v1'));
     const used={}; d.boards.forEach(b=>Object.keys(b.views).forEach(k=>(b.views[k].rows||[]).forEach(r=>{if(r.libId)used[r.libId]=1})));
     return d.library.filter(x=>!used[x.id]).length;})()`)) === 0);
-check('library: pruning left the roadmap untouched', (await names()).length === nBefore + 1);
+check('library: pruning left the roadmap untouched', (await names()).length === rowsN);
+
+await p.click('#btnMore'); await p.waitForTimeout(200);
+check('menu: the legend item says what it will do',
+  (await Q(`document.getElementById('mLegend').textContent`)) === 'Hide the legend');
+check('menu: opens right under the top bar',
+  await Q(`(()=>{const m=document.getElementById('menu').getBoundingClientRect(), t=document.querySelector('.topbar').getBoundingClientRect(); return m.top >= t.bottom && m.top < t.bottom + 12;})()`));
+await p.click('#mLegend'); await p.waitForTimeout(300);
+check('menu: the legend is hidden', await Q(`document.querySelector('.legend').hidden`));
+await p.click('#btnMore'); await p.waitForTimeout(200);
+check('menu: and the item flips', (await Q(`document.getElementById('mLegend').textContent`)) === 'Show the legend');
+await p.click('#mLegend'); await p.waitForTimeout(300);
+check('chrome: the save status is plain', (await Q(`document.getElementById('sync').textContent`)) === 'saved');
+
+// ---------- 11e2. PASTE, HOVER CARD, EMPTY ROADMAP ----------
+await p.click('.brow--data[data-row="1"] .pill span'); await p.keyboard.press('Control+a');
+await p.evaluate(() => {
+  const dt = new DataTransfer();
+  dt.setData('text/html', '<b>Bold</b> <i>name</i><br>second');
+  dt.setData('text/plain', 'Bold name\nsecond');
+  document.activeElement.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+});
+await p.waitForTimeout(300);
+check('slide: paste keeps plain text on one line',
+  (await Q(`document.querySelector('.brow--data[data-row="1"] .pill span').innerHTML`)) === 'Bold name second',
+  await Q(`document.querySelector('.brow--data[data-row="1"] .pill span').innerHTML`));
+await p.hover('.brow--data[data-row="1"] .label'); await p.waitForTimeout(500);
+check('tooltip: stays away while the name is being typed', await Q(`document.getElementById('tip').hidden`));
+await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  d.boards[0].views.design.rows = []; d.boards[0].views.design.milestones = [];
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(800);
+await p.click('.vtab[data-view="design"]'); await p.waitForTimeout(350);
+check('slide: an empty roadmap says what to do next', await Q(`!!document.querySelector('#slide .empty-hint')`));
+check('slide: + Initiative is readable', (await Q(`parseFloat(getComputedStyle(document.getElementById('rowAdd')).fontSize)`)) >= 14);
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(300);
+
+// ---------- 11e3. MANY ROWS AND MANY SPRINTS STILL FIT ----------
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  const v = d.boards[0].views.product;
+  for (let i = 0; i < 6; i++) v.rows.push({ libId: null, name: 'Extra ' + (i + 1), url: '', desc: '', area: '', accent: 'teal', box: false, cells: { '2': ['discovery'] } });
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(900);
+const fit = await Q(`(()=>{const rows=[...document.querySelectorAll('.brow--data')]; const last=rows[rows.length-1].getBoundingClientRect();
+  const lg=document.querySelector('.legend').getBoundingClientRect(); const add=document.getElementById('rowAdd').getBoundingClientRect();
+  const slide=document.getElementById('slide').getBoundingClientRect();
+  return {n:rows.length, lastBottom:+last.bottom.toFixed(1), legendTop:+lg.top.toFixed(1), addBottom:+add.bottom.toFixed(1), slideBottom:+slide.bottom.toFixed(1), notice:!document.getElementById('fitNotice').hidden};})()`);
+check('layout: 16 rows shrink to fit above the legend',
+  fit.n === 16 && fit.lastBottom <= fit.legendTop + 0.5 && fit.addBottom <= fit.slideBottom + 0.5 && fit.notice === false, JSON.stringify(fit));
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  const v = d.boards[0].views.product;
+  for (let i = 0; i < 12; i++) v.rows.push({ libId: null, name: 'More ' + (i + 1), url: '', desc: '', area: '', accent: 'teal', box: false, cells: {} });
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(900);
+check('layout: past the minimum row height the editor says how many rows do not fit',
+  await Q(`!document.getElementById('fitNotice').hidden && /\\d+ rows? do(es)? not fit/.test(document.getElementById('fitNotice').textContent)`),
+  await Q(`document.getElementById('fitNotice').textContent`));
+
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  d.boards[0].views.product.rows = d.boards[0].views.product.rows.slice(0, 9);
+  d.boards[0].sprints = Array.from({ length: 12 }, (_, i) => ({ id: 's' + i, name: 'Sprint ' + (i + 1), quarter: 'Q1', dates: '05/01 – 16/01' }));
+  d.boards[0].views.product.rows[0].cells['5'] = ['delivery', null];
+  d.boards[0].views.product.milestones = [{ id: 'm', label: 'Go-live checkout release', col: 11.5, row: 2, endRow: 4 }];
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(900);
+const dense = await Q(`(()=>{const s=document.getElementById('slide');
+  const over=[...s.querySelectorAll('.sprint .nm > span:first-child, .sprint .dt, .chip')].filter(e=>e.scrollWidth>e.clientWidth+1).length;
+  const cap=s.querySelector('.ms .cap').getBoundingClientRect(), sl=s.getBoundingClientRect();
+  return {dense:s.classList.contains('is-dense'), over, cols:s.querySelectorAll('.sprint').length, capInside: cap.right <= sl.right && cap.left >= sl.left,
+    half: s.querySelector('.cell[data-row="0"][data-col="5"] .chip').textContent};})()`);
+check('layout: 12 sprints use the dense header and nothing overflows its box', dense.dense && dense.cols === 12 && dense.over === 0, JSON.stringify(dense));
+check('layout: a caption near the right edge stays on the slide', dense.capInside === true, JSON.stringify(dense));
+check('layout: a lone half-sprint chip uses the short label', dense.half === 'Dl', dense.half);
+check('slide: legend markers carry no theme border',
+  (await Q(`getComputedStyle(document.querySelector('.legend .mark')).borderTopWidth`)) === '0px');
+
+// ---------- 11e4. LINES FOLLOW THEIR ROWS; UNDO TOASTS ARE HONEST ----------
+await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
+await p.reload(); await p.waitForTimeout(800);
+const msSpan = () => Q(`(m=>m.length?m[0].row+'-'+m[0].endRow:'none')(JSON.parse(localStorage.getItem('roadmap-studio-v1')).boards[0].views.product.milestones)`);
+check('lines: the demo line starts on rows 1 to 3', (await msSpan()) === '1-3', await msSpan());
+await p.hover('.brow--data[data-row="0"]');
+await p.click('.brow--data[data-row="0"] .rowtools button[data-act="del"]'); await p.waitForTimeout(450);
+check('lines: deleting a row above moves the go-live line up with its rows', (await msSpan()) === '0-2', await msSpan());
+await p.click('.brush[data-brush="specs"]');
+await p.click('.cell[data-row="7"][data-col="0"]'); await p.waitForTimeout(600);
+check('toast: the delete toast is still up', await Q(`!document.getElementById('toast').hidden && !!document.querySelector('#toast .toast-act')`));
+await p.click('#toast .toast-act'); await p.waitForTimeout(300);
+check('toast: Undo refuses once something else changed, instead of undoing the wrong thing',
+  (await Q(`document.querySelectorAll('.brow--data').length`)) === 8 &&
+  (await Q(`document.querySelectorAll('.cell[data-row="7"][data-col="0"] .chip').length`)) === 1,
+  await Q(`document.getElementById('toast').textContent`));
+await p.click('.brow--data[data-row="0"] .pill span'); await p.keyboard.press('End');
+await p.keyboard.press('Shift+Enter'); await p.waitForTimeout(300);
+check('lines: a row inserted inside the span stretches the line over it', (await msSpan()) === '0-3', await msSpan());
+await p.keyboard.press('Escape'); await p.waitForTimeout(450);
+check('lines: and it shrinks back when the empty row goes', (await msSpan()) === '0-2', await msSpan());
+await p.click('.brow--data[data-row="1"] .pill span'); await p.keyboard.press('Control+a');
+await p.keyboard.type('ONE-STEP CHECKOUT'); await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+check('library: a case-only rename reaches the library entry',
+  (await Q(`[...document.querySelectorAll('.lib-item .nm')].map(n=>n.textContent)`)).includes('ONE-STEP CHECKOUT'));
+await p.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+  d.boards[0].views.design.rows = [{ libId: null, name: '', url: '', desc: '', area: '', accent: 'teal', box: false, cells: {} }];
+  localStorage.setItem('roadmap-studio-v1', JSON.stringify(d));
+});
+await p.reload(); await p.waitForTimeout(800);
+await p.click('.vtab[data-view="design"]'); await p.waitForTimeout(300);
+check('load: an empty row saved by a closed tab is dropped on load',
+  (await Q(`document.querySelectorAll('.brow--data').length`)) === 0 && (await Q(`!!document.querySelector('#slide .empty-hint')`)));
+await p.click('.vtab[data-view="product"]'); await p.waitForTimeout(200);
+await p.keyboard.press('p'); await p.waitForTimeout(600);
+check('present: a roadmap with no content is left out of the deck',
+  (await Q(`document.getElementById('presentCount').textContent`)).trim() === '1 / 1');
+await p.keyboard.press('Escape'); await p.waitForTimeout(600);
 
 // ---------- 11f. THE GHOST ROW MUST NOT SKEW ROW GEOMETRY ----------
 await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
