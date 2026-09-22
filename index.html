@@ -3,15 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Builds the two quarterly roadmap slides, product and design, by painting phases on the sprint grid.">
+<meta name="description" content="Quartermap builds the two quarterly roadmap slides, product and design, by painting phases on the sprint grid.">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#101012">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
   body{margin:0;font:14px system-ui,sans-serif;background:#faf9f7}
   img{max-width:100%}
   [hidden]{display:none!important}
 </style>
-<title>Roadmap Snapshot Studio</title>
+<title>Quartermap</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600;700;800&display=swap">
@@ -24,16 +28,24 @@
    - ui-*  : the editor chrome. Theme-aware (light / dark / system).
    ============================================================ */
 :root{
-  --pn-teal:#17c3a2;
-  --pn-orange:#f4a32a;
-  --pn-indigo:#5b4ee8;
-  --pn-lime:#dcf223;
+  /* Slide theme: the papernest defaults. The onboarding flow and the
+     Appearance panel set the same variables on <html> for each user. */
+  --pn-discovery:#17c3a2;
+  --pn-specs:#f4a32a;
+  --pn-delivery:#5b4ee8;
+  --pn-conception:#f4a32a;
+  --pn-bar-legal:#dcf223;
+  --pn-bar-other:#17c3a2;
+  --pn-note:#dcf223;
   --pn-ink:#101012;
   --pn-row:#f0f0f1;
-  --pn-head:#ededee;
   --pn-link:#1155cc;
+  --pn-font:"Figtree";
+  --pn-head:#ededee;
   --pn-paper:#ffffff;
   --pn-muted:#6b6b72;
+  /* Editor chrome colours: never follow the slide theme. */
+  --ui-warn:#f4a32a;
   /* Editor marks drawn ON the slide (selection ring, focus outline). They sit
      on white paper whatever the theme, so they never follow --ui-accent. */
   --mark:#2151ff;
@@ -140,7 +152,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--ui-accent);outline:no
 .vtab.is-on{background:var(--ui-panel);color:var(--ui-text);box-shadow:var(--ui-shadow)}
 
 .sync{font-family:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--ui-faint);white-space:nowrap}
-.sync[data-state="saving"]{color:var(--pn-orange)}
+.sync[data-state="saving"]{color:var(--ui-warn)}
 .sync[data-state="error"]{color:#d64545}
 
 /* ---------- workspace ---------- */
@@ -209,16 +221,16 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 }
 .u-p{background:color-mix(in srgb,var(--ui-accent) 18%,transparent);color:var(--ui-accent)}
 .u-d{
-  background:color-mix(in srgb,var(--pn-orange) 22%,transparent);
-  color:color-mix(in srgb,var(--pn-orange) 65%,var(--ui-text));
+  background:color-mix(in srgb,var(--ui-warn) 22%,transparent);
+  color:color-mix(in srgb,var(--ui-warn) 65%,var(--ui-text));
 }
 .lib-empty{font-size:12.5px;color:var(--ui-faint);padding:10px 2px;margin:0}
 
 .swatches{display:flex;gap:6px}
 .sw{width:30px;height:30px;border-radius:8px;border:2px solid var(--ui-line);cursor:pointer;background:transparent;padding:0}
 .sw[aria-pressed="true"]{border-color:var(--ui-text);box-shadow:0 0 0 2px var(--ui-panel) inset}
-.sw-teal{background:var(--pn-teal)}
-.sw-lime{background:var(--pn-lime)}
+.sw-teal{background:var(--pn-bar-other)}
+.sw-lime{background:var(--pn-bar-legal)}
 .sw-none{background:repeating-linear-gradient(45deg,var(--ui-sunk),var(--ui-sunk) 4px,var(--ui-line) 4px,var(--ui-line) 8px)}
 
 .sprint-row{display:grid;grid-template-columns:1fr 46px 1.35fr auto;gap:5px;align-items:center}
@@ -285,7 +297,7 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   --track-left:calc(var(--rail-w) + var(--rail-gap) + var(--label-w) + var(--label-gap));
   position:relative;width:var(--slide-w);height:var(--slide-h);
   transform-origin:top left;background:var(--pn-paper);color:var(--pn-ink);
-  font-family:"Figtree",ui-sans-serif,system-ui,sans-serif;
+  font-family:var(--pn-font),"Figtree",ui-sans-serif,system-ui,sans-serif;
   padding:56px var(--pad-r) 40px var(--pad-l);
   display:flex;flex-direction:column;gap:0;overflow:hidden;
 }
@@ -295,9 +307,9 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   flex:1;margin:0;font-size:46px;font-weight:800;letter-spacing:-.025em;line-height:1.08;
   color:var(--pn-ink);text-wrap:balance;min-width:0;
 }
-.slide-title:focus{outline:2px dashed color-mix(in srgb,var(--pn-teal) 70%,transparent);outline-offset:6px;border-radius:4px}
+.slide-title:focus{outline:2px dashed color-mix(in srgb,var(--pn-discovery) 70%,transparent);outline-offset:6px;border-radius:4px}
 .slide-note{
-  flex:none;width:186px;min-height:84px;padding:14px 16px;background:var(--pn-lime);
+  flex:none;width:186px;min-height:84px;padding:14px 16px;background:var(--pn-note);
   color:var(--pn-ink);font-size:17px;font-weight:600;line-height:1.3;
   display:flex;align-items:center;justify-content:center;text-align:center;
 }
@@ -342,8 +354,8 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .slide.is-live .brow--data:focus-within{z-index:5}
 
 .rail{border-radius:0}
-.rail--teal{background:var(--pn-teal)}
-.rail--lime{background:var(--pn-lime)}
+.rail--teal{background:var(--pn-bar-other)}
+.rail--lime{background:var(--pn-bar-legal)}
 .rail--none{background:transparent}
 .rail.is-first{margin-top:4px;border-top-left-radius:3px;border-top-right-radius:3px}
 .rail.is-last{margin-bottom:4px;border-bottom-left-radius:3px;border-bottom-right-radius:3px}
@@ -382,18 +394,18 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
   display:flex;align-items:center;justify-content:center;text-align:center;padding:2px 6px;
   overflow:hidden;
 }
-.chip--discovery{background:var(--pn-teal)}
-.chip--specs{background:var(--pn-orange)}
-.chip--delivery{background:var(--pn-indigo)}
-.chip--conception{background:var(--pn-orange);font-size:11px;line-height:1.12}
+.chip--discovery{background:var(--pn-discovery)}
+.chip--specs{background:var(--pn-specs)}
+.chip--delivery{background:var(--pn-delivery)}
+.chip--conception{background:var(--pn-conception);font-size:11px;line-height:1.12}
 .chip.is-tight{font-size:11px;line-height:1.12}
 
 /* go-live lines */
 .ms-layer{position:absolute;top:0;bottom:0;left:var(--track-left);right:0;pointer-events:none}
-.ms{position:absolute;width:2px;background:var(--pn-teal)}
+.ms{position:absolute;width:2px;background:var(--pn-discovery)}
 .ms .cap{
   position:absolute;bottom:calc(100% + 6px);left:4px;width:max-content;max-width:320px;
-  font-size:15px;font-weight:600;line-height:1.28;color:var(--pn-teal);
+  font-size:15px;font-weight:600;line-height:1.28;color:var(--pn-discovery);
   background:rgba(255,255,255,.92);padding:0 5px;border-radius:4px;
 }
 /* Near the right edge the caption sits on the left of the line, so it
@@ -405,18 +417,18 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .slide.is-live .ms::before{
   content:"";position:absolute;left:-9px;right:-9px;top:0;bottom:0;cursor:ew-resize;
 }
-.slide.is-live .ms:hover::before{background:color-mix(in srgb,var(--pn-teal) 16%,transparent);border-radius:4px}
+.slide.is-live .ms:hover::before{background:color-mix(in srgb,var(--pn-discovery) 16%,transparent);border-radius:4px}
 .slide.is-live .ms .cap{cursor:text;pointer-events:auto}
-.ms .cap:focus{outline:2px dashed color-mix(in srgb,var(--pn-teal) 70%,transparent);outline-offset:3px;border-radius:4px}
+.ms .cap:focus{outline:2px dashed color-mix(in srgb,var(--pn-discovery) 70%,transparent);outline-offset:3px;border-radius:4px}
 .ms .grip{
   position:absolute;left:-5px;width:12px;height:12px;border-radius:50%;
-  background:#fff;border:2px solid var(--pn-teal);display:none;cursor:ns-resize;
+  background:#fff;border:2px solid var(--pn-discovery);display:none;cursor:ns-resize;
 }
 .ms .grip-top{top:-6px}
 .ms .grip-bot{bottom:-6px}
 .ms .msdel{
   position:absolute;left:8px;top:-9px;width:22px;height:22px;border-radius:50%;
-  border:1.5px solid var(--pn-teal);background:#fff;color:var(--pn-teal);
+  border:1.5px solid var(--pn-discovery);background:#fff;color:var(--pn-discovery);
   font-size:12px;line-height:1;cursor:pointer;display:none;padding:0;
 }
 .slide.is-live .ms:hover .grip,.slide.is-live .ms:hover .msdel,.slide.is-live .ms:focus-within .msdel{display:block}
@@ -430,8 +442,8 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .legend[hidden]{display:none}
 .legend .lg{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:#3d3d44}
 .legend .mark{display:inline-block;width:10px;height:18px;border-radius:2px;flex:none}
-.legend .mark--lime{background:var(--pn-lime)}
-.legend .mark--teal{background:var(--pn-teal)}
+.legend .mark--lime{background:var(--pn-bar-legal)}
+.legend .mark--teal{background:var(--pn-bar-other)}
 
 /* note (the "to validate" sticky) is off by default and added on demand */
 .slide-note{position:relative}
@@ -461,13 +473,13 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .glsrc:active{cursor:grabbing}
 .glghost{
   position:fixed;z-index:120;pointer-events:none;
-  background:var(--pn-teal);width:2px;height:120px;border-radius:1px;
-  box-shadow:0 0 0 4px color-mix(in srgb,var(--pn-teal) 25%,transparent);
+  background:var(--pn-discovery);width:2px;height:120px;border-radius:1px;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--pn-discovery) 25%,transparent);
 }
 .glghost[hidden]{display:none}
 .glghost::after{
   content:"Go-live";position:absolute;bottom:calc(100% + 6px);left:6px;
-  font:600 13px "Figtree",sans-serif;color:var(--pn-teal);white-space:nowrap;
+  font:600 13px var(--pn-font),"Figtree",sans-serif;color:var(--pn-discovery);white-space:nowrap;
 }
 body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3px}
 
@@ -514,6 +526,49 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
   font-family:"DM Mono",ui-monospace,monospace;background:var(--ui-sunk);
   border:1px solid var(--ui-line);border-radius:5px;padding:2px 6px;font-size:11px;white-space:nowrap;
 }
+
+/* account dialog */
+.auth-card{max-width:420px}
+.auth-card form{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.auth-card .field[hidden]{display:none}
+.auth-msg{min-height:1.2em;color:#c0392b;font-weight:600}
+.auth-msg.is-ok{color:#0f9d78}
+.auth-links{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+
+/* onboarding: a card in the corner, the slide stays visible and live */
+.onboard{position:fixed;inset:0;z-index:94;pointer-events:none}
+.onboard[hidden]{display:none}
+.onboard-card{
+  position:absolute;right:24px;bottom:24px;width:min(460px,calc(100vw - 32px));
+  max-height:calc(100vh - 48px);overflow:auto;pointer-events:auto;
+  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:16px;
+  box-shadow:var(--ui-shadow);padding:20px;display:flex;flex-direction:column;gap:12px;
+}
+.onboard-card h2{margin:0;font-size:18px;letter-spacing:-.02em}
+.onboard-steps{display:flex;gap:6px}
+.onboard-steps i{width:8px;height:8px;border-radius:50%;background:var(--ui-line)}
+.onboard-steps i.is-on{background:var(--ui-accent)}
+.fontlist{display:flex;flex-direction:column;gap:6px}
+.fontopt{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--ui-line);border-radius:10px;cursor:pointer}
+.fontopt.is-on{border-color:var(--ui-accent);background:color-mix(in srgb,var(--ui-accent) 8%,transparent)}
+.fontopt input{accent-color:var(--ui-accent);margin:0}
+.fontopt .nm{font-size:16px;font-weight:700;flex:1}
+.fontopt small{color:var(--ui-faint);font-size:12px}
+.presets{display:flex;gap:8px;flex-wrap:wrap}
+.preset{
+  display:inline-flex;align-items:center;gap:6px;border:1px solid var(--ui-line);border-radius:9px;
+  padding:6px 10px;background:var(--ui-panel);cursor:pointer;font-weight:600;font-size:12.5px;color:var(--ui-text);
+}
+.preset.is-on{border-color:var(--ui-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--ui-accent) 25%,transparent)}
+.preset i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.colorgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.colorgrid label{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;
+  color:var(--ui-muted);border:1px solid var(--ui-line);border-radius:9px;padding:5px 8px;
+}
+.colorgrid input[type=color]{width:34px;height:26px;border:0;padding:0;background:none;cursor:pointer;flex:none}
+.menu-note{font-size:12px;color:var(--ui-faint);padding:6px 10px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu-note[hidden]{display:none}
 
 .histgroup{display:flex;gap:2px;padding:3px;background:var(--ui-sunk);border-radius:9px}
 .histgroup button{
@@ -581,8 +636,8 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 /* read-only / narrow notices */
 .notice{
   display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;
-  background:color-mix(in srgb,var(--pn-orange) 16%,var(--ui-panel));
-  border:1px solid color-mix(in srgb,var(--pn-orange) 40%,transparent);
+  background:color-mix(in srgb,var(--ui-warn) 16%,var(--ui-panel));
+  border:1px solid color-mix(in srgb,var(--ui-warn) 40%,transparent);
   font-size:12.5px;line-height:1.45;
 }
 .notice[hidden]{display:none}
@@ -625,7 +680,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 <div class="app">
   <header class="topbar">
     <button class="btn btn-ghost" id="btnPanel" title="Show or hide the side panel" aria-label="Show or hide the side panel" aria-expanded="true">☰</button>
-    <div class="brandmark"><span class="dot"></span><span class="word">Roadmap Snapshot Studio</span></div>
+    <div class="brandmark"><span class="dot"></span><span class="word">Quartermap</span></div>
 
     <div class="boardpick">
       <label class="sr-only" for="boardSel">Quarter</label>
@@ -645,6 +700,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     <div class="spacer"></div>
     <div class="sync" id="sync" data-state="idle" aria-live="polite"></div>
+    <button class="btn" id="btnAuth" hidden>Log in</button>
     <button class="btn" id="btnPresent" title="Present full screen (P)">▶ Present</button>
     <button class="btn" id="btnCopy" title="Copy this slide as an image">Copy PNG</button>
     <button class="btn btn-primary" id="btnPng" title="Download this slide as an image">Download PNG</button>
@@ -652,6 +708,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   </header>
 
   <div class="menu" id="menu" hidden role="menu">
+    <div class="menu-note" id="mAccountRow" hidden></div>
+    <button id="mAuth" role="menuitem" hidden>Log in</button>
+    <button id="mLook" role="menuitem">Appearance: font and colours</button>
+    <hr>
     <button id="mDuplicate" role="menuitem">Duplicate this quarter</button>
     <button id="mRename" role="menuitem">Rename this quarter</button>
     <button id="mLegend" role="menuitem">Show the legend</button>
@@ -849,7 +909,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       <dt><kbd>Enter</kbd></dt><dd>Finish the name. On the last row it starts a new row</dd>
       <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt><dd>Insert a row below</dd>
       <dt><kbd>Tab</kbd></dt><dd>Next row name</dd>
-      <dt><kbd>Backspace</kbd> / <kbd>Delete</kbd></dt><dd>Delete the selected row, or an empty row</dd>
+      <dt><kbd>Backspace</kbd></dt><dd>Eraser on, and off again. In an empty row name: remove that row</dd>
+      <dt><kbd>Delete</kbd></dt><dd>Delete the selected row</dd>
       <dt><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></dt><dd>Undo (add <kbd>Shift</kbd> to redo)</dd>
       <dt><kbd>P</kbd></dt><dd>Present</dd>
       <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>While presenting: previous or next slide</dd>
@@ -861,11 +922,49 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   </div>
 </div>
 
+<div class="sheet" id="authSheet" hidden role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="sheet-card auth-card">
+    <h2 id="authTitle">Log in</h2>
+    <p class="help" id="authIntro"></p>
+    <div class="sidetabs" id="authTabs" role="tablist" aria-label="Log in or create account" style="margin-top:12px">
+      <button type="button" class="stab is-on" data-mode="login" role="tab" aria-selected="true">Log in</button>
+      <button type="button" class="stab" data-mode="signup" role="tab" aria-selected="false">Create account</button>
+    </div>
+    <form id="authForm" novalidate>
+      <div class="field" id="authEmailField">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" autocomplete="email" placeholder="you@company.com">
+      </div>
+      <div class="field">
+        <label for="authPass" id="authPassLabel">Password (8 characters or more)</label>
+        <input type="password" id="authPass" autocomplete="current-password" minlength="8">
+      </div>
+      <p class="help auth-msg" id="authMsg" role="alert"></p>
+      <button type="submit" class="btn btn-primary" id="authSubmit">Log in</button>
+      <div class="auth-links">
+        <button type="button" class="btn btn-ghost btn-sm" id="authForgot">Forgot password?</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="authSkip">Continue without an account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="onboard" id="onboard" hidden role="dialog" aria-labelledby="obTitle">
+  <div class="onboard-card">
+    <div class="onboard-steps" id="obSteps" aria-hidden="true"></div>
+    <h2 id="obTitle"></h2>
+    <p class="help" id="obIntro"></p>
+    <div id="obBody"></div>
+    <div class="rowline" id="obActions"></div>
+  </div>
+</div>
+
 <div class="glghost" id="glGhost" hidden></div>
 <div class="tip" id="tip" hidden role="tooltip"></div>
 
 <div class="toast" id="toast" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -948,7 +1047,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function starterBoards() {
     var demo = {
-      id: "b-demo", name: "Q4 example", createdAt: Date.now(), updatedAt: Date.now(),
+      id: uid("b"), name: "Q4 example", createdAt: Date.now(), updatedAt: Date.now(),
       note: { show: false, text: "To validate" },
       legend: { show: true },
       sprints: [
@@ -1076,22 +1175,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         snap.docChanges().forEach(function (ch) {
           var body = ch.doc.data() || {};
           if (ch.type === "removed") {
-            var gone = (body.board && body.board.id) || ch.doc.id;
-            if (Store.boards.some(function (b) { return b.id === gone; })) {
-              Store.boards = Store.boards.filter(function (b) { return b.id !== gone; });
-              changed = true;
-            }
+            if (removeRemoteBoard((body.board && body.board.id) || ch.doc.id)) changed = true;
             return;
           }
           if (!body.board) return;
           if (body.writer === CLIENT) return;
           if (Store._dirty[body.board.id]) return;
-          var i = Store.boards.map(function (b) { return b.id; }).indexOf(body.board.id);
-          if (i < 0) Store.boards.push(migrateBoard(body.board)); else Store.boards[i] = migrateBoard(body.board);
-          changed = true;
+          if (applyRemoteBoard(body.board)) changed = true;
         });
         if (!Store.boards.length) return;
-        Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+        sortBoards();
         Store.lsWrite();
         setSync("idle");
         if (changed && Store.onRemote) Store.onRemote();
@@ -1116,14 +1209,33 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       }).catch(function () {});
     },
 
-    _debounce: function (key, fn) {
-      clearTimeout(Store._timers[key]);
-      Store._timers[key] = setTimeout(fn, 550);
+    _debounce: function (key, fn, ms) {
+      Store.cancel(key);
+      Store._timers[key] = { fn: fn, t: setTimeout(function () { delete Store._timers[key]; fn(); }, ms || 550) };
+    },
+    cancel: function (key) {
+      var e = Store._timers[key];
+      if (e) { clearTimeout(e.t); delete Store._timers[key]; }
+    },
+    /* Run every pending save now: before logging out, nothing may be left in a timer. */
+    flush: function () {
+      Object.keys(Store._timers).forEach(function (k) {
+        var e = Store._timers[k];
+        clearTimeout(e.t); delete Store._timers[k]; e.fn();
+      });
     },
 
     saveBoard: function (board, now) {
       board.updatedAt = Date.now();
+      board.touched = true;
       Store.lsWrite();
+      if (Store.mode === "cloud") {
+        if (!Cloud.user || !Cloud.loaded) { setSync("error", "offline"); return; }
+        Store._dirty[board.id] = true;
+        var push = function () { Cloud.putBoard(board); };
+        if (now) push(); else Store._debounce("b:" + board.id, push);
+        return;
+      }
       if (Store.mode !== "db" || !Store.canWrite) { setSync("idle"); return; }
       Store._dirty[board.id] = true;
       var write = function () {
@@ -1142,6 +1254,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     saveLibrary: function (now) {
       Store.libRev++;
       Store.lsWrite();
+      if (Store.mode === "cloud") {
+        if (!Cloud.user || !Cloud.loaded) { setSync("error", "offline"); return; }
+        Store._dirty.__lib = true;
+        if (now) Cloud.putLibrary(); else Store._debounce("lib", Cloud.putLibrary);
+        return;
+      }
       if (Store.mode !== "db" || !Store.canWrite) { setSync("idle"); return; }
       Store._dirty.__lib = true;
       var write = function () {
@@ -1154,9 +1272,550 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     },
 
     removeBoard: function (id) {
+      Store.cancel("b:" + id);
+      delete Store._dirty[id];
       Store.boards = Store.boards.filter(function (b) { return b.id !== id; });
       Store.lsWrite();
+      if (Store.mode === "cloud") {
+        if (Cloud.user && Cloud.loaded) Cloud.deleteBoard(id); else Cloud.pendingDeletes[id] = true;
+        return;
+      }
       if (Store.mode === "db" && Store.canWrite) Store.db.doc("boards/" + id).delete().catch(function () {});
+    }
+  };
+
+  /* ========================================================
+     2b. Account and cloud sync (Supabase). Off on the artifact, which has
+     its own database, and off when the client script did not load: the
+     tool then works on this device only, as before.
+     ======================================================== */
+
+  var CLOUD = {
+    url: "https://znxgayrgcezwgajciyqv.supabase.co",
+    key: "sb_publishable_P3azBfYkarkNEhir5DRDZg_TVBWhYkc"
+  };
+
+  var Cloud = {
+    sb: null, user: null, channel: null, loaded: false, retryTimer: null, retryDelay: 0,
+    pendingDeletes: {}, failed: {}, leaving: false,
+    hasFailures: function () { return Object.keys(Cloud.failed).length > 0; },
+
+    available: function () {
+      return !!(window.supabase && window.supabase.createClient && CLOUD.url && CLOUD.key) &&
+        !(window.claude && window.claude.use);
+    },
+
+    init: function () {
+      if (!Cloud.available()) return false;
+      Cloud.sb = window.supabase.createClient(CLOUD.url, CLOUD.key);
+      Cloud.sb.auth.onAuthStateChange(function (event, session) {
+        var user = session ? session.user : null;
+        if (event === "PASSWORD_RECOVERY") Auth.open("recovery");
+        /* Queries must not run inside this callback (supabase-js holds its
+           auth lock here), so the load starts on the next tick. */
+        if (user && (!Cloud.user || Cloud.user.id !== user.id)) {
+          Cloud.user = user; Cloud.loaded = false; Store.mode = "cloud"; setSync("saving");
+          setTimeout(function () { if (Cloud.user === user) Cloud.attach(user); }, 0);
+        } else if (!user && Cloud.user) {
+          var wipe = Cloud.leaving; Cloud.leaving = false;
+          Cloud.detach(wipe);
+        }
+        Auth.renderState();
+      });
+      window.addEventListener("online", function () {
+        if (Cloud.user && !Cloud.loaded) Cloud.attach(Cloud.user);
+      });
+      return true;
+    },
+
+    /* Logged in: load the account and merge what this device holds. Until
+       that load succeeds, edits stay on the device (the status says offline)
+       and the load is retried, so a half-loaded account is never written to. */
+    attach: function (user) {
+      Cloud.user = user;
+      Cloud.loaded = false;
+      Store.mode = "cloud";
+      setSync("saving");
+      var uid = user.id, sb = Cloud.sb;
+      return Promise.all([
+        sb.from("boards").select("id,data").eq("owner_id", uid),
+        sb.from("libraries").select("items").eq("owner_id", uid).maybeSingle(),
+        sb.from("profiles").select("theme,onboarding_done").eq("id", uid).maybeSingle()
+      ]).then(function (res) {
+        if (Cloud.user !== user) return;
+        if (res[0].error || res[1].error || res[2].error) throw (res[0].error || res[1].error || res[2].error);
+        Cloud.loaded = true;
+        Cloud.retryDelay = 0;
+        Cloud.merge(res[0].data || [], res[1].data, res[2].data);
+        Cloud.listen();
+        setSync("idle");
+        /* Quarters deleted here while the account was not loaded go now. */
+        Object.keys(Cloud.pendingDeletes).forEach(function (id) { Cloud.deleteBoard(id); });
+        Cloud.pendingDeletes = {};
+      }).catch(function () {
+        if (Cloud.user !== user) return;
+        setSync("error", "offline");
+        Cloud.retryDelay = Math.min(60000, Cloud.retryDelay ? Cloud.retryDelay * 2 : 2000);
+        clearTimeout(Cloud.retryTimer);
+        Cloud.retryTimer = setTimeout(function () { if (Cloud.user === user && !Cloud.loaded) Cloud.attach(user); }, Cloud.retryDelay);
+      });
+    },
+
+    /* Merge rule. A board only on this device comes along on the first login,
+       or when it was really edited here (an untouched example is dropped). A
+       board on both sides keeps the newer copy, but only if the device copy
+       was really edited; otherwise the account wins. Whatever the device
+       contributes is pushed to the account. */
+    merge: function (rows, libRow, profile) {
+      /* Saved at least once here, or (boards from before the flag) older than a fresh example. */
+      var edited = function (b) { return b.touched === true || (b.updatedAt || 0) - (b.createdAt || 0) > 5000; };
+      var cloudBoards = [];
+      rows.forEach(function (r) { var b = migrateBoard(r.data); if (b && b.id && b.views) cloudBoards.push(b); });
+      var firstLogin = !cloudBoards.length;
+      var localById = {};
+      Store.boards.forEach(function (b) { localById[b.id] = b; });
+      var cloudIds = {}, result = [], push = [];
+      cloudBoards.forEach(function (cb) {
+        cloudIds[cb.id] = true;
+        if (Cloud.pendingDeletes[cb.id]) return;
+        var lb = localById[cb.id];
+        if (lb && edited(lb) && (lb.updatedAt || 0) > (cb.updatedAt || 0)) { result.push(lb); push.push(lb); }
+        else result.push(cb);
+      });
+      Store.boards.forEach(function (lb) {
+        if (!cloudIds[lb.id] && (firstLogin || edited(lb))) { result.push(lb); push.push(lb); }
+      });
+      var cloudLib = libRow && Array.isArray(libRow.items) ? libRow.items : null;
+      if (cloudLib) {
+        /* The account's library, plus the entries the pushed boards point at. */
+        var needed = {};
+        push.forEach(function (b) {
+          Object.keys(b.views).forEach(function (k) {
+            (b.views[k].rows || []).forEach(function (r) { if (r.libId) needed[r.libId] = true; });
+          });
+        });
+        /* The boards this device won bring their own entries, edits included. */
+        Store.library = mergeLibrary(cloudLib, Store.library.filter(function (it) { return needed[it.id]; }), push, true);
+        Store.libRev++;
+      }
+      Store.boards = result;
+      if (!Store.boards.length) { Store.boards = starterBoards(); migrateAll(); push = Store.boards.slice(); }
+      sortBoards();
+      Store.lsWrite();
+      push.forEach(function (b) { Cloud.putBoard(b); });
+      if (!cloudLib || push.length) Cloud.putLibrary();
+      if (profile && profile.theme) Theme.set(profile.theme, true); else Cloud.putProfile();
+      if (profile && profile.onboarding_done) { Onboard.markDone(false); Onboard.close(); }
+      if (!Store.boards.some(function (b) { return b.id === state.boardId; })) setBoard(Store.boards[0].id);
+      state.sel = null;
+      renderAll();
+      History.reset();
+    },
+
+    /* Live updates from the same account on another device. */
+    listen: function () {
+      if (!Cloud.user || Cloud.channel) return;
+      var uid = Cloud.user.id;
+      Cloud.channel = Cloud.sb.channel("qm-" + uid)
+        .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: "owner_id=eq." + uid }, Cloud.onBoardChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "libraries", filter: "owner_id=eq." + uid }, Cloud.onLibraryChange)
+        .subscribe();
+    },
+    onBoardChange: function (payload) {
+      if (payload.eventType === "DELETE") {
+        var gone = payload.old && payload.old.id;
+        if (!gone || Store._dirty[gone] || !removeRemoteBoard(gone)) return;
+        if (!Store.boards.length) { Store.boards = starterBoards(); migrateAll(); }
+        Cloud.afterRemote(gone);
+        return;
+      }
+      var row = payload.new;
+      if (!row || row.writer === CLIENT || Store._dirty[row.id]) return;
+      if (!applyRemoteBoard(row.data)) return;
+      sortBoards();
+      Cloud.afterRemote(row.id);
+    },
+    onLibraryChange: function (payload) {
+      var row = payload.new;
+      if (!row || row.writer === CLIENT || Store._dirty.__lib || !Array.isArray(row.items)) return;
+      Store.library = row.items;
+      Store.libRev++;
+      Store.lsWrite();
+      renderLibrary(); renderInspector();
+    },
+    afterRemote: function (id) {
+      Store.lsWrite();
+      if (!Store.boards.some(function (b) { return b.id === state.boardId; })) { setBoard(Store.boards[0].id); state.sel = null; }
+      renderAll();
+      if (id === state.boardId) History.reset();
+    },
+
+    /* A save that fails stays dirty (so nothing from elsewhere overwrites it),
+       shows "not saved" until it lands, and is tried again a little later. */
+    putBoard: function (b) {
+      if (!Cloud.user) return;
+      var uid = Cloud.user.id;
+      Store._dirty[b.id] = true;
+      setSync("saving");
+      Cloud.sb.from("boards").upsert({ owner_id: uid, id: b.id, data: b, writer: CLIENT }, { onConflict: "owner_id,id" })
+        .then(function (r) {
+          if (r && r.error) throw r.error;
+          delete Store._dirty[b.id]; delete Cloud.failed[b.id];
+          setSync("idle");
+        })
+        .catch(function () {
+          if (!Cloud.user) { delete Store._dirty[b.id]; return; }
+          Cloud.failed[b.id] = true;
+          setSync("error", "not saved");
+          Store._debounce("b:" + b.id, function () { Cloud.putBoard(b); }, 5000);
+        });
+    },
+    putLibrary: function () {
+      if (!Cloud.user) return;
+      Store._dirty.__lib = true;
+      setSync("saving");
+      Cloud.sb.from("libraries").upsert({ owner_id: Cloud.user.id, items: Store.library, writer: CLIENT })
+        .then(function (r) {
+          if (r && r.error) throw r.error;
+          delete Store._dirty.__lib; delete Cloud.failed.__lib;
+          setSync("idle");
+        })
+        .catch(function () {
+          if (!Cloud.user) { delete Store._dirty.__lib; return; }
+          Cloud.failed.__lib = true;
+          setSync("error", "not saved");
+          Store._debounce("lib", Cloud.putLibrary, 5000);
+        });
+    },
+    putProfile: function () {
+      if (!Cloud.user) return;
+      Store._debounce("profile", function () {
+        if (!Cloud.user) return;
+        Cloud.sb.from("profiles").upsert({ id: Cloud.user.id, theme: Theme.current(), onboarding_done: Onboard.done() })
+          .then(function (r) { if (r && r.error) setSync("error", "not saved"); });
+      });
+    },
+    deleteBoard: function (id) {
+      if (!Cloud.user) return;
+      Cloud.sb.from("boards").delete().eq("owner_id", Cloud.user.id).eq("id", id)
+        .then(function (r) { if (r && r.error) setSync("error", "not saved"); });
+    },
+
+    /* Logged out. When the user asked for it, nothing of the account stays on
+       this device, the look included. When the session simply ended (expired,
+       revoked elsewhere), the work stays here and goes up on the next login. */
+    detach: function (wipe) {
+      if (Cloud.channel) { try { Cloud.sb.removeChannel(Cloud.channel); } catch (e) {} Cloud.channel = null; }
+      clearTimeout(Cloud.retryTimer);
+      Object.keys(Store._timers).forEach(function (k) { if (k.indexOf("b:") === 0 || k === "lib" || k === "profile") Store.cancel(k); });
+      Cloud.user = null;
+      Cloud.loaded = false;
+      Cloud.pendingDeletes = {};
+      Cloud.failed = {};
+      Store.mode = "local";
+      Store._dirty = {};
+      if (!wipe) {
+        Store.lsWrite();
+        setSync("error", "logged out");
+        toast("Your session ended. Log in again to keep saving to your account.");
+        return;
+      }
+      try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_KEY + ":last"); localStorage.removeItem(LS_KEY + ":theme"); } catch (e) {}
+      Theme.set(PRESETS.papernest, true);
+      Store.boards = starterBoards(); Store.library = clone(LIB); migrateAll(); Store.lsWrite();
+      setBoard(Store.boards[0].id); state.sel = null;
+      renderAll(); History.reset(); setSync("idle");
+    }
+  };
+
+  /* ---- the account dialog ---- */
+  var Auth = {
+    mode: "login",
+    open: function (mode) {
+      if (!Cloud.sb) return;
+      Auth.mode = mode || "login";
+      $("authSheet").hidden = false;
+      Auth.render();
+      var f = Auth.mode === "recovery" ? $("authPass") : $("authEmail");
+      setTimeout(function () { f.focus(); }, 0);
+    },
+    close: function () { $("authSheet").hidden = true; Auth.say(""); },
+    isOpen: function () { return !$("authSheet").hidden; },
+    render: function () {
+      var m = Auth.mode;
+      $("authTitle").textContent = m === "signup" ? "Create your account" : (m === "recovery" ? "Choose a new password" : "Log in");
+      $("authIntro").textContent = m === "signup"
+        ? "Your roadmaps are saved to your account and open on any device."
+        : (m === "recovery" ? "Type the new password for your account." : "Your roadmaps are waiting for you.");
+      $("authEmailField").hidden = m === "recovery";
+      $("authTabs").hidden = m === "recovery";
+      $("authSubmit").textContent = m === "signup" ? "Create account" : (m === "recovery" ? "Save password" : "Log in");
+      $("authForgot").hidden = m !== "login";
+      $("authSkip").hidden = m === "recovery";
+      $("authPass").setAttribute("autocomplete", m === "login" ? "current-password" : "new-password");
+      Array.prototype.forEach.call($("authTabs").querySelectorAll("[data-mode]"), function (t) {
+        var on = t.dataset.mode === m;
+        t.classList.toggle("is-on", on);
+        t.setAttribute("aria-selected", String(on));
+      });
+      Auth.say("");
+    },
+    say: function (msg, ok) {
+      var el = $("authMsg");
+      el.textContent = msg || "";
+      el.classList.toggle("is-ok", !!ok);
+    },
+    friendly: function (err) {
+      var m = String((err && err.message) || err || "");
+      if (/invalid login credentials/i.test(m)) return "Wrong email or password.";
+      if (/already registered|already been registered/i.test(m)) return "This email already has an account. Log in instead.";
+      if (/rate limit/i.test(m)) return "Too many emails were sent. Please try again later.";
+      if (/password/i.test(m) && /least|short|weak/i.test(m)) return "The password needs at least 8 characters.";
+      if (/email not confirmed/i.test(m)) return "Please confirm your email first: open the link we sent you.";
+      if (/valid email|invalid format/i.test(m)) return "Please type a valid email address.";
+      if (/fetch|network/i.test(m)) return "No connection. Please check your network and try again.";
+      return m || "Something went wrong. Please try again.";
+    },
+    submit: function () {
+      var sb = Cloud.sb; if (!sb) return;
+      var email = $("authEmail").value.trim(), pass = $("authPass").value;
+      var btn = $("authSubmit");
+      var done = function () { btn.disabled = false; };
+      if (pass.length < 8) { Auth.say("The password needs at least 8 characters."); return; }
+      if (Auth.mode !== "recovery" && !email) { Auth.say("Please type your email."); return; }
+      btn.disabled = true;
+      if (Auth.mode === "recovery") {
+        sb.auth.updateUser({ password: pass }).then(function (r) {
+          done();
+          if (r.error) { Auth.say(Auth.friendly(r.error)); return; }
+          Auth.close(); toast("Password saved");
+        }).catch(function (e) { done(); Auth.say(Auth.friendly(e)); });
+        return;
+      }
+      if (Auth.mode === "signup") {
+        sb.auth.signUp({ email: email, password: pass }).then(function (r) {
+          done();
+          if (r.error) { Auth.say(Auth.friendly(r.error)); return; }
+          if (r.data && r.data.session) { Auth.close(); toast("Account created. Your roadmaps are now saved to it."); return; }
+          Auth.mode = "login"; Auth.render();
+          Auth.say("Almost there. Open the email we sent you and click the link, then log in here.", true);
+        }).catch(function (e) { done(); Auth.say(Auth.friendly(e)); });
+        return;
+      }
+      sb.auth.signInWithPassword({ email: email, password: pass }).then(function (r) {
+        done();
+        if (r.error) { Auth.say(Auth.friendly(r.error)); return; }
+        Auth.close(); toast("Logged in");
+      }).catch(function (e) { done(); Auth.say(Auth.friendly(e)); });
+    },
+    forgot: function () {
+      var email = $("authEmail").value.trim();
+      if (!email) { Auth.say("Type your email first, then click Forgot password."); return; }
+      Cloud.sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname }).then(function (r) {
+        if (r.error) { Auth.say(Auth.friendly(r.error)); return; }
+        Auth.say("We sent you an email with a link to choose a new password.", true);
+      }).catch(function (e) { Auth.say(Auth.friendly(e)); });
+    },
+    logout: function () {
+      if (!Cloud.sb) return;
+      Store.flush();
+      Cloud.leaving = true;
+      Cloud.sb.auth.signOut({ scope: "local" }).then(function () { toast("Logged out. Nothing of your account stays on this device."); })
+        .catch(function () { Cloud.leaving = false; toast("Could not log out. Please try again."); });
+    },
+    renderState: function () {
+      var on = Cloud.available(), user = Cloud.user;
+      var b = $("btnAuth");
+      b.hidden = !on;
+      b.textContent = user ? (user.email || "Account") : "Log in";
+      b.title = user ? "Logged in as " + (user.email || "") + ". The menu has Log out." : "Log in or create an account";
+      var m = $("mAuth");
+      m.hidden = !on;
+      m.textContent = user ? "Log out" : "Log in";
+      var row = $("mAccountRow");
+      row.hidden = !(on && user);
+      row.textContent = user ? (user.email || "") : "";
+    }
+  };
+
+  /* ========================================================
+     2c. Theme: the slide's font and colours, per user
+     ======================================================== */
+
+  var FONTS = ["Figtree", "Inter", "DM Sans", "Manrope", "Poppins", "Work Sans", "Nunito", "Source Sans 3"];
+  var THEME_KEYS = ["discovery", "specs", "delivery", "conception", "barLegal", "barOther", "note", "ink", "row", "link"];
+  var THEME_LABELS = {
+    discovery: "Discovery", specs: "Specs", delivery: "Delivery", conception: "Experience Conception",
+    barLegal: "Bar: legal obligation", barOther: "Bar: other initiatives", note: "Note", ink: "Text", row: "Row background", link: "Link"
+  };
+  var CSS_VAR = {
+    discovery: "--pn-discovery", specs: "--pn-specs", delivery: "--pn-delivery", conception: "--pn-conception",
+    barLegal: "--pn-bar-legal", barOther: "--pn-bar-other", note: "--pn-note", ink: "--pn-ink", row: "--pn-row", link: "--pn-link"
+  };
+  var PRESETS = {
+    papernest: { name: "papernest", font: "Figtree", colors: { discovery: "#17c3a2", specs: "#f4a32a", delivery: "#5b4ee8", conception: "#f4a32a", barLegal: "#dcf223", barOther: "#17c3a2", note: "#dcf223", ink: "#101012", row: "#f0f0f1", link: "#1155cc" } },
+    ocean:     { name: "Ocean",     font: "Inter",   colors: { discovery: "#0ea5e9", specs: "#f59e0b", delivery: "#6366f1", conception: "#f59e0b", barLegal: "#fde047", barOther: "#0ea5e9", note: "#fde047", ink: "#0f172a", row: "#f1f5f9", link: "#1d4ed8" } },
+    forest:    { name: "Forest",    font: "DM Sans", colors: { discovery: "#10b981", specs: "#f97316", delivery: "#7c3aed", conception: "#f97316", barLegal: "#facc15", barOther: "#10b981", note: "#facc15", ink: "#111827", row: "#f3f4f6", link: "#0f766e" } },
+    mono:      { name: "Mono",      font: "Manrope", colors: { discovery: "#374151", specs: "#9ca3af", delivery: "#111827", conception: "#9ca3af", barLegal: "#d1d5db", barOther: "#4b5563", note: "#e5e7eb", ink: "#111827", row: "#f3f4f6", link: "#111827" } }
+  };
+  /* One promise per font: resolved when its stylesheet has arrived (or given up). */
+  var fontLoads = { Figtree: Promise.resolve() };
+
+  function ensureFont(name) {
+    if (FONTS.indexOf(name) < 0) return Promise.resolve();
+    if (!fontLoads[name]) {
+      fontLoads[name] = new Promise(function (res) {
+        var l = document.createElement("link");
+        l.rel = "stylesheet";
+        l.href = "https://fonts.googleapis.com/css2?family=" + encodeURIComponent(name).replace(/%20/g, "+") + ":wght@400;500;600;700;800&display=swap";
+        l.onload = function () { res(); };
+        l.onerror = function () { res(); };
+        setTimeout(res, 5000);
+        document.head.appendChild(l);
+      });
+    }
+    return fontLoads[name];
+  }
+
+  var Theme = {
+    cur: null,
+    current: function () { return clone(Theme.cur); },
+    /* Anything that is not a known font or a #rrggbb colour falls back. */
+    normalize: function (t) {
+      var base = clone(PRESETS.papernest), out = { font: base.font, colors: {} };
+      if (t && typeof t === "object") {
+        if (FONTS.indexOf(t.font) >= 0) out.font = t.font;
+        THEME_KEYS.forEach(function (k) {
+          var v = t.colors && t.colors[k];
+          out.colors[k] = /^#[0-9a-f]{6}$/i.test(String(v || "")) ? String(v).toLowerCase() : base.colors[k];
+        });
+      } else {
+        out.colors = base.colors;
+      }
+      return out;
+    },
+    set: function (t, localOnly) {
+      Theme.cur = Theme.normalize(t);
+      Theme.apply();
+      try { localStorage.setItem(LS_KEY + ":theme", JSON.stringify(Theme.cur)); } catch (e) {}
+      if (!localOnly && Cloud.user) Cloud.putProfile();
+    },
+    apply: function () {
+      var st = document.documentElement.style, t = Theme.cur;
+      THEME_KEYS.forEach(function (k) { st.setProperty(CSS_VAR[k], t.colors[k]); });
+      st.setProperty("--pn-font", JSON.stringify(t.font));
+      ensureFont(t.font);
+    },
+    load: function () {
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem(LS_KEY + ":theme") || "null"); } catch (e) {}
+      Theme.cur = Theme.normalize(saved);
+      Theme.apply();
+    },
+    presetOn: function (key) {
+      var p = Theme.normalize(PRESETS[key]);
+      return p.font === Theme.cur.font && JSON.stringify(p.colors) === JSON.stringify(Theme.cur.colors);
+    }
+  };
+
+  /* ---- onboarding: welcome, font, colours, account ---- */
+  var Onboard = {
+    step: 0, fromMenu: false,
+    done: function () { try { return localStorage.getItem(LS_KEY + ":onboarded") === "1"; } catch (e) { return true; } },
+    markDone: function (push) {
+      try { localStorage.setItem(LS_KEY + ":onboarded", "1"); } catch (e) {}
+      if (push && Cloud.user) Cloud.putProfile();
+    },
+    isOpen: function () { return !$("onboard").hidden; },
+    open: function (step, fromMenu) {
+      Onboard.fromMenu = !!fromMenu;
+      Onboard.step = step || 0;
+      $("onboard").hidden = false;
+      Onboard.render();
+    },
+    close: function () { $("onboard").hidden = true; },
+    finish: function () { Onboard.markDone(true); Onboard.close(); },
+    /* The account step only exists when an account is possible and none is open. */
+    last: function () { return Cloud.available() && !Cloud.user ? 3 : 2; },
+    render: function () {
+      var step = Onboard.step, last = Onboard.last();
+      var dots = "";
+      for (var i = 0; i <= last; i++) dots += "<i" + (i === step ? ' class="is-on"' : "") + "></i>";
+      $("obSteps").innerHTML = dots;
+      var title = "", intro = "", body = "", actions = "";
+      if (step === 0) {
+        title = "Welcome to Quartermap";
+        intro = "Paint each initiative's phases on the sprint grid, then export the slide. First, choose how your slides look. You can change it later from the menu.";
+        actions = '<button type="button" class="btn btn-primary" data-ob="next">Choose the look</button>' +
+                  '<button type="button" class="btn btn-ghost" data-ob="skip">Skip</button>';
+      } else if (step === 1) {
+        title = "Font";
+        intro = "Used on the slide. The editor keeps its own.";
+        FONTS.forEach(ensureFont);
+        body = '<div class="fontlist">' + FONTS.map(function (f) {
+          var on = Theme.cur.font === f;
+          return '<label class="fontopt' + (on ? " is-on" : "") + '"><input type="radio" name="obFont" value="' + esc(f) + '"' + (on ? " checked" : "") + '>' +
+            '<span class="nm" style="font-family:\'' + esc(f) + '\'">' + esc(f) + '</span><small style="font-family:\'' + esc(f) + '\'">Sprint 3 · Discovery · Q4</small></label>';
+        }).join("") + "</div>";
+        actions = '<button type="button" class="btn btn-primary" data-ob="next">Next</button>' +
+                  (Onboard.fromMenu ? "" : '<button type="button" class="btn btn-ghost" data-ob="back">Back</button>');
+      } else if (step === 2) {
+        title = "Colours";
+        intro = "Pick a preset, or set each colour. The slide behind updates as you go.";
+        body = '<div class="presets">' + Object.keys(PRESETS).map(function (k) {
+          var p = PRESETS[k];
+          return '<button type="button" class="preset' + (Theme.presetOn(k) ? " is-on" : "") + '" data-preset="' + k + '">' +
+            '<i style="background:' + p.colors.discovery + '"></i><i style="background:' + p.colors.specs + '"></i><i style="background:' + p.colors.delivery + '"></i>' + esc(p.name) + "</button>";
+        }).join("") + "</div>" +
+        '<div class="colorgrid">' + THEME_KEYS.map(function (k) {
+          return '<label>' + esc(THEME_LABELS[k]) + '<input type="color" data-color="' + k + '" value="' + Theme.cur.colors[k] + '"></label>';
+        }).join("") + "</div>";
+        actions = (step === last
+          ? '<button type="button" class="btn btn-primary" data-ob="finish">Done</button>'
+          : '<button type="button" class="btn btn-primary" data-ob="next">Next</button>') +
+          '<button type="button" class="btn btn-ghost" data-ob="back">Back</button>';
+      } else {
+        title = "Save your roadmaps";
+        intro = "With an account your roadmaps are saved online and open on any device. Without one they stay on this device only.";
+        actions = '<button type="button" class="btn btn-primary" data-ob="signup">Create account</button>' +
+                  '<button type="button" class="btn" data-ob="login">Log in</button>' +
+                  '<button type="button" class="btn btn-ghost" data-ob="finish">Continue on this device</button>';
+      }
+      $("obTitle").textContent = title;
+      $("obIntro").textContent = intro;
+      $("obBody").innerHTML = body;
+      $("obActions").innerHTML = actions;
+    },
+    wire: function () {
+      $("onboard").addEventListener("click", function (e) {
+        var act = e.target.closest("[data-ob]");
+        if (act) {
+          var a = act.dataset.ob;
+          if (a === "next") { Onboard.step = Math.min(Onboard.last(), Onboard.step + 1); Onboard.render(); }
+          else if (a === "back") { Onboard.step = Math.max(Onboard.fromMenu ? 1 : 0, Onboard.step - 1); Onboard.render(); }
+          else if (a === "skip" || a === "finish") Onboard.finish();
+          else if (a === "signup" || a === "login") { Onboard.finish(); Auth.open(a); }
+          return;
+        }
+        var pre = e.target.closest("[data-preset]");
+        if (pre) { Theme.set(PRESETS[pre.dataset.preset]); Onboard.render(); }
+      });
+      $("onboard").addEventListener("input", function (e) {
+        var t = e.target;
+        if (t.name === "obFont") {
+          var th = Theme.current(); th.font = t.value; Theme.set(th);
+          Array.prototype.forEach.call($("onboard").querySelectorAll(".fontopt"), function (l) {
+            l.classList.toggle("is-on", l.querySelector("input").checked);
+          });
+          return;
+        }
+        if (t.dataset && t.dataset.color) {
+          var th2 = Theme.current(); th2.colors[t.dataset.color] = t.value; Theme.set(th2);
+          Array.prototype.forEach.call($("onboard").querySelectorAll("[data-preset]"), function (b) {
+            b.classList.toggle("is-on", Theme.presetOn(b.dataset.preset));
+          });
+        }
+      });
     }
   };
 
@@ -1164,7 +1823,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
      3. App state + small helpers
      ======================================================== */
 
-  var state = { boardId: null, view: "product", brush: null, sel: null, rowH: "auto", zoom: "fit", half: false };
+  var state = { boardId: null, view: "product", brush: null, prevBrush: null, sel: null, rowH: "auto", zoom: "fit", half: false };
 
   function $(id) { return document.getElementById(id); }
   function board() {
@@ -1182,6 +1841,46 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     return Store.library.filter(function (x) { return String(x.name || "").trim().toLowerCase() === key; })[0] || null;
   }
   function rowLabel(row) { return row.name || "(no name)"; }
+
+  /* A board that changed elsewhere (another device, another editor) replaces
+     the copy here, or joins the list. Used by both storage backends. */
+  function applyRemoteBoard(raw) {
+    var b = migrateBoard(raw);
+    if (!b || !b.id || !b.views) return false;
+    var i = Store.boards.map(function (x) { return x.id; }).indexOf(b.id);
+    if (i < 0) Store.boards.push(b); else Store.boards[i] = b;
+    return true;
+  }
+  function removeRemoteBoard(id) {
+    if (!Store.boards.some(function (b) { return b.id === id; })) return false;
+    Store.boards = Store.boards.filter(function (b) { return b.id !== id; });
+    return true;
+  }
+  function sortBoards() {
+    Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+  }
+
+  /* Fold `incoming` library entries into `base`. Same id: the incoming entry
+     replaces the old one when `incomingWins`, else the old one stays. Same
+     name: the existing entry is reused and the rows of `boards` that pointed
+     at the incoming one are re-pointed. Anything else is added. */
+  function mergeLibrary(base, incoming, boards, incomingWins) {
+    var remap = {};
+    var key = function (x) { return String((x && x.name) || "").trim().toLowerCase(); };
+    incoming.forEach(function (ni) {
+      var i = base.map(function (x) { return x.id; }).indexOf(ni.id);
+      if (i >= 0) { if (incomingWins) base[i] = ni; return; }
+      var k = key(ni);
+      var twin = k && base.filter(function (x) { return key(x) === k; })[0];
+      if (twin) remap[ni.id] = twin.id; else base.push(ni);
+    });
+    boards.forEach(function (b) {
+      Object.keys(b.views || {}).forEach(function (v) {
+        (b.views[v].rows || []).forEach(function (r) { if (r.libId && remap[r.libId]) r.libId = remap[r.libId]; });
+      });
+    });
+    return base;
+  }
   function isBlankRow(row) {
     return !row.name && !Object.keys(row.cells || {}).length && !row.desc && !row.url && !row.area;
   }
@@ -1246,8 +1945,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
   function setSync(stateName, text) {
     var el = $("sync");
+    if (stateName === "idle" && Cloud.hasFailures()) { stateName = "error"; text = "not saved"; }
     el.dataset.state = stateName;
-    el.textContent = text || (stateName === "saving" ? "saving…" : "saved");
+    el.textContent = text || (stateName === "saving" ? "saving…" : (Store.mode === "local" ? "on this device" : "saved"));
   }
 
   /* Undo history, per quarter. A step is one action: the typing done in one
@@ -1272,7 +1972,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         History._libJson = JSON.stringify(Store.library);
         History._libRev = Store.libRev;
       }
-      var bj = JSON.stringify(b, function (k, v) { return (k === "updatedAt" && this === b) ? undefined : v; });
+      /* updatedAt and touched are save bookkeeping, not content. */
+      var bj = JSON.stringify(b, function (k, v) { return ((k === "updatedAt" || k === "touched") && this === b) ? undefined : v; });
       return '{"view":' + JSON.stringify(state.view) + ',"board":' + bj + ',"library":' + History._libJson + "}";
     },
     reset: function () {
@@ -1706,7 +2407,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* "" is the eraser and is deliberately absent from the phase list: don't
        treat it as an unknown brush and reset it, or it can never stay picked. */
     if (state.brush !== "" && list.indexOf(state.brush) < 0) state.brush = list[0];
-    var colors = { discovery: "var(--pn-teal)", specs: "var(--pn-orange)", delivery: "var(--pn-indigo)", conception: "var(--pn-orange)" };
+    var colors = { discovery: "var(--pn-discovery)", specs: "var(--pn-specs)", delivery: "var(--pn-delivery)", conception: "var(--pn-conception)" };
     var html = "";
     list.forEach(function (p, i) {
       html += '<button class="brush" data-brush="' + p + '" aria-pressed="' + (state.brush === p) + '">' +
@@ -1962,7 +2663,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   function showPanel(name) {
-    Array.prototype.forEach.call(document.querySelectorAll(".stab"), function (t) {
+    Array.prototype.forEach.call(document.querySelectorAll(".sidebar .stab"), function (t) {
       var on = t.dataset.panel === name;
       t.classList.toggle("is-on", on);
       t.setAttribute("aria-selected", String(on));
@@ -2596,7 +3297,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   /* ---- sidebar wiring ---- */
   function wireSidebar() {
-    Array.prototype.forEach.call(document.querySelectorAll(".stab"), function (tab) {
+    Array.prototype.forEach.call(document.querySelectorAll(".sidebar .stab"), function (tab) {
       tab.addEventListener("click", function () { showPanel(tab.dataset.panel); });
     });
 
@@ -2961,20 +3662,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           });
           /* Reuse an entry that already carries the same name instead of piling
              up near-duplicates, remapping the incoming rows onto it. */
-          var remap = {};
-          (data.library || []).forEach(function (ni) {
-            var byId = Store.library.map(function (x) { return x.id; }).indexOf(ni.id);
-            if (byId >= 0) { Store.library[byId] = ni; return; }
-            var twin = findLibByName(ni.name);
-            if (twin) remap[ni.id] = twin.id; else Store.library.push(ni);
-          });
-          data.boards.forEach(function (nb) {
-            Object.keys(nb.views || {}).forEach(function (k) {
-              (nb.views[k].rows || []).forEach(function (r) {
-                if (r.libId && remap[r.libId]) r.libId = remap[r.libId];
-              });
-            });
-          });
+          Store.library = mergeLibrary(Store.library, data.library || [], data.boards, true);
           migrateAll();
           Store.boards.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
           setBoard(data.boards[0].id); state.sel = null;
@@ -3081,6 +3769,23 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (url) window.open(url, "_blank", "noopener");
     });
 
+    $("btnAuth").addEventListener("click", function (e) {
+      if (Cloud.user) { e.stopPropagation(); openMenu(); } else Auth.open("login");
+    });
+    $("mAuth").addEventListener("click", function () {
+      closeMenu();
+      if (Cloud.user) Auth.logout(); else Auth.open("login");
+    });
+    $("mLook").addEventListener("click", function () { closeMenu(); Onboard.open(1, true); });
+
+    Array.prototype.forEach.call($("authTabs").querySelectorAll("[data-mode]"), function (t) {
+      t.addEventListener("click", function () { Auth.mode = t.dataset.mode; Auth.render(); $("authEmail").focus(); });
+    });
+    $("authForm").addEventListener("submit", function (e) { e.preventDefault(); Auth.submit(); });
+    $("authForgot").addEventListener("click", Auth.forgot);
+    $("authSkip").addEventListener("click", function () { Auth.close(); });
+    $("authSheet").addEventListener("click", function (e) { if (e.target === $("authSheet")) Auth.close(); });
+
     $("btnPanel").addEventListener("click", function () {
       var off = document.body.classList.toggle("sidebar-off");
       $("btnPanel").setAttribute("aria-expanded", String(!off));
@@ -3145,6 +3850,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
   }
 
+  /* The slide's font must be on the page before html2canvas draws it: first
+     the stylesheet of the chosen font, then the font files it started. */
+  function fontsReady() {
+    var css = Theme.cur ? ensureFont(Theme.cur.font) : Promise.resolve();
+    return css.then(function () {
+      return document.fonts && document.fonts.ready ? document.fonts.ready : null;
+    }).catch(function () {});
+  }
+
   function withCleanSlide(fn) {
     var slide = $("slide"), inner = $("canvasInner");
     var holder = document.createElement("div");
@@ -3174,11 +3888,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (!hasContent(view())) { toast("The " + roadmapName() + " is empty. Add an initiative first."); return; }
     toast("Creating the image…");
     withCleanSlide(function (slide) {
-      return html2canvas(slide, {
+      return fontsReady().then(function () { return html2canvas(slide, {
         scale: 2, backgroundColor: "#ffffff",
         width: SLIDE_W, height: SLIDE_H, windowWidth: SLIDE_W, windowHeight: SLIDE_H,
         logging: false, useCORS: true
-      });
+      }); });
     }).then(function (canvas) {
       return new Promise(function (res) { canvas.toBlob(res, "image/png"); });
     }).then(function (blob) {
@@ -3213,11 +3927,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         state.view = d.view;
         renderSlide();
         return withCleanSlide(function (slide) {
-          return html2canvas(slide, {
+          return fontsReady().then(function () { return html2canvas(slide, {
             scale: 2, backgroundColor: "#ffffff",
             width: SLIDE_W, height: SLIDE_H, windowWidth: SLIDE_W, windowHeight: SLIDE_H,
             logging: false, useCORS: true
-          });
+          }); });
         });
       }).then(function (canvas) {
         if (i > 0) doc.addPage([SLIDE_W, SLIDE_H], "landscape");
@@ -3273,6 +3987,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
       if (e.key === "Escape") {
         if (!$("sheet").hidden) { toggleSheet(false); return; }
+        if (Auth.isOpen()) { Auth.close(); return; }
+        if (Onboard.isOpen()) { Onboard.finish(); return; }
         if (!$("menu").hidden) { closeMenu(true); return; }
         if (typing) { t.blur(); return; }
         selectRow(null); return;
@@ -3280,11 +3996,19 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
       if (typing) return;
 
-      /* Delete works from the slide and the toolbar, never from a panel,
-         the menu or the shortcut sheet, where it would act unseen. */
-      if ((e.key === "Delete" || e.key === "Backspace") && state.sel && Store.canWrite) {
-        var inChrome = t && t !== document.body && t.closest &&
-          (t.closest(".sidebar") || t.closest(".topbar") || t.closest("#menu") || t.closest("#sheet"));
+      /* Slide keys work from the slide and the toolbar, never from a panel,
+         a dialog or the menu, where they would act unseen. */
+      var inChrome = t && t !== document.body && t.closest &&
+        t.closest('.sidebar, .topbar, #menu, [role="dialog"]');
+      if (e.key === "Backspace" && Store.canWrite && !inChrome && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        /* Backspace is the eraser: once for the eraser, again for the brush you had. */
+        e.preventDefault();
+        var list0 = VIEWS[state.view].brushes;
+        if (state.brush === "") state.brush = list0.indexOf(state.prevBrush) >= 0 ? state.prevBrush : list0[0];
+        else { state.prevBrush = state.brush; state.brush = ""; }
+        renderBrushes(); return;
+      }
+      if (e.key === "Delete" && state.sel && Store.canWrite) {
         if (inChrome) return;
         e.preventDefault(); deleteRow(state.sel.row); return;
       }
@@ -3311,7 +4035,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     try { last = localStorage.getItem(LS_KEY + ":last"); } catch (e) {}
     state.boardId = (last && Store.boards.some(function (b) { return b.id === last; })) ? last : Store.boards[0].id;
 
-    wireSlide(); wireSidebar(); wireTopbar(); wireKeys();
+    Theme.load();
+    wireSlide(); wireSidebar(); wireTopbar(); wireKeys(); Onboard.wire();
 
     /* default sprint generator to a sensible "next monday" */
     var d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
@@ -3328,7 +4053,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     renderAll();
     History.reset();
+    /* Account and live saving, when the client library is here and this is
+       not the artifact. The stored session, if any, logs in on its own. */
+    Cloud.init();
+    Auth.renderState();
     setSync("idle");
+    if (Store.canWrite && !Onboard.done()) Onboard.open(0);
 
     window.addEventListener("resize", function () { if (present.on) fitPresent(); });
 

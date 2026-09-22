@@ -1,8 +1,8 @@
-# Roadmap Snapshot Studio
+# Quartermap
 
 **Production: https://roadmap-snapshot-studio.vercel.app**
 
-A tool for building the two roadmap slides that come round every quarter,
+Quartermap builds the two roadmap slides that come round every quarter,
 instead of drawing them by hand:
 
 - **Product roadmap**: `Quarter roadmap snapshot (Qx)`, for the CPO, the heads
@@ -12,9 +12,65 @@ instead of drawing them by hand:
 
 The design team reads those two words its own way: experience and
 experimentation are the discovery phase, and conception is their delivery. So
-the design roadmap has Discovery in the same green as the product roadmap and
-Experience Conception in amber, and no Delivery, which belongs to the product
-roadmap only.
+the design roadmap has Discovery in the same colour as the product roadmap and
+Experience Conception in the Specs colour, and no Delivery, which belongs to
+the product roadmap only.
+
+## Accounts and saving
+
+Every change is saved as you make it. Where it goes depends on whether you are
+logged in:
+
+- **With an account**, roadmaps, the library and your look settings are saved
+  to the account and open on any device. The status in the top bar reads
+  `saved`. Two devices logged in as the same person see each other's changes
+  live.
+- **Without an account**, everything stays in this browser only. The status
+  reads `on this device`, and `Back up everything (JSON)` is how you move it.
+
+`Log in` in the top bar opens the account dialog: log in, create an account
+with email and password, or continue without one. Logging out signs out that
+device only and removes every copy of the account's data from it, the look
+settings included. Work done on a device before logging in is carried into
+the account on the first login. On later logins the account wins, except for
+a quarter you really edited on the device more recently than in the account,
+which is kept and pushed; an untouched example board is dropped, and an
+example you painted on before logging in joins the account as a quarter of
+its own. If the
+account cannot be loaded (no network), the status reads `offline`, edits stay
+on the device and the load is retried.
+
+The backend is a Supabase project (Postgres with row level security: each
+user reads and writes only their own rows) reached straight from the page with
+the publishable key. There is no server of our own. The tables are `profiles`
+(look settings, onboarding flag), `boards` (one row per quarter, the board as
+JSON) and `libraries` (one per user); the schema is in the project's
+migration history.
+
+Two settings live in the Supabase dashboard, not in this repository:
+
+- **Authentication, URL configuration**: the Site URL must be the production
+  URL, or the links in confirmation and password-reset emails point to
+  localhost.
+- **Authentication, Providers, Email**: "Confirm email" is on by default.
+  Supabase's built-in email service is meant for trying things out and stops
+  after a handful of messages an hour. For a trial with colleagues, turn
+  "Confirm email" off (accounts work at once, no email needed); for real use,
+  set a custom SMTP provider.
+
+## The look of the slide
+
+The first visit opens a short flow: choose the font, choose the colours (a
+preset or each colour by hand), then decide about an account. The slide behind
+the card updates as you go. `•••` and *Appearance: font and colours* reopens it
+at any time. The choice is saved on the device and, with an account, in the
+profile, so it follows you.
+
+Fonts: Figtree, Inter, DM Sans, Manrope, Poppins, Work Sans, Nunito, Source
+Sans 3 (Google Fonts). Colours: the four phases, the two bars, the note, the
+text, the row background and the link. Presets: papernest (the default),
+Ocean, Forest, Mono. The editor around the slide keeps its own font and
+colours.
 
 ### The two roadmaps are independent
 
@@ -53,6 +109,7 @@ The slide is the editor: what you see is what you export.
 | `Shift` + click | paints the whole sequence (Discovery, Specs, Delivery) from that sprint |
 | `Alt` + click | adds a second phase beside the first in the same sprint |
 | right-click | erases the cell (drag to erase several) |
+| `Backspace` | picks the eraser; press again to get your brush back |
 | `½ Half sprint` or `H` | paints only the half of the sprint you click |
 | `1` to `4`, `0` | choose a phase, or the eraser |
 | click any text on the slide | edits it in place: title, note, sprint header, row name, go-live caption |
@@ -62,7 +119,7 @@ The slide is the editor: what you see is what you export.
 | `Tab` | moves to the next row name |
 | `Esc` | leaves the field; an empty row goes away |
 | `Backspace` in an empty name | removes that row |
-| `Delete` or `Backspace` with a row selected | deletes the row, with Undo in the toast |
+| `Delete` with a row selected | deletes the row, with Undo in the toast |
 | `+ Initiative` under the last row | adds a blank row ready to type |
 | `▲ ▼ ×` on the selected row | move it or delete it |
 | `↗` on a linked row | opens the link |
@@ -102,10 +159,10 @@ Selecting a row on the slide opens the Initiatives panel at the top.
 The coloured bar down the left of each row says why the initiative is on the
 roadmap:
 
-- **yellow**: a legal obligation
-- **green**: every other reason
+- **legal obligation** (yellow in the default look)
+- **every other reason** (green in the default look)
 
-The legend is printed at the bottom of the slide and lists only the colours in
+The legend is printed at the bottom of the slide and lists only the bars in
 use. Turn it on or off from the `•••` menu or in the Sprints panel.
 
 That is separate from **Area** (Finance, Operations, Business, Legal, Growth,
@@ -114,7 +171,7 @@ library, is searchable, and appears in the hover card.
 
 ### Go-live lines
 
-A go-live line is the green vertical line with a caption.
+A go-live line is the vertical line with a caption, in the Discovery colour.
 
 - Drag **⇥ Go-live** from the toolbar onto the grid to drop one where you want
   it. Click the button without dragging to add one on the selected row.
@@ -122,6 +179,7 @@ A go-live line is the green vertical line with a caption.
 - Drag the body of the line to move it along the timeline.
 - Drag the two dots at the ends to stretch it across rows.
 - `×` deletes it, with Undo in the toast.
+- Lines move with their rows when rows are inserted or deleted.
 
 A go-live lands on a real date, which is rarely a sprint boundary, so the line
 snaps to quarters of a sprint: start, 1/4, middle, 3/4, end. The Go-live lines
@@ -129,9 +187,9 @@ panel sets the same thing with two dropdowns.
 
 ### The note
 
-The yellow "To validate" note is off by default. `+ Note` in the toolbar puts
-it back with its text selected, so you can type over it; the `×` on it removes
-it again. The text is saved per quarter.
+The "To validate" note is off by default. `+ Note` in the toolbar puts it back
+with its text selected, so you can type over it; the `×` on it removes it
+again. The text is saved per quarter.
 
 ### Presenting
 
@@ -145,7 +203,8 @@ Rows with a link stay clickable while presenting.
 or Keynote; `Copy PNG` puts the same image on the clipboard. Editor marks
 (dashed outlines, row tools, line handles) never end up in the export. Names
 too long for two lines are shortened with an ellipsis before the capture, so
-the image matches what the editor shows.
+the image matches what the editor shows. The export waits for the chosen font
+to load.
 
 From the `•••` menu: `Save both roadmaps as PDF` puts the quarter's roadmaps
 into one landscape PDF (an empty roadmap is left out, and the toast says so);
@@ -164,14 +223,15 @@ many rows do not fit. With nine sprints or more the header stacks and shrinks;
 past nine the chips use their short labels (D, S, Dl, EC). A half-sprint chip
 always uses the short label.
 
-## Brand
+## Default colours
 
-The slide's colours are fixed and do not follow the light or dark theme,
-because they are the artwork that lands in the deck:
+The default look is the papernest palette. The slide's colours never follow
+the light or dark theme of the editor, because they are the artwork that lands
+in the deck:
 
 | Role | Hex |
 | --- | --- |
-| Discovery, green bar, go-live lines | `#17c3a2` |
+| Discovery, "other" bar, go-live lines | `#17c3a2` |
 | Specs, Experience Conception | `#f4a32a` |
 | Delivery | `#5b4ee8` |
 | Note, "legal obligation" bar | `#dcf223` |
@@ -183,15 +243,13 @@ The editor chrome around the slide uses `#2151ff` as its accent and follows
 the viewer's theme. Selection and focus marks drawn on the slide use the same
 blue in both themes, because the slide stays white.
 
-The typeface is **Figtree** (Google Fonts). To swap in the company font, change
-the `<link>` and the `font-family` at the top of the source file.
-
 ## Repository layout
 
 ```
 src/roadmap-studio.html   source (page body, no skeleton)
 build.sh                  generates index.html from source (bash + awk, no dependencies)
 index.html                the page that is served, and opens from disk: build output
+favicon.svg               the site icon, plus favicon-32.png and apple-touch-icon.png
 vercel.json               static hosting: cache and security headers
 test/review.mjs           functional review suite, driven in Chromium
 ```
@@ -216,16 +274,19 @@ Opens `index.html` in Chromium and exercises every behaviour the tool promises:
 brushes, the eraser in all four ways, half sprints, undo per action, draggable
 go-live lines and dropped lines, the legend, the note, area and description
 fields, the hover card, typing on the slide, empty-row clean-up, the Delete
-key, the library with undo, the row-height fit, the dense header, presentation
-mode, PNG and PDF export, the sprint generator, persistence and the
-narrow-window rules. It exits non-zero on the first failure or page JavaScript
-error.
+and Backspace keys, the library with undo, the row-height fit, the dense
+header, the onboarding flow and the look settings, presentation mode, PNG and
+PDF export, the sprint generator, persistence and the narrow-window rules. The
+account flow (sign up, live save, log out clears the device, log in brings the
+data back) runs against an in-memory stand-in for the Supabase client, so the
+suite needs no network. It exits non-zero on the first failure or page
+JavaScript error.
 
 Where the CDNs are unreachable, pass `H2C_PATH` and `JSPDF_PATH` pointing at
 local copies of html2canvas and jsPDF; `CHROMIUM` points at another binary and
 `PAGE_URL` at another build.
 
-## Hosting and persistence
+## Hosting
 
 Vercel project `roadmap-snapshot-studio`, linked to this repository: every push
 to the production branch (`claude/keen-ritchie-1wkx3v`) deploys automatically.
@@ -234,14 +295,13 @@ runtime, so run `./build.sh` and commit `index.html` along with the source
 change, or the previous page ships. `.vercelignore` keeps source, tests and
 documentation out.
 
-The production URL is public: anyone with the link opens the tool, but not your
-data, which stays in the browser of whoever entered it.
+The production URL is public: anyone with the link opens the tool. Data is
+only ever visible to the account that owns it, or to the browser it was typed
+in when there is no account.
 
-- On Vercel (or opened from disk) data lives in the browser's `localStorage`: it
-  survives across sessions on that device and does not follow you elsewhere.
-  `Back up everything (JSON)` is how you move it or keep a copy.
-- Published as an Artifact, data lives in the artifact database and follows the
-  user across devices. Read-only viewers can browse and export but not edit.
+Published as an Artifact, the page uses the artifact database instead of
+Supabase and follows the user across devices there. Read-only viewers can
+browse and export but not edit.
 
 The tool opens on an example quarter, so the first session starts from a
 working board rather than an empty grid, with a design roadmap deliberately
@@ -256,5 +316,8 @@ roadmap use `•••` and `Import a backup (JSON)`, then delete the example fr
   Product; Discovery and Experience Conception for Design.
 - Between 2 and 12 sprints per quarter.
 - The presentation deck is the quarter you have open; `↑` `↓` reach the others.
-- PNG and PDF export use `html2canvas` and `jsPDF` from a CDN: with no network,
-  those two buttons do not work.
+- PNG and PDF export use `html2canvas` and `jsPDF` from a CDN, and accounts
+  need the Supabase client from a CDN: with no network, export and login do
+  not work, and the tool runs on this device only.
+- Roadmaps belong to one account. Sharing a quarter with a colleague is not
+  built yet; export the JSON or the PNG in the meantime.

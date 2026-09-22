@@ -20,8 +20,12 @@ cat > "$out" <<'HEAD'
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Builds the two quarterly roadmap slides, product and design, by painting phases on the sprint grid.">
+<meta name="description" content="Quartermap builds the two quarterly roadmap slides, product and design, by painting phases on the sprint grid.">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#101012">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
   body{margin:0;font:14px system-ui,sans-serif;background:#faf9f7}

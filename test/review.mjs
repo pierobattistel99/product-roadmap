@@ -28,6 +28,9 @@ const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process
 const ctx = await b.newContext({ viewport: { width: 1600, height: 1000 } });
 const p = await ctx.newPage();
 p.on('pageerror', e => pageErrors.push(String(e.message)));
+// The main suite drives the editor, not the first-visit flow: mark onboarding as done on every load.
+const ONBOARDED = () => { try { localStorage.setItem('roadmap-studio-v1:onboarded', '1'); } catch (e) {} };
+await p.addInitScript(ONBOARDED);
 await p.goto(PAGE);
 if (process.env.H2C_PATH) await p.addScriptTag({ path: process.env.H2C_PATH });
 if (process.env.JSPDF_PATH) await p.addScriptTag({ path: process.env.JSPDF_PATH });
@@ -678,7 +681,7 @@ check('menu: the legend is hidden', await Q(`document.querySelector('.legend').h
 await p.click('#btnMore'); await p.waitForTimeout(200);
 check('menu: and the item flips', (await Q(`document.getElementById('mLegend').textContent`)) === 'Show the legend');
 await p.click('#mLegend'); await p.waitForTimeout(300);
-check('chrome: the save status is plain', (await Q(`document.getElementById('sync').textContent`)) === 'saved');
+check('chrome: without an account the save status says where the data is', (await Q(`document.getElementById('sync').textContent`)) === 'on this device');
 
 // ---------- 11e2. PASTE, HOVER CARD, EMPTY ROADMAP ----------
 await p.click('.brow--data[data-row="1"] .pill span'); await p.keyboard.press('Control+a');
@@ -888,6 +891,265 @@ check('import: the imported quarter is still open after a reload',
 check('import: and its rows are intact',
   (await Q(`document.querySelector('.brow--data .pill span').textContent`)) === 'Imported initiative');
 fs.unlinkSync(fixture);
+
+// ---------- 11j. BACKSPACE IS THE ERASER, DELETE DELETES THE ROW ----------
+await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
+await p.reload(); await p.waitForTimeout(800);
+await p.click('.brush[data-brush="specs"]');
+const rowsK = await Q(`document.querySelectorAll('.brow--data').length`);
+await p.click('.brow--data[data-row="2"] .pill span'); await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+await p.keyboard.press('Backspace'); await p.waitForTimeout(150);
+check('keys: Backspace picks the eraser and keeps the row',
+  (await Q(`document.querySelector('.brush[data-brush=""]').getAttribute('aria-pressed')`)) === 'true' &&
+  (await Q(`document.querySelectorAll('.brow--data').length`)) === rowsK);
+await p.keyboard.press('Backspace'); await p.waitForTimeout(150);
+check('keys: Backspace again goes back to the brush you had',
+  (await Q(`document.querySelector('.brush[data-brush="specs"]').getAttribute('aria-pressed')`)) === 'true');
+await p.keyboard.press('Delete'); await p.waitForTimeout(400);
+check('keys: Delete removes the selected row', (await Q(`document.querySelectorAll('.brow--data').length`)) === rowsK - 1);
+check('keys: the shortcut sheet documents both',
+  await Q(`/Eraser on/.test(document.getElementById('sheet').textContent) && /Delete the selected row/.test(document.getElementById('sheet').textContent)`));
+check('brand: the tool is called Quartermap',
+  (await Q(`document.title`)) === 'Quartermap' && (await Q(`document.querySelector('.brandmark .word').textContent`)) === 'Quartermap');
+check('brand: the favicon links are in the head',
+  await Q(`!!document.querySelector('link[rel="icon"][href="favicon.svg"]') && !!document.querySelector('link[rel="apple-touch-icon"]')`));
+
+// ---------- 13. ONBOARDING: FONT AND COLOURS ON THE FIRST VISIT ----------
+// A fresh context: the first-visit flow needs empty storage, which the main page's context no longer has.
+const ctx2 = await b.newContext({ viewport: { width: 1600, height: 1000 } });
+const p2 = await ctx2.newPage();
+p2.on('pageerror', e => pageErrors.push('p2: ' + String(e.message)));
+const Q2 = (s) => p2.evaluate(s);
+await p2.goto(PAGE); await p2.waitForTimeout(900);
+check('onboarding: opens on the first visit',
+  !(await Q2(`document.getElementById('onboard').hidden`)) && /Welcome to Quartermap/.test(await Q2(`document.getElementById('obTitle').textContent`)));
+check('onboarding: the slide stays usable behind the card',
+  await Q2(`getComputedStyle(document.getElementById('onboard')).pointerEvents === 'none'`));
+await p2.click('#onboard [data-ob="next"]'); await p2.waitForTimeout(200);
+check('onboarding: the font step lists the fonts, each in its own face',
+  (await Q2(`document.querySelectorAll('#onboard .fontopt').length`)) === 8 &&
+  (await Q2(`document.querySelector('#onboard .fontopt input[value="Inter"] + .nm').style.fontFamily`)).includes('Inter'));
+await p2.click('#onboard .fontopt input[value="Inter"]'); await p2.waitForTimeout(200);
+check('onboarding: choosing a font applies it to the slide',
+  (await Q2(`getComputedStyle(document.getElementById('slide')).fontFamily`)).startsWith('Inter'));
+await p2.click('#onboard [data-ob="next"]'); await p2.waitForTimeout(200);
+check('onboarding: the colour step offers presets and every colour',
+  (await Q2(`document.querySelectorAll('#onboard [data-preset]').length`)) === 4 &&
+  (await Q2(`document.querySelectorAll('#onboard input[type="color"]').length`)) === 10);
+await p2.click('#onboard [data-preset="ocean"]'); await p2.waitForTimeout(250);
+check('onboarding: a preset recolours the slide at once',
+  (await Q2(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(14, 165, 233)' &&
+  (await Q2(`getComputedStyle(document.querySelector('.rail--lime')).backgroundColor`)) === 'rgb(253, 224, 71)');
+check('onboarding: the brush swatches follow the theme',
+  (await Q2(`getComputedStyle(document.querySelector('.brush[data-brush="discovery"] .swatch')).backgroundColor`)) === 'rgb(14, 165, 233)');
+await p2.evaluate(() => { const i = document.querySelector('#onboard input[data-color="delivery"]'); i.value = '#112233'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+await p2.waitForTimeout(200);
+check('onboarding: one colour can be changed by hand',
+  (await Q2(`getComputedStyle(document.querySelector('.chip--delivery')).backgroundColor`)) === 'rgb(17, 34, 51)');
+check('onboarding: without an account service the colour step is the last one',
+  await Q2(`!!document.querySelector('#onboard [data-ob="finish"]')`));
+await p2.click('#onboard [data-ob="finish"]'); await p2.waitForTimeout(200);
+check('onboarding: Done closes it', await Q2(`document.getElementById('onboard').hidden`));
+await p2.reload(); await p2.waitForTimeout(800);
+check('onboarding: does not come back on the next visit', await Q2(`document.getElementById('onboard').hidden`));
+check('onboarding: the chosen look is kept on this device',
+  (await Q2(`getComputedStyle(document.querySelector('.chip--delivery')).backgroundColor`)) === 'rgb(17, 34, 51)' &&
+  (await Q2(`getComputedStyle(document.getElementById('slide')).fontFamily`)).startsWith('Inter'));
+await p2.click('#btnMore'); await p2.click('#mLook'); await p2.waitForTimeout(200);
+check('appearance: the menu reopens the look settings at the font step',
+  !(await Q2(`document.getElementById('onboard').hidden`)) && (await Q2(`document.getElementById('obTitle').textContent`)) === 'Font');
+await p2.keyboard.press('Escape'); await p2.waitForTimeout(150);
+check('appearance: Esc closes it', await Q2(`document.getElementById('onboard').hidden`));
+await ctx2.close();
+
+// ---------- 14. ACCOUNT AND LIVE SAVING (fake Supabase client) ----------
+const FAKE_SUPABASE = () => {
+  // State lives in sessionStorage so a reload keeps the "account", as the real service would.
+  let saved = null; try { saved = JSON.parse(sessionStorage.getItem('__fake') || 'null'); } catch (e) {}
+  const db = (saved && saved.db) || { boards: [], libraries: [], profiles: [] };
+  const users = (saved && saved.users) || {}; const listeners = []; let session = (saved && saved.session) || null;
+  const persist = () => { try { sessionStorage.setItem('__fake', JSON.stringify({ db, users, session })); } catch (e) {} };
+  const emit = (ev, s) => listeners.forEach(cb => cb(ev, s));
+  const pk = { boards: ['owner_id', 'id'], libraries: ['owner_id'], profiles: ['id'] };
+  const uid = () => 'u-' + Math.random().toString(36).slice(2, 10);
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  function builder(table) {
+    const filters = []; let op = 'select', payload = null;
+    const match = (r) => filters.every(([k, v]) => String(r[k]) === String(v));
+    const run = () => {
+      if (window.__fakeFail) return { data: null, error: { message: 'FetchError: network down' } };
+      if (op === 'select') return { data: db[table].filter(match).map(clone), error: null };
+      if (op === 'upsert') {
+        (Array.isArray(payload) ? payload : [payload]).forEach(row => {
+          const i = db[table].findIndex(r => pk[table].every(k => r[k] === row[k]));
+          if (i < 0) db[table].push(clone(row)); else Object.assign(db[table][i], clone(row));
+        });
+        persist(); return { data: null, error: null };
+      }
+      db[table] = db[table].filter(r => !match(r)); persist(); return { data: null, error: null };
+    };
+    const b = {
+      select() { op = 'select'; return b; }, upsert(row) { op = 'upsert'; payload = row; return b; },
+      delete() { op = 'delete'; return b; }, eq(k, v) { filters.push([k, v]); return b; },
+      maybeSingle() { const r = run(); return Promise.resolve({ data: (r.data && r.data[0]) || null, error: null }); },
+      then(res, rej) { return Promise.resolve(run()).then(res, rej); }
+    };
+    return b;
+  }
+  const auth = {
+    onAuthStateChange(cb) { listeners.push(cb); setTimeout(() => cb('INITIAL_SESSION', session), 0); return { data: { subscription: { unsubscribe() {} } } }; },
+    getSession() { return Promise.resolve({ data: { session }, error: null }); },
+    signUp({ email, password }) {
+      if (users[email]) return Promise.resolve({ data: { user: null, session: null }, error: { message: 'User already registered' } });
+      users[email] = { id: uid(), email, password };
+      session = { user: { id: users[email].id, email } }; persist();
+      setTimeout(() => emit('SIGNED_IN', session), 0);
+      return Promise.resolve({ data: { user: session.user, session }, error: null });
+    },
+    signInWithPassword({ email, password }) {
+      const u = users[email];
+      if (!u || u.password !== password) return Promise.resolve({ data: { user: null, session: null }, error: { message: 'Invalid login credentials' } });
+      session = { user: { id: u.id, email } }; persist();
+      setTimeout(() => emit('SIGNED_IN', session), 0);
+      return Promise.resolve({ data: { user: session.user, session }, error: null });
+    },
+    signOut(opts) { window.__lastSignOut = opts || null; session = null; persist(); setTimeout(() => emit('SIGNED_OUT', null), 0); return Promise.resolve({ error: null }); },
+    __expire() { session = null; persist(); emit('SIGNED_OUT', null); },
+    resetPasswordForEmail() { return Promise.resolve({ data: {}, error: null }); },
+    updateUser() { return Promise.resolve({ data: {}, error: null }); }
+  };
+  const client = { auth, from: builder, channel() { const ch = { on() { return ch; }, subscribe() { return ch; } }; return ch; }, removeChannel() {} };
+  window.__fakeDb = db; window.__fakeAuth = auth;
+  window.supabase = { createClient: () => client };
+};
+const ctx3 = await b.newContext({ viewport: { width: 1600, height: 1000 } });
+const p3 = await ctx3.newPage();
+p3.on('pageerror', e => pageErrors.push('p3: ' + String(e.message)));
+const Q3 = (s) => p3.evaluate(s);
+// the account's copy of the quarter that is open, and one cell of it
+const cloudCell = (row, col) => Q3(`(()=>{try{const b=window.__fakeDb.boards.find(x=>x.id===document.getElementById('boardSel').value);return b.data.views.product.rows[${row}].cells['${col}'][0]}catch(e){return null}})()`);
+await p3.addInitScript(ONBOARDED);
+await p3.addInitScript(FAKE_SUPABASE);
+await p3.goto(PAGE); await p3.waitForTimeout(900);
+check('account: the Log in button shows when the account service is available',
+  !(await Q3(`document.getElementById('btnAuth').hidden`)) && (await Q3(`document.getElementById('btnAuth').textContent`)) === 'Log in');
+check('account: without an account the status says the data stays on this device',
+  (await Q3(`document.getElementById('sync').textContent`)) === 'on this device');
+await p3.click('.brush[data-brush="specs"]');
+await p3.click('.cell[data-row="8"][data-col="0"]'); await p3.waitForTimeout(700);
+await p3.click('#btnAuth'); await p3.waitForTimeout(200);
+check('account: the dialog opens', !(await Q3(`document.getElementById('authSheet').hidden`)));
+await p3.click('#authTabs [data-mode="signup"]');
+await p3.fill('#authEmail', 'wrong-format'); await p3.fill('#authPass', 'short'); await p3.click('#authSubmit'); await p3.waitForTimeout(200);
+check('account: a short password is refused with a plain message',
+  /8 characters/.test(await Q3(`document.getElementById('authMsg').textContent`)));
+await p3.fill('#authEmail', 'piero@test.dev'); await p3.fill('#authPass', 'a-long-password');
+await p3.click('#authSubmit'); await p3.waitForTimeout(900);
+check('account: signing up logs in and shows the email', (await Q3(`document.getElementById('btnAuth').textContent`)) === 'piero@test.dev');
+check('account: the dialog closed', await Q3(`document.getElementById('authSheet').hidden`));
+const cloud1 = await Q3(`(d=>({boards:d.boards.length, libs:d.libraries.length, profiles:d.profiles.length, chip:(()=>{try{return d.boards[0].data.views.product.rows[8].cells['0'][0]}catch(e){return null}})()}))(window.__fakeDb)`);
+check('account: the board painted before logging in was pushed to the account',
+  cloud1.boards === 1 && cloud1.chip === 'specs', JSON.stringify(cloud1));
+check('account: the library and the profile went along', cloud1.libs === 1 && cloud1.profiles === 1, JSON.stringify(cloud1));
+check('account: the status says saved', (await Q3(`document.getElementById('sync').textContent`)) === 'saved');
+await p3.click('.cell[data-row="7"][data-col="0"]'); await p3.waitForTimeout(1000);
+check('account: an edit is saved live to the account',
+  (await Q3(`(()=>{try{return window.__fakeDb.boards[0].data.views.product.rows[7].cells['0'][0]}catch(e){return null}})()`)) === 'specs');
+// the look chosen while logged in goes to the profile
+await p3.click('#btnMore'); await p3.click('#mLook'); await p3.waitForTimeout(200);
+await p3.click('#onboard [data-ob="next"]'); await p3.waitForTimeout(150);
+await p3.click('#onboard [data-preset="forest"]'); await p3.waitForTimeout(1100);
+check('account: the chosen look is stored in the profile',
+  (await Q3(`(()=>{try{return window.__fakeDb.profiles[0].theme.colors.discovery}catch(e){return null}})()`)) === '#10b981');
+await p3.keyboard.press('Escape'); await p3.waitForTimeout(150);
+await p3.click('#btnMore'); await p3.waitForTimeout(150);
+check('account: the menu shows the account and Log out',
+  (await Q3(`document.getElementById('mAccountRow').textContent`)) === 'piero@test.dev' && (await Q3(`document.getElementById('mAuth').textContent`)) === 'Log out');
+await p3.keyboard.press('Escape'); await p3.waitForTimeout(100);
+// an edit made right before logging out must not be lost in the save timer
+await p3.click('.brush[data-brush="delivery"]');
+await p3.click('.cell[data-row="6"][data-col="0"]');
+await p3.click('#btnMore'); await p3.click('#mAuth'); await p3.waitForTimeout(700);
+check('account: logging out pushes the edit that was still waiting to be saved',
+  (await Q3(`(()=>{try{return window.__fakeDb.boards[0].data.views.product.rows[6].cells['0'][0]}catch(e){return null}})()`)) === 'delivery');
+check('account: logging out signs out this device only', (await Q3(`JSON.stringify(window.__lastSignOut)`)) === '{"scope":"local"}');
+check('account: logging out leaves nothing of the account on this device',
+  (await Q3(`document.getElementById('btnAuth').textContent`)) === 'Log in' &&
+  (await Q3(`document.querySelectorAll('.cell[data-row="7"][data-col="0"] .chip').length`)) === 0 &&
+  (await Q3(`document.getElementById('sync').textContent`)) === 'on this device');
+check('account: logging out also drops the account look',
+  (await Q3(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(23, 195, 162)');
+await p3.click('#btnAuth'); await p3.waitForTimeout(150);
+await p3.fill('#authEmail', 'piero@test.dev'); await p3.fill('#authPass', 'wrong-password'); await p3.click('#authSubmit'); await p3.waitForTimeout(300);
+check('account: a wrong password gets a plain message', (await Q3(`document.getElementById('authMsg').textContent`)) === 'Wrong email or password.');
+await p3.fill('#authPass', 'a-long-password'); await p3.click('#authSubmit'); await p3.waitForTimeout(900);
+check('account: logging in brings the account data back',
+  (await Q3(`document.querySelectorAll('.cell[data-row="7"][data-col="0"] .chip').length`)) === 1 &&
+  (await Q3(`document.querySelectorAll('.cell[data-row="8"][data-col="0"] .chip').length`)) === 1);
+check('account: the untouched example on this device did not replace the account copy',
+  (await Q3(`document.querySelectorAll('.cell[data-row="6"][data-col="0"] .chip').length`)) === 1);
+check('account: the profile look follows the account onto this device',
+  (await Q3(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(16, 185, 129)');
+
+// a quarter edited on the device more recently than in the account wins over it
+await p3.click('#btnMore'); await p3.click('#mAuth'); await p3.waitForTimeout(600);
+await p3.click('.brush[data-brush="specs"]');
+await p3.click('.cell[data-row="5"][data-col="0"]'); await p3.waitForTimeout(300);
+await p3.click('#btnAuth'); await p3.fill('#authEmail', 'piero@test.dev'); await p3.fill('#authPass', 'a-long-password');
+await p3.click('#authSubmit'); await p3.waitForTimeout(1000);
+check('account: the edited example is pushed and the account copy is kept',
+  (await Q3(`document.querySelectorAll('.cell[data-row="5"][data-col="0"] .chip').length`)) === 1 &&
+  (await cloudCell(5, 0)) === 'specs' &&
+  (await Q3(`window.__fakeDb.boards.length`)) === 2 &&
+  (await Q3(`document.getElementById('boardSel').options.length`)) === 2,
+  'boards in account: ' + (await Q3(`window.__fakeDb.boards.length`)));
+
+// when the account cannot be loaded, edits stay on the device and the load is retried
+await p3.click('#btnMore'); await p3.click('#mAuth'); await p3.waitForTimeout(600);
+await p3.evaluate(() => { window.__fakeFail = true; });
+await p3.click('#btnAuth'); await p3.fill('#authEmail', 'piero@test.dev'); await p3.fill('#authPass', 'a-long-password');
+await p3.click('#authSubmit'); await p3.waitForTimeout(600);
+check('account: a failed load says offline instead of pretending', (await Q3(`document.getElementById('sync').textContent`)) === 'offline');
+const cloudCountBefore = await Q3(`window.__fakeDb.boards.length`);
+await p3.click('.cell[data-row="4"][data-col="0"]'); await p3.waitForTimeout(800);
+check('account: while offline nothing is written to the account',
+  (await Q3(`window.__fakeDb.boards.length`)) === cloudCountBefore &&
+  (await Q3(`JSON.stringify(window.__fakeDb.boards.map(b=>(b.data.views.product.rows[4].cells['0']||null)))`)) === JSON.stringify(Array(cloudCountBefore).fill(null)));
+await p3.evaluate(() => { window.__fakeFail = false; });
+await p3.waitForTimeout(2800);
+check('account: once the load succeeds the offline edit reaches the account',
+  (await Q3(`document.getElementById('sync').textContent`)) === 'saved' && (await cloudCell(4, 0)) === 'specs');
+
+// a save that fails is not forgotten: "not saved" stays on show, and it is tried again
+await p3.evaluate(() => { window.__fakeFail = true; });
+await p3.click('.brush[data-brush="delivery"]');
+await p3.click('.cell[data-row="3"][data-col="0"]'); await p3.waitForTimeout(900);
+check('account: a failed save says not saved', (await Q3(`document.getElementById('sync').textContent`)) === 'not saved');
+await p3.evaluate(() => { window.__fakeFail = false; });
+await p3.waitForTimeout(5300);
+check('account: the failed save is retried and lands',
+  (await Q3(`document.getElementById('sync').textContent`)) === 'saved' && (await cloudCell(3, 0)) === 'delivery');
+await p3.evaluate(() => { window.__fakeFail = true; });
+await p3.click('.cell[data-row="2"][data-col="0"]'); await p3.waitForTimeout(900);
+check('account: a second failure says not saved again', (await Q3(`document.getElementById('sync').textContent`)) === 'not saved');
+await p3.evaluate(() => { window.__fakeFail = false; });
+await p3.click('.cell[data-row="0"][data-col="7"]'); await p3.waitForTimeout(900);
+check('account: the next save of the same quarter carries the failed edit with it',
+  (await Q3(`document.getElementById('sync').textContent`)) === 'saved' &&
+  (await cloudCell(2, 0)) === 'delivery' && (await cloudCell(0, 7)) === 'delivery');
+
+// a session that ends on its own keeps the work on the device
+await p3.click('.cell[data-row="1"][data-col="7"]');
+await p3.evaluate(() => window.__fakeAuth.__expire()); await p3.waitForTimeout(500);
+check('account: an expired session keeps the work on the device and says so',
+  (await Q3(`document.querySelectorAll('.cell[data-row="1"][data-col="7"] .chip').length`)) === 1 &&
+  (await Q3(`document.getElementById('sync').textContent`)) === 'logged out' &&
+  (await Q3(`document.getElementById('btnAuth').textContent`)) === 'Log in');
+await p3.click('#btnAuth'); await p3.fill('#authEmail', 'piero@test.dev'); await p3.fill('#authPass', 'a-long-password');
+await p3.click('#authSubmit'); await p3.waitForTimeout(1000);
+check('account: logging in again pushes the work done after the session ended',
+  (await cloudCell(1, 7)) === 'delivery');
+await ctx3.close();
 
 // ---------- 12. RESPONSIVE ----------
 await p.setViewportSize({ width: 620, height: 900 }); await p.waitForTimeout(600);
