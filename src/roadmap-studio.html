@@ -8,7 +8,8 @@
    Two palettes live here on purpose:
    - pn-*  : the brand palette. Fixed, never theme-swapped, because it
              paints the slide that gets exported to PNG.
-   - ui-*  : the editor chrome. Theme-aware (light / dark / system).
+   - ui-*  : the editor chrome. Light or dark, picked with the button in
+             the top bar and remembered per person.
    ============================================================ */
 :root{
   /* Slide theme: the papernest defaults. The onboarding flow and the
@@ -27,59 +28,88 @@
   --pn-head:#ededee;
   --pn-paper:#ffffff;
   --pn-muted:#6b6b72;
-  /* Editor chrome colours: never follow the slide theme. */
-  --ui-warn:#f4a32a;
   /* Editor marks drawn ON the slide (selection ring, focus outline). They sit
      on white paper whatever the theme, so they never follow --ui-accent. */
   --mark:#2151ff;
 
-  --ui-bg:#f4f6fb;
+  /* ---- editor chrome, light ---- */
+  --ui-bg:#f4f6fa;
   --ui-panel:#ffffff;
-  --ui-sunk:#eaeef8;
-  --ui-line:#dde3f0;
-  --ui-line-soft:#e9edf6;
-  --ui-text:#0f1422;
-  --ui-muted:#5b6479;
-  --ui-faint:#7d869b;
+  --ui-sunk:#edf0f5;
+  /* The lifted surface of a segmented control: it has to read as raised
+     over --ui-sunk in both themes, so it is not simply --ui-panel. */
+  --ui-raised:#ffffff;
+  --ui-field:#ffffff;
+  --ui-line:#d7dce6;
+  --ui-line-soft:#e7eaf1;
+  --ui-line-strong:#bfc7d6;
+  --ui-text:#0b1018;
+  --ui-muted:#454e61;
+  --ui-faint:#5b6476;
   --ui-accent:#2151ff;
   --ui-accent-ink:#ffffff;
-  --ui-shadow:0 1px 2px rgba(17,25,50,.06),0 8px 24px -12px rgba(17,25,50,.20);
+  --ui-accent-soft:rgba(33,81,255,.10);
+  --ui-warn:#f4a32a;
+  --ui-warn-ink:#875000;
+  --ui-danger:#c0281f;
+  --ui-danger-bg:#c0392b;
+  --ui-ok:#0a7355;
   --ui-focus:#2151ff;
+  --ui-ring:rgba(33,81,255,.22);
+  --ui-mark-bg:#101012;
+  --ui-glass:rgba(255,255,255,.92);
+  --ui-scrim:rgba(11,16,26,.40);
+  --ui-glow-a:rgba(33,81,255,.055);
+  --ui-glow-b:rgba(23,195,162,.05);
+  /* An inner top highlight: real in the dark theme, a no-op in the light one.
+     It must stay a valid shadow, because it is used inside comma lists. */
+  --ui-hi:inset 0 0 0 0 transparent;
+  --ui-well:inset 0 1px 2px rgba(13,20,38,.05);
+  /* Kept up to date by the editor: the bar wraps to two rows on some widths
+     and its buttons change with the account, so nothing may assume 57px. */
+  --topbar-h:57px;
+  --ui-shadow-1:0 1px 2px rgba(13,20,38,.06);
+  --ui-shadow-2:0 1px 2px rgba(13,20,38,.06),0 10px 26px -14px rgba(13,20,38,.28);
+  --ui-shadow-3:0 2px 8px rgba(13,20,38,.08),0 26px 64px -24px rgba(13,20,38,.42);
   color-scheme:light;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --ui-bg:#0c1017;
-    --ui-panel:#141a25;
-    --ui-sunk:#0f1420;
-    --ui-line:#252d3d;
-    --ui-line-soft:#1c2331;
-    --ui-text:#e7eaf3;
-    --ui-muted:#a3abbf;
-    --ui-faint:#8b93a7;
-    --ui-accent:#7b9bff;
-    --ui-accent-ink:#06102b;
-    --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
-    --ui-focus:#7b9bff;
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --ui-bg:#0c1017;
-  --ui-panel:#141a25;
-  --ui-sunk:#0f1420;
-  --ui-line:#252d3d;
-  --ui-line-soft:#1c2331;
-  --ui-text:#e7eaf3;
-  --ui-muted:#a3abbf;
-  --ui-faint:#8b93a7;
-  --ui-accent:#7b9bff;
-  --ui-accent-ink:#06102b;
-  --ui-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 28px -14px rgba(0,0,0,.7);
-  --ui-focus:#7b9bff;
+/* data-ui is ours; data-theme belongs to whatever page is hosting the app,
+   and we only ever read it. The boot script sets data-ui before the first
+   paint, so the editor never flashes the theme the person did not pick. */
+:root[data-ui="dark"]{
+  --ui-bg:#08090c;
+  --ui-panel:#101216;
+  --ui-sunk:#181b21;
+  --ui-raised:#2b3039;
+  --ui-field:#0b0d11;
+  --ui-line:#282c35;
+  --ui-line-soft:#1c1f26;
+  --ui-line-strong:#3a3f4b;
+  --ui-text:#f3f4f7;
+  --ui-muted:#b5bbc7;
+  --ui-faint:#939aa9;
+  --ui-accent:#8aa2ff;
+  --ui-accent-ink:#05091c;
+  --ui-accent-soft:rgba(138,162,255,.15);
+  --ui-warn:#f4a32a;
+  --ui-warn-ink:#f7bd66;
+  --ui-danger:#ff8f8f;
+  --ui-danger-bg:#c0392b;
+  --ui-ok:#3ed9a6;
+  --ui-focus:#8aa2ff;
+  --ui-ring:rgba(138,162,255,.30);
+  --ui-mark-bg:#23262e;
+  --ui-glass:rgba(16,18,22,.92);
+  --ui-scrim:rgba(2,3,6,.66);
+  --ui-glow-a:rgba(138,162,255,.10);
+  --ui-glow-b:rgba(23,195,162,.07);
+  --ui-hi:inset 0 1px 0 rgba(255,255,255,.05);
+  --ui-well:inset 0 1px 2px rgba(0,0,0,.45);
+  --ui-shadow-1:0 1px 2px rgba(0,0,0,.5);
+  --ui-shadow-2:0 1px 2px rgba(0,0,0,.5),0 12px 30px -16px rgba(0,0,0,.9);
+  --ui-shadow-3:0 2px 10px rgba(0,0,0,.6),0 30px 70px -26px rgba(0,0,0,.9);
   color-scheme:dark;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -87,90 +117,130 @@ body{
   font-family:"Figtree",ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;
 }
-.app{position:relative;z-index:1;background:var(--ui-bg);min-height:100%;display:flex;flex-direction:column}
+/* A very quiet wash behind the editor, so the panels read as raised
+   surfaces instead of flat blocks. The slide never sees it. */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(880px 360px at 10% -150px,var(--ui-glow-a),transparent 70%),
+    radial-gradient(760px 320px at 90% -130px,var(--ui-glow-b),transparent 70%);
+}
+.app{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px;border-radius:6px}
+:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px;border-radius:7px}
 button,input,select,textarea{font:inherit;color:inherit}
 
 /* ---------- top bar ---------- */
 .topbar{
   position:sticky;top:env(safe-area-inset-top,0px);z-index:40;
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:10px 16px;background:var(--ui-panel);border-bottom:1px solid var(--ui-line);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:11px 18px;background:var(--ui-panel);
+  border-bottom:1px solid var(--ui-line-soft);
 }
-.brandmark{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:-.015em;font-size:15px;white-space:nowrap}
-.brandmark .dot{width:11px;height:11px;border-radius:3px;background:var(--ui-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-accent) 22%,transparent)}
+/* Frosted only where the blur is real. Without it the alpha would still
+   apply and the slide would scroll sharply through the bar. */
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .topbar{
+    background:var(--ui-glass);
+    backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);
+  }
+}
+.brandmark{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.02em;font-size:15px;white-space:nowrap;padding-right:4px}
+.brandmark .mark{width:24px;height:24px;border-radius:7px;flex:none;overflow:hidden;line-height:0;box-shadow:var(--ui-shadow-1),var(--ui-hi)}
+.brandmark .mark svg{display:block;width:24px;height:24px}
+.brandmark .mark .bg{fill:var(--ui-mark-bg)}
 .topbar .spacer{flex:1 1 auto;min-width:0}
+.topbar .rule{width:1px;height:20px;background:var(--ui-line);flex:none;margin:0 3px;border-radius:1px}
 
 .btn{
-  display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
-  border:1px solid var(--ui-line);border-radius:8px;background:var(--ui-panel);
-  font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;
-  transition:background .12s ease,border-color .12s ease,transform .06s ease;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 13px;
+  border:1px solid var(--ui-line);border-radius:9px;background:var(--ui-panel);color:var(--ui-text);
+  font-weight:600;font-size:13px;letter-spacing:-.005em;cursor:pointer;white-space:nowrap;
+  box-shadow:var(--ui-shadow-1),var(--ui-hi);
+  transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,color .14s ease,transform .06s ease;
 }
-.btn:hover{background:var(--ui-sunk);border-color:var(--ui-faint)}
+.btn:hover{background:var(--ui-sunk);border-color:var(--ui-line-strong)}
 .btn:active{transform:translateY(1px)}
-.btn[disabled]{opacity:.45;cursor:not-allowed}
-.btn-primary{background:var(--ui-accent);border-color:var(--ui-accent);color:var(--ui-accent-ink)}
-.btn-primary:hover{background:color-mix(in srgb,var(--ui-accent) 86%,#000);border-color:color-mix(in srgb,var(--ui-accent) 86%,#000)}
-.btn-ghost{border-color:transparent;background:transparent;padding:0 9px;color:var(--ui-muted)}
-.btn-ghost:hover{background:var(--ui-sunk);color:var(--ui-text)}
-.btn-danger:hover{background:#c0392b;border-color:#c0392b;color:#fff}
-.btn-sm{height:27px;padding:0 9px;font-size:12px;border-radius:7px}
-
-select,input[type=text],input[type=url],input[type=date],input[type=number],textarea{
-  height:32px;padding:0 9px;border:1px solid var(--ui-line);border-radius:8px;
-  background:var(--ui-panel);font-size:13px;max-width:100%;
+.btn[disabled]{opacity:.42;cursor:not-allowed;box-shadow:none}
+.btn-primary{
+  background:var(--ui-accent);border-color:color-mix(in srgb,var(--ui-accent) 78%,#000);color:var(--ui-accent-ink);
+  box-shadow:0 1px 2px rgba(0,0,0,.16),0 8px 18px -10px var(--ui-ring);
 }
-textarea{height:auto;padding:7px 9px;line-height:1.35;resize:vertical}
-input:focus,select:focus,textarea:focus{border-color:var(--ui-accent);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-accent) 18%,transparent)}
+.btn-primary:hover{background:color-mix(in srgb,var(--ui-accent) 88%,#000);border-color:color-mix(in srgb,var(--ui-accent) 66%,#000)}
+.btn-ghost{border-color:transparent;background:transparent;box-shadow:none;padding:0 10px;color:var(--ui-muted)}
+.btn-ghost:hover{background:var(--ui-sunk);border-color:transparent;color:var(--ui-text)}
+.btn-icon{width:34px;padding:0}
+.btn-icon svg{display:block;width:16px;height:16px}
+.btn-danger:hover{background:var(--ui-danger-bg);border-color:var(--ui-danger-bg);color:#fff}
+.btn-sm{height:29px;padding:0 10px;font-size:12.5px;border-radius:8px}
+
+/* Every text field, the account dialog's email and password included: those
+   two used to fall through to the browser default and all but vanish on dark.
+   Plain type selectors on purpose, so a later rule can still raise a field. */
+input[type=text],input[type=url],input[type=email],input[type=password],
+input[type=search],input[type=tel],input[type=date],input[type=number],select,textarea{
+  height:34px;padding:0 11px;border:1px solid var(--ui-line);border-radius:9px;
+  background:var(--ui-field);color:var(--ui-text);font-size:13px;max-width:100%;
+  box-shadow:var(--ui-well);
+  transition:border-color .14s ease,box-shadow .14s ease;
+}
+textarea{height:auto;padding:8px 11px;line-height:1.4;resize:vertical}
+::placeholder{color:var(--ui-faint);opacity:1}
+input:focus,select:focus,textarea:focus{border-color:var(--ui-accent);outline:none;box-shadow:0 0 0 3px var(--ui-ring)}
 .boardpick{display:flex;align-items:center;gap:4px}
 .boardpick select{max-width:190px;font-weight:600}
 
-.viewtabs{display:flex;gap:2px;padding:3px;background:var(--ui-sunk);border-radius:10px}
-.vtab{
-  border:0;background:transparent;border-radius:7px;height:26px;padding:0 12px;
+.viewtabs,.sidetabs{display:flex;gap:2px;padding:2px;background:var(--ui-sunk);border:1px solid var(--ui-line-soft);border-radius:10px}
+.vtab,.stab{
+  border:0;background:transparent;border-radius:8px;height:28px;padding:0 13px;
   font-size:13px;font-weight:600;color:var(--ui-muted);cursor:pointer;white-space:nowrap;
+  transition:background .14s ease,color .14s ease,box-shadow .14s ease;
 }
-.vtab.is-on{background:var(--ui-panel);color:var(--ui-text);box-shadow:var(--ui-shadow)}
+.stab{flex:1;padding:0 8px}
+.vtab:hover,.stab:hover{color:var(--ui-text)}
+.vtab.is-on,.stab.is-on{background:var(--ui-raised);color:var(--ui-text);box-shadow:var(--ui-shadow-1),var(--ui-hi)}
 
-.sync{font-family:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--ui-faint);white-space:nowrap}
-.sync[data-state="saving"]{color:var(--ui-warn)}
-.sync[data-state="error"]{color:#d64545}
+.sync{
+  display:inline-flex;align-items:center;gap:6px;padding:0 2px;
+  font-family:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+  color:var(--ui-muted);white-space:nowrap;
+}
+.sync:empty{display:none}
+.sync::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ui-ok);flex:none}
+.sync[data-state="saving"]{color:var(--ui-warn-ink)}
+.sync[data-state="saving"]::before{background:var(--ui-warn)}
+.sync[data-state="error"]{color:var(--ui-danger)}
+.sync[data-state="error"]::before{background:var(--ui-danger)}
 
 /* ---------- workspace ---------- */
-.workspace{flex:1;display:grid;grid-template-columns:314px minmax(0,1fr);gap:0;align-items:start}
+.workspace{flex:1;display:grid;grid-template-columns:320px minmax(0,1fr);gap:0;align-items:start}
 @media (max-width:1040px){ .workspace{grid-template-columns:minmax(0,1fr)} }
 
 .sidebar{
-  border-right:1px solid var(--ui-line);background:var(--ui-panel);
-  padding:14px 14px 40px;min-width:0;
-  display:flex;flex-direction:column;gap:14px;
+  border-right:1px solid var(--ui-line-soft);background:var(--ui-panel);
+  padding:16px 16px 44px;min-width:0;
+  display:flex;flex-direction:column;gap:15px;
 }
-@media (min-width:1041px){ .sidebar{position:sticky;top:calc(53px + env(safe-area-inset-top,0px));max-height:calc(100dvh - 53px);overflow-y:auto} }
-@media (max-width:1040px){ .sidebar{border-right:0;border-bottom:1px solid var(--ui-line);padding-bottom:18px} }
+@media (min-width:1041px){ .sidebar{position:sticky;top:calc(var(--topbar-h) + env(safe-area-inset-top,0px));max-height:calc(100dvh - var(--topbar-h));overflow-y:auto} }
+@media (max-width:1040px){ .sidebar{border-right:0;border-bottom:1px solid var(--ui-line);padding-bottom:20px} }
 /* Narrow windows open with the panel folded away, so the slide is the
    first thing on screen instead of sitting a screenful below it. */
 body.sidebar-off .sidebar{display:none}
 body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 @media (max-width:760px){ .brandmark span.word{display:none} }
 
-.sidetabs{display:flex;gap:2px;padding:3px;background:var(--ui-sunk);border-radius:10px}
-.stab{flex:1;border:0;background:transparent;border-radius:7px;height:28px;font-size:12.5px;font-weight:600;color:var(--ui-muted);cursor:pointer}
-.stab.is-on{background:var(--ui-panel);color:var(--ui-text);box-shadow:var(--ui-shadow)}
-
-.panel{display:flex;flex-direction:column;gap:10px}
+.panel{display:flex;flex-direction:column;gap:11px}
 .panel[hidden]{display:none}
 .eyebrow{
-  font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:var(--ui-faint);margin:0;
 }
-.field{display:flex;flex-direction:column;gap:4px}
-.field > label{font-size:11.5px;font-weight:600;color:var(--ui-muted)}
+.field{display:flex;flex-direction:column;gap:5px}
+.field > label{font-size:12px;font-weight:600;color:var(--ui-muted)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .rowline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.check{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ui-muted);cursor:pointer}
+.check{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ui-muted);cursor:pointer}
 .check input{accent-color:var(--ui-accent);width:15px;height:15px;margin:0}
 
 /* the selected row's fields sit at the top of the panel, never below the fold */
@@ -179,89 +249,92 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 #inspectorEmpty[hidden]{display:none}
 
 /* library list */
-.lib{display:flex;flex-direction:column;gap:3px;margin:0;padding:0;list-style:none}
+.lib{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
 .lib-item{
   display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;gap:8px;
-  padding:6px 7px;border-radius:9px;border:1px solid transparent;cursor:pointer;
+  padding:7px 8px;border-radius:10px;border:1px solid transparent;cursor:pointer;
+  transition:background .12s ease,border-color .12s ease;
 }
 .lib-item:hover{background:var(--ui-sunk)}
-.lib-item.is-sel{background:color-mix(in srgb,var(--ui-accent) 12%,transparent);border-color:color-mix(in srgb,var(--ui-accent) 40%,transparent)}
+.lib-item.is-sel{background:var(--ui-accent-soft);border-color:color-mix(in srgb,var(--ui-accent) 42%,transparent)}
 .lib-item .nm{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .lib-item .nm.is-off{color:var(--ui-faint);font-weight:500}
 .lib-item .lk{font-size:10px;color:var(--ui-faint);font-family:"DM Mono",monospace}
 .libdel{
   border:0;background:transparent;color:var(--ui-faint);font-size:14px;line-height:1;
-  cursor:pointer;padding:0 2px;visibility:hidden;border-radius:4px;
+  cursor:pointer;padding:0 2px;visibility:hidden;border-radius:5px;
 }
 .lib-item:hover .libdel,.libdel:focus-visible{visibility:visible}
-.libdel:hover{color:#fff;background:#c0392b}
+.libdel:hover{color:#fff;background:var(--ui-danger-bg)}
 /* Which roadmap an initiative already sits on. The two roadmaps are
    independent, so this is the only place that relationship shows. */
 .uses{display:inline-flex;gap:3px}
 .uses i{
-  font-style:normal;font-size:9.5px;font-weight:800;line-height:15px;
-  width:16px;text-align:center;border-radius:4px;
+  font-style:normal;font-size:9.5px;font-weight:800;line-height:16px;
+  width:17px;text-align:center;border-radius:5px;
 }
-.u-p{background:color-mix(in srgb,var(--ui-accent) 18%,transparent);color:var(--ui-accent)}
-.u-d{
-  background:color-mix(in srgb,var(--ui-warn) 22%,transparent);
-  color:color-mix(in srgb,var(--ui-warn) 65%,var(--ui-text));
-}
-.lib-empty{font-size:12.5px;color:var(--ui-faint);padding:10px 2px;margin:0}
+.u-p{background:var(--ui-accent-soft);color:var(--ui-accent)}
+.u-d{background:color-mix(in srgb,var(--ui-warn) 22%,transparent);color:var(--ui-warn-ink)}
+.lib-empty{font-size:12.5px;color:var(--ui-muted);padding:10px 2px;margin:0}
 
 .swatches{display:flex;gap:6px}
-.sw{width:30px;height:30px;border-radius:8px;border:2px solid var(--ui-line);cursor:pointer;background:transparent;padding:0}
+.sw{width:30px;height:30px;border-radius:9px;border:2px solid var(--ui-line);cursor:pointer;background:transparent;padding:0}
 .sw[aria-pressed="true"]{border-color:var(--ui-text);box-shadow:0 0 0 2px var(--ui-panel) inset}
 .sw-teal{background:var(--pn-bar-other)}
 .sw-lime{background:var(--pn-bar-legal)}
 .sw-none{background:repeating-linear-gradient(45deg,var(--ui-sunk),var(--ui-sunk) 4px,var(--ui-line) 4px,var(--ui-line) 8px)}
 
 .sprint-row{display:grid;grid-template-columns:1fr 46px 1.35fr auto;gap:5px;align-items:center}
-.sprint-row input{height:28px;font-size:12px;padding:0 7px}
-.ms-card{border:1px solid var(--ui-line);border-radius:10px;padding:9px;display:flex;flex-direction:column;gap:7px;background:var(--ui-sunk)}
+.sprint-row input{height:30px;font-size:12px;padding:0 8px}
+.ms-card{border:1px solid var(--ui-line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--ui-sunk)}
 
 .divider{height:1px;background:var(--ui-line-soft);border:0;margin:2px 0}
-.help{font-size:11.5px;color:var(--ui-faint);margin:0;line-height:1.4}
+.help{font-size:12px;color:var(--ui-muted);margin:0;line-height:1.45}
 
 /* ---------- stage ---------- */
-.stage{min-width:0;padding:14px 16px 48px;display:flex;flex-direction:column;gap:12px}
+.stage{min-width:0;padding:16px 18px 52px;display:flex;flex-direction:column;gap:13px}
 .brushbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .brushes{display:flex;gap:6px;flex-wrap:wrap}
 .brush{
-  display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px 0 9px;
-  border:1px solid var(--ui-line);border-radius:9px;background:var(--ui-panel);
-  font-size:12.5px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 10px;
+  border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-panel);color:var(--ui-text);
+  font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:var(--ui-shadow-1),var(--ui-hi);
+  transition:background .14s ease,border-color .14s ease,box-shadow .14s ease;
 }
+.brush:hover{background:var(--ui-sunk);border-color:var(--ui-line-strong)}
 .brush .swatch{width:13px;height:13px;border-radius:4px;flex:none}
 .brush kbd{
   font-family:"DM Mono",monospace;font-size:10px;font-weight:500;color:var(--ui-faint);
-  border:1px solid var(--ui-line);border-radius:4px;padding:0 4px;line-height:15px;
+  border:1px solid var(--ui-line);border-radius:5px;padding:0 4px;line-height:16px;
 }
-.brush[aria-pressed="true"]{border-color:var(--ui-text);background:var(--ui-sunk);box-shadow:var(--ui-shadow)}
-.brush[aria-pressed="true"] kbd{color:var(--ui-muted)}
-.rowsel{height:27px;font-size:12px;font-weight:600;border-radius:7px;padding:0 6px}
+.brush[aria-pressed="true"]{border-color:var(--ui-accent);background:var(--ui-accent-soft);box-shadow:0 0 0 3px var(--ui-ring)}
+.brush[aria-pressed="true"] kbd{color:var(--ui-muted);border-color:color-mix(in srgb,var(--ui-accent) 35%,transparent)}
+.rowsel{height:29px;font-size:12px;font-weight:600;border-radius:8px;padding:0 7px}
 
 /* The slide never shrinks below MIN_SCALE: past that the cells stop being
    clickable targets, so the canvas scrolls sideways instead. */
 .canvas-wrap{
-  position:relative;width:100%;overflow:auto;border-radius:14px;
-  background:var(--pn-paper);box-shadow:var(--ui-shadow);border:1px solid var(--ui-line);
+  position:relative;width:100%;overflow:auto;border-radius:16px;
+  background:var(--pn-paper);box-shadow:var(--ui-shadow-2);border:1px solid var(--ui-line);
   overscroll-behavior-x:contain;
 }
 .canvas-inner{position:relative}
-.zoom{display:flex;align-items:center;gap:2px;padding:2px;background:var(--ui-sunk);border-radius:9px}
-.zoom button{
+.zoom,.histgroup{display:flex;align-items:center;gap:2px;padding:3px;background:var(--ui-sunk);border:1px solid var(--ui-line-soft);border-radius:10px}
+.zoom button,.histgroup button{
   border:0;background:transparent;border-radius:7px;height:26px;min-width:26px;padding:0 8px;
   font-size:12.5px;font-weight:700;color:var(--ui-muted);cursor:pointer;
+  transition:background .14s ease,color .14s ease;
 }
-.zoom button:hover{background:var(--ui-panel);color:var(--ui-text)}
+.zoom button:hover,.histgroup button:hover:not([disabled]){background:var(--ui-raised);color:var(--ui-text)}
+.histgroup button{font-size:14px;min-width:30px;padding:0}
+.histgroup button[disabled]{opacity:.38;cursor:default}
 .zoom .lvl{
   font-family:"DM Mono",ui-monospace,monospace;font-size:11px;min-width:54px;
   color:var(--ui-text);font-weight:500;
 }
-.zoom .lvl[aria-pressed="true"]{background:var(--ui-panel);box-shadow:var(--ui-shadow)}
-.hint{font-size:11.5px;color:var(--ui-faint);margin:0;line-height:1.55}
-.hint kbd{font-family:"DM Mono",monospace;background:var(--ui-sunk);border:1px solid var(--ui-line);border-radius:4px;padding:1px 5px;font-size:10.5px}
+.zoom .lvl[aria-pressed="true"]{background:var(--ui-raised);box-shadow:var(--ui-shadow-1),var(--ui-hi)}
+.hint{font-size:12px;color:var(--ui-muted);margin:0;line-height:1.55}
+.hint kbd{font-family:"DM Mono",monospace;background:var(--ui-sunk);border:1px solid var(--ui-line);border-radius:5px;padding:1px 5px;font-size:10.5px;color:var(--ui-text)}
 
 /* ============================================================
    THE SLIDE. 1600x900 logical px, scaled to fit by JS.
@@ -441,8 +514,8 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 /* hover card for an initiative's description and area */
 .tip{
   position:fixed;z-index:120;max-width:320px;pointer-events:none;
-  background:var(--ui-text);color:var(--ui-bg);border-radius:10px;padding:9px 12px;
-  box-shadow:var(--ui-shadow);font-size:12.5px;line-height:1.45;
+  background:var(--ui-text);color:var(--ui-bg);border-radius:11px;padding:10px 13px;
+  box-shadow:var(--ui-shadow-3);font-size:12.5px;line-height:1.45;
 }
 .tip[hidden]{display:none}
 .tip .tip-area{
@@ -492,74 +565,77 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 
 /* keyboard help */
 .sheet{
-  position:fixed;inset:0;z-index:95;background:rgba(8,14,13,.55);
-  display:flex;align-items:center;justify-content:center;padding:16px;
+  position:fixed;inset:0;z-index:95;background:var(--ui-scrim);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;padding:18px;
 }
 .sheet[hidden]{display:none}
 .sheet-card{
-  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:16px;
-  box-shadow:var(--ui-shadow);padding:20px;max-width:560px;width:100%;
+  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:18px;
+  box-shadow:var(--ui-shadow-3),var(--ui-hi);padding:24px;max-width:560px;width:100%;
   max-height:85vh;overflow-y:auto;
 }
-.sheet-card h2{margin:0 0 14px;font-size:17px;letter-spacing:-.02em}
-.sheet-card dl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0 0 16px;align-items:baseline}
+.sheet-card h2{margin:0 0 14px;font-size:19px;font-weight:700;letter-spacing:-.025em}
+.sheet-card dl{display:grid;grid-template-columns:auto 1fr;gap:9px 14px;margin:0 0 18px;align-items:baseline}
 .sheet-card dt{margin:0;text-align:right}
 .sheet-card dd{margin:0;font-size:13px;color:var(--ui-muted)}
 .sheet-card kbd{
-  font-family:"DM Mono",ui-monospace,monospace;background:var(--ui-sunk);
-  border:1px solid var(--ui-line);border-radius:5px;padding:2px 6px;font-size:11px;white-space:nowrap;
+  font-family:"DM Mono",ui-monospace,monospace;background:var(--ui-sunk);color:var(--ui-text);
+  border:1px solid var(--ui-line);border-radius:6px;padding:2px 6px;font-size:11px;white-space:nowrap;
 }
 
 /* account dialog */
-.auth-card{max-width:420px}
-.auth-card form{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.auth-card{max-width:434px;padding:26px}
+.auth-card h2{margin:0 0 6px}
+.auth-card .sidetabs{margin-top:18px}
+.auth-card form{display:flex;flex-direction:column;gap:14px;margin-top:16px}
 .auth-card .field[hidden]{display:none}
-.auth-msg{min-height:1.2em;color:#c0392b;font-weight:600}
-.auth-msg.is-ok{color:#0f9d78}
-.auth-links{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+.auth-card .field > label{font-size:12.5px;color:var(--ui-text)}
+.auth-card .field input{height:38px;font-size:14px;border-radius:10px}
+.auth-card .btn-primary{height:40px;font-size:14px;border-radius:10px;margin-top:2px}
+.auth-msg{min-height:1.25em;margin:0;font-size:12.5px;font-weight:600;color:var(--ui-danger)}
+.auth-msg.is-ok{color:var(--ui-ok)}
+.auth-links{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;margin-top:2px}
 
 /* onboarding: a card in the corner, the slide stays visible and live */
 .onboard{position:fixed;inset:0;z-index:94;pointer-events:none}
 .onboard[hidden]{display:none}
 .onboard-card{
-  position:absolute;right:24px;bottom:24px;width:min(460px,calc(100vw - 32px));
-  max-height:calc(100vh - 48px);overflow:auto;pointer-events:auto;
-  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:16px;
-  box-shadow:var(--ui-shadow);padding:20px;display:flex;flex-direction:column;gap:12px;
+  position:absolute;right:26px;bottom:26px;width:min(460px,calc(100vw - 36px));
+  max-height:calc(100vh - 52px);overflow:auto;pointer-events:auto;
+  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:18px;
+  box-shadow:var(--ui-shadow-3),var(--ui-hi);padding:22px;display:flex;flex-direction:column;gap:13px;
 }
-.onboard-card h2{margin:0;font-size:18px;letter-spacing:-.02em}
+.onboard-card h2{margin:0;font-size:19px;font-weight:700;letter-spacing:-.025em}
 .onboard-steps{display:flex;gap:6px}
-.onboard-steps i{width:8px;height:8px;border-radius:50%;background:var(--ui-line)}
+.onboard-steps i{width:7px;height:7px;border-radius:50%;background:var(--ui-line-strong)}
 .onboard-steps i.is-on{background:var(--ui-accent)}
 .fontlist{display:flex;flex-direction:column;gap:6px}
-.fontopt{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--ui-line);border-radius:10px;cursor:pointer}
-.fontopt.is-on{border-color:var(--ui-accent);background:color-mix(in srgb,var(--ui-accent) 8%,transparent)}
+.fontopt{
+  display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--ui-line);
+  border-radius:11px;cursor:pointer;transition:border-color .14s ease,background .14s ease;
+}
+.fontopt:hover{border-color:var(--ui-line-strong)}
+.fontopt.is-on{border-color:var(--ui-accent);background:var(--ui-accent-soft)}
 .fontopt input{accent-color:var(--ui-accent);margin:0}
 .fontopt .nm{font-size:16px;font-weight:700;flex:1}
-.fontopt small{color:var(--ui-faint);font-size:12px}
+.fontopt small{color:var(--ui-muted);font-size:12px}
 .presets{display:flex;gap:8px;flex-wrap:wrap}
 .preset{
-  display:inline-flex;align-items:center;gap:6px;border:1px solid var(--ui-line);border-radius:9px;
-  padding:6px 10px;background:var(--ui-panel);cursor:pointer;font-weight:600;font-size:12.5px;color:var(--ui-text);
+  display:inline-flex;align-items:center;gap:6px;border:1px solid var(--ui-line);border-radius:10px;
+  padding:7px 11px;background:var(--ui-panel);cursor:pointer;font-weight:600;font-size:12.5px;
+  color:var(--ui-text);box-shadow:var(--ui-shadow-1),var(--ui-hi);
 }
-.preset.is-on{border-color:var(--ui-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--ui-accent) 25%,transparent)}
+.preset.is-on{border-color:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-ring)}
 .preset i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .colorgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .colorgrid label{
   display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;
-  color:var(--ui-muted);border:1px solid var(--ui-line);border-radius:9px;padding:5px 8px;
+  color:var(--ui-text);border:1px solid var(--ui-line);border-radius:10px;padding:6px 9px;background:var(--ui-panel);
 }
 .colorgrid input[type=color]{width:34px;height:26px;border:0;padding:0;background:none;cursor:pointer;flex:none}
-.menu-note{font-size:12px;color:var(--ui-faint);padding:6px 10px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu-note{font-size:12px;color:var(--ui-muted);padding:7px 11px 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .menu-note[hidden]{display:none}
-
-.histgroup{display:flex;gap:2px;padding:3px;background:var(--ui-sunk);border-radius:9px}
-.histgroup button{
-  border:0;background:transparent;border-radius:7px;height:26px;min-width:30px;
-  font-size:14px;color:var(--ui-muted);cursor:pointer;padding:0;
-}
-.histgroup button:hover:not([disabled]){background:var(--ui-panel);color:var(--ui-text)}
-.histgroup button[disabled]{opacity:.3;cursor:default}
 
 /* editor affordances drawn on the slide (never exported) */
 .slide.is-live .sprint [contenteditable]:empty{min-height:1em;min-width:24px}
@@ -618,10 +694,10 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 
 /* read-only / narrow notices */
 .notice{
-  display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;
-  background:color-mix(in srgb,var(--ui-warn) 16%,var(--ui-panel));
-  border:1px solid color-mix(in srgb,var(--ui-warn) 40%,transparent);
-  font-size:12.5px;line-height:1.45;
+  display:flex;gap:9px;align-items:flex-start;padding:11px 13px;border-radius:12px;
+  background:color-mix(in srgb,var(--ui-warn) 14%,var(--ui-panel));
+  border:1px solid color-mix(in srgb,var(--ui-warn) 38%,transparent);
+  color:var(--ui-text);font-size:12.5px;line-height:1.45;
 }
 .notice[hidden]{display:none}
 body.is-readonly .sidebar,body.is-readonly .brushbar{display:none}
@@ -629,9 +705,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
 /* toast, with an optional Undo */
 .toast{
-  position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
-  z-index:90;background:var(--ui-text);color:var(--ui-bg);padding:9px 15px;border-radius:10px;
-  font-size:13px;font-weight:600;box-shadow:var(--ui-shadow);max-width:calc(100vw - 32px);
+  position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  z-index:90;background:var(--ui-text);color:var(--ui-bg);padding:10px 16px;border-radius:12px;
+  font-size:13px;font-weight:600;box-shadow:var(--ui-shadow-3);max-width:calc(100vw - 32px);
   display:flex;align-items:center;gap:14px;
 }
 .toast[hidden]{display:none}
@@ -642,26 +718,45 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
 /* popover for the ... menu; JS puts it right under the top bar */
 .menu{
-  position:fixed;right:16px;top:60px;z-index:60;
-  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:12px;
-  box-shadow:var(--ui-shadow);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:236px;
+  position:fixed;right:18px;top:64px;z-index:60;
+  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:14px;
+  box-shadow:var(--ui-shadow-3),var(--ui-hi);padding:7px;display:flex;flex-direction:column;gap:1px;min-width:250px;
 }
 .menu[hidden]{display:none}
 .menu button{
-  text-align:left;border:0;background:transparent;border-radius:8px;padding:8px 10px;
+  text-align:left;border:0;background:transparent;border-radius:9px;padding:9px 11px;
   font-size:13px;font-weight:600;cursor:pointer;color:var(--ui-text);
 }
 .menu button:hover,.menu button:focus-visible{background:var(--ui-sunk)}
-.menu button.danger:hover{background:#c0392b;color:#fff}
-.menu hr{border:0;height:1px;background:var(--ui-line-soft);margin:4px 2px}
+.menu button.danger{color:var(--ui-danger)}
+.menu button.danger:hover{background:var(--ui-danger-bg);color:#fff}
+.menu hr{border:0;height:1px;background:var(--ui-line-soft);margin:5px 3px}
 
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 </style>
 
+<script>
+/* The editor theme is read here, before anything paints, so the page never
+   flashes the wrong one. The key has to match LS_KEY + ":ui" below. */
+(function () {
+  var m = null;
+  try { m = localStorage.getItem("roadmap-studio-v1:ui"); } catch (e) {}
+  if (m !== "light" && m !== "dark") {
+    var host = document.documentElement.getAttribute("data-theme");
+    m = host === "light" || host === "dark" ? host
+      : (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  }
+  document.documentElement.setAttribute("data-ui", m);
+})();
+</script>
+
 <div class="app">
   <header class="topbar">
     <button class="btn btn-ghost" id="btnPanel" title="Show or hide the side panel" aria-label="Show or hide the side panel" aria-expanded="true">☰</button>
-    <div class="brandmark"><span class="dot"></span><span class="word">Quartermap</span></div>
+    <div class="brandmark">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 64 64" width="24" height="24" focusable="false"><rect class="bg" width="64" height="64" rx="16"/><rect x="11" y="15" width="18" height="10" rx="3" fill="#17c3a2"/><rect x="23" y="27" width="18" height="10" rx="3" fill="#f4a32a"/><rect x="35" y="39" width="18" height="10" rx="3" fill="#5b4ee8"/></svg></span>
+      <span class="word">Quartermap</span>
+    </div>
 
     <div class="boardpick">
       <label class="sr-only" for="boardSel">Quarter</label>
@@ -681,6 +776,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     <div class="spacer"></div>
     <div class="sync" id="sync" data-state="idle" aria-live="polite"></div>
+    <button class="btn btn-icon" id="btnUi" title="Switch to the light theme" aria-label="Switch to the light theme"></button>
     <button class="btn" id="btnAuth" hidden>Log in</button>
     <button class="btn" id="btnPresent" title="Present full screen (P)">▶ Present</button>
     <button class="btn" id="btnCopy" title="Copy this slide as an image">Copy PNG</button>
@@ -907,7 +1003,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   <div class="sheet-card auth-card">
     <h2 id="authTitle">Log in</h2>
     <p class="help" id="authIntro"></p>
-    <div class="sidetabs" id="authTabs" role="tablist" aria-label="Log in or create account" style="margin-top:12px">
+    <div class="sidetabs" id="authTabs" role="tablist" aria-label="Log in or create account">
       <button type="button" class="stab is-on" data-mode="login" role="tab" aria-selected="true">Log in</button>
       <button type="button" class="stab" data-mode="signup" role="tab" aria-selected="false">Create account</button>
     </div>
@@ -1255,6 +1351,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     removeBoard: function (id) {
       Store.cancel("b:" + id);
       delete Store._dirty[id];
+      delete Cloud.failed[id];
       Store.boards = Store.boards.filter(function (b) { return b.id !== id; });
       Store.lsWrite();
       if (Store.mode === "cloud") {
@@ -1321,7 +1418,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       return Promise.all([
         sb.from("boards").select("id,data").eq("owner_id", uid),
         sb.from("libraries").select("items").eq("owner_id", uid).maybeSingle(),
-        sb.from("profiles").select("theme,onboarding_done").eq("id", uid).maybeSingle()
+        sb.from("profiles").select("theme,onboarding_done,ui_theme").eq("id", uid).maybeSingle()
       ]).then(function (res) {
         if (Cloud.user !== user) return;
         if (res[0].error || res[1].error || res[2].error) throw (res[0].error || res[1].error || res[2].error);
@@ -1334,7 +1431,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         Object.keys(Cloud.pendingDeletes).forEach(function (id) { Cloud.deleteBoard(id); });
         Cloud.pendingDeletes = {};
       }).catch(function () {
-        if (Cloud.user !== user) return;
+        if (Cloud.user !== user || Cloud.loaded) return;
         setSync("error", "offline");
         Cloud.retryDelay = Math.min(60000, Cloud.retryDelay ? Cloud.retryDelay * 2 : 2000);
         clearTimeout(Cloud.retryTimer);
@@ -1386,6 +1483,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       push.forEach(function (b) { Cloud.putBoard(b); });
       if (!cloudLib || push.length) Cloud.putLibrary();
       if (profile && profile.theme) Theme.set(profile.theme, true); else Cloud.putProfile();
+      /* The editor theme has a column of its own, so a device that never
+         picked one leaves the account's choice alone instead of clearing it. */
+      if (profile && profile.ui_theme) UI.set(profile.ui_theme, true);
+      else if (UI.picked()) Cloud.putProfile();
       if (profile && profile.onboarding_done) { Onboard.markDone(false); Onboard.close(); }
       if (!Store.boards.some(function (b) { return b.id === state.boardId; })) setBoard(Store.boards[0].id);
       state.sel = null;
@@ -1471,8 +1572,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     putProfile: function () {
       if (!Cloud.user) return;
       Store._debounce("profile", function () {
-        if (!Cloud.user) return;
-        Cloud.sb.from("profiles").upsert({ id: Cloud.user.id, theme: Theme.current(), onboarding_done: Onboard.done() })
+        /* Same rule as a board save: nothing is written until the account has
+           been read, or the device's defaults would land on top of it. */
+        if (!Cloud.user || !Cloud.loaded) return;
+        /* An upsert only writes the columns it carries, so leaving ui_theme
+           out keeps whatever another device chose. Only a real pick travels. */
+        var row = { id: Cloud.user.id, theme: Theme.current(), onboarding_done: Onboard.done() };
+        if (UI.picked()) row.ui_theme = UI.mode;
+        Cloud.sb.from("profiles").upsert(row)
           .then(function (r) { if (r && r.error) setSync("error", "not saved"); });
       });
     },
@@ -1503,6 +1610,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       }
       try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_KEY + ":last"); localStorage.removeItem(LS_KEY + ":theme"); } catch (e) {}
       Theme.set(PRESETS.papernest, true);
+      UI.forget();
       Store.boards = starterBoards(); Store.library = clone(LIB); migrateAll(); Store.lsWrite();
       setBoard(Store.boards[0].id); state.sel = null;
       renderAll(); History.reset(); setSync("idle");
@@ -1620,6 +1728,78 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   };
 
   /* ========================================================
+     2b-bis. The editor's own light / dark, kept apart from the
+     slide theme: this one never touches the exported artwork.
+     ======================================================== */
+
+  var SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" focusable="false" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M4.8 12H2.7M21.3 12h-2.1M6.3 6.3l1.5 1.5M16.2 16.2l1.5 1.5M17.7 6.3l-1.5 1.5M7.8 16.2l-1.5 1.5"/></svg>';
+  var MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">' +
+    '<path d="M20.3 14.6A8.4 8.4 0 0 1 9.4 3.7a8.6 8.6 0 1 0 10.9 10.9Z"/></svg>';
+
+  var UI = {
+    mode: "dark",
+    /* True once someone picked a side, here or on another device of the same
+       account. Kept in memory as well as on disk: a browser that refuses to
+       store anything must not report "no choice" and wipe the account's. */
+    chosen: false,
+    /* No stored choice means follow the page we sit in, or failing that the
+       machine. Same order as the boot script. */
+    system: function () {
+      var host = document.documentElement.getAttribute("data-theme");
+      if (host === "light" || host === "dark") return host;
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    },
+    picked: function () { return UI.chosen; },
+    /* Until someone presses the button, sunset on the machine and a theme
+       switch in the host page both reach the editor without a reload. */
+    follow: function () {
+      var sync = function () { if (!UI.picked()) { UI.mode = UI.system(); UI.apply(); } };
+      var mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)");
+      if (mq && mq.addEventListener) mq.addEventListener("change", sync);
+      else if (mq && mq.addListener) mq.addListener(sync);
+      if (window.MutationObserver) {
+        new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      }
+    },
+    load: function () {
+      var saved = null;
+      try { saved = localStorage.getItem(LS_KEY + ":ui"); } catch (e) {}
+      UI.chosen = saved === "light" || saved === "dark";
+      UI.mode = UI.chosen ? saved : UI.system();
+      UI.apply();
+      UI.follow();
+    },
+    set: function (mode, localOnly) {
+      if (mode !== "light" && mode !== "dark") return;
+      var changed = mode !== UI.mode;
+      UI.mode = mode;
+      UI.chosen = true;
+      UI.apply();
+      try { localStorage.setItem(LS_KEY + ":ui", mode); } catch (e) {}
+      if (changed && !localOnly && Cloud.user) Cloud.putProfile();
+    },
+    /* Back to "follow the machine": used when a logout clears the device. */
+    forget: function () {
+      try { localStorage.removeItem(LS_KEY + ":ui"); } catch (e) {}
+      UI.chosen = false;
+      UI.mode = UI.system();
+      UI.apply();
+    },
+    apply: function () {
+      document.documentElement.setAttribute("data-ui", UI.mode);
+      var b = $("btnUi");
+      if (!b) return;
+      var toLight = UI.mode === "dark";
+      var label = toLight ? "Switch to the light theme" : "Switch to the dark theme";
+      b.innerHTML = toLight ? SUN_ICON : MOON_ICON;
+      b.setAttribute("aria-label", label);
+      b.title = label;
+    },
+    toggle: function () { UI.set(UI.mode === "dark" ? "light" : "dark"); }
+  };
+
+  /* ========================================================
      2c. Theme: the slide's font and colours, per user
      ======================================================== */
 
@@ -1716,8 +1896,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     },
     close: function () { $("onboard").hidden = true; },
     finish: function () { Onboard.markDone(true); Onboard.close(); },
-    /* The account step only exists when an account is possible and none is open. */
-    last: function () { return Cloud.available() && !Cloud.user ? 3 : 2; },
+    /* The account step belongs to the first visit only: reopened from the
+       menu this is the look flow, and it ends on Done. */
+    last: function () { return !Onboard.fromMenu && Cloud.available() && !Cloud.user ? 3 : 2; },
     render: function () {
       var step = Onboard.step, last = Onboard.last();
       var dots = "";
@@ -3503,13 +3684,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   /* ---- top bar wiring ---- */
+  /* The sticky sidebar starts below the top bar. The bar wraps to a second
+     row on some widths, so its height is measured, never assumed. */
+  function trackTopbar() {
+    var bar = document.querySelector(".topbar");
+    if (!bar) return;
+    var set = function () { document.documentElement.style.setProperty("--topbar-h", bar.offsetHeight + "px"); };
+    set();
+    if (window.ResizeObserver) new ResizeObserver(set).observe(bar);
+    else window.addEventListener("resize", set);
+  }
+
   function openMenu() {
     var m = $("menu"), bar = document.querySelector(".topbar");
     renderMenu();
     if (bar) m.style.top = (bar.getBoundingClientRect().bottom + 4) + "px";
     m.hidden = false;
     $("btnMore").setAttribute("aria-expanded", "true");
-    var first = m.querySelector("button");
+    var first = m.querySelector("button:not([hidden])");
     if (first) first.focus();
   }
   function closeMenu(refocus) {
@@ -3681,6 +3873,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("btnUndo").addEventListener("click", function () { History.undo(); });
     $("btnRedo").addEventListener("click", function () { History.redo(); });
 
+    $("btnUi").addEventListener("click", UI.toggle);
+    trackTopbar();
     $("btnPresent").addEventListener("click", enterPresent);
     $("presentExit").addEventListener("click", exitPresent);
     $("presentPrev").addEventListener("click", function () { presentGo(-1); });
@@ -4016,6 +4210,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     try { last = localStorage.getItem(LS_KEY + ":last"); } catch (e) {}
     state.boardId = (last && Store.boards.some(function (b) { return b.id === last; })) ? last : Store.boards[0].id;
 
+    UI.load();
     Theme.load();
     wireSlide(); wireSidebar(); wireTopbar(); wireKeys(); Onboard.wire();
 

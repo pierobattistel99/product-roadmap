@@ -31,7 +31,7 @@ logged in:
 `Log in` in the top bar opens the account dialog: log in, create an account
 with email and password, or continue without one. Logging out signs out that
 device only and removes every copy of the account's data from it, the look
-settings included. Work done on a device before logging in is carried into
+settings and the light or dark choice included. Work done on a device before logging in is carried into
 the account on the first login. On later logins the account wins, except for
 a quarter you really edited on the device more recently than in the account,
 which is kept and pushed; an untouched example board is dropped, and an
@@ -43,9 +43,11 @@ on the device and the load is retried.
 The backend is a Supabase project (Postgres with row level security: each
 user reads and writes only their own rows) reached straight from the page with
 the publishable key. There is no server of our own. The tables are `profiles`
-(look settings, onboarding flag), `boards` (one row per quarter, the board as
-JSON) and `libraries` (one per user); the schema is in the project's
-migration history.
+(the slide look, the editor's light or dark in its own `ui_theme` column, the
+onboarding flag), `boards` (one row per quarter, the board as JSON) and
+`libraries` (one per user); the schema is in the project's migration history.
+`ui_theme` is a column of its own so that a save from a device that never
+picked a theme cannot clear the one another device chose.
 
 Two settings live in the Supabase dashboard, not in this repository:
 
@@ -71,6 +73,19 @@ Sans 3 (Google Fonts). Colours: the four phases, the two bars, the note, the
 text, the row background and the link. Presets: papernest (the default),
 Ocean, Forest, Mono. The editor around the slide keeps its own font and
 colours.
+
+### The editor: light or dark
+
+The sun and moon button in the top bar switches the editor between light and
+dark. It changes the chrome only: the slide stays white artwork in the brand
+colours, so a PNG exported at night looks the same as one exported at noon.
+Before anything is chosen the editor follows the machine. The choice is saved
+on the device, and with an account in the profile, so it follows you; logging
+out hands it back to the machine along with the rest of the account's look.
+
+Every label in the chrome is checked against the surface behind it on each
+test run, light and dark, at the WCAG AA ratios (4.5:1, or 3:1 for large
+text). The slide is left out of that check: its colours are yours to pick.
 
 ### The two roadmaps are independent
 

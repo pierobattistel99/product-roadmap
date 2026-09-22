@@ -1022,7 +1022,7 @@ const FAKE_SUPABASE = () => {
   window.__fakeDb = db; window.__fakeAuth = auth;
   window.supabase = { createClient: () => client };
 };
-const ctx3 = await b.newContext({ viewport: { width: 1600, height: 1000 } });
+const ctx3 = await b.newContext({ viewport: { width: 1600, height: 1000 }, colorScheme: 'dark' });
 const p3 = await ctx3.newPage();
 p3.on('pageerror', e => pageErrors.push('p3: ' + String(e.message)));
 const Q3 = (s) => p3.evaluate(s);
@@ -1058,6 +1058,8 @@ check('account: an edit is saved live to the account',
 // the look chosen while logged in goes to the profile
 await p3.click('#btnMore'); await p3.click('#mLook'); await p3.waitForTimeout(200);
 await p3.click('#onboard [data-ob="next"]'); await p3.waitForTimeout(150);
+// Another device of the same account picked the dark editor; this one has not.
+await p3.evaluate(() => { window.__fakeDb.profiles[0].ui_theme = 'dark'; });
 await p3.click('#onboard [data-preset="forest"]'); await p3.waitForTimeout(1100);
 check('account: the chosen look is stored in the profile',
   (await Q3(`(()=>{try{return window.__fakeDb.profiles[0].theme.colors.discovery}catch(e){return null}})()`)) === '#10b981');
@@ -1066,6 +1068,12 @@ await p3.click('#btnMore'); await p3.waitForTimeout(150);
 check('account: the menu shows the account and Log out',
   (await Q3(`document.getElementById('mAccountRow').textContent`)) === 'piero@test.dev' && (await Q3(`document.getElementById('mAuth').textContent`)) === 'Log out');
 await p3.keyboard.press('Escape'); await p3.waitForTimeout(100);
+check('account: a device that never picked a theme leaves the account\'s alone',
+  (await Q3(`(()=>{try{return window.__fakeDb.profiles[0].ui_theme}catch(e){return null}})()`)) === 'dark');
+await p3.click('#btnUi'); await p3.waitForTimeout(700);
+check('account: the editor theme is stored in the profile too',
+  (await Q3(`document.documentElement.dataset.ui`)) === 'light' &&
+  (await Q3(`(()=>{try{return window.__fakeDb.profiles[0].ui_theme}catch(e){return null}})()`)) === 'light');
 // an edit made right before logging out must not be lost in the save timer
 await p3.click('.brush[data-brush="delivery"]');
 await p3.click('.cell[data-row="6"][data-col="0"]');
@@ -1079,6 +1087,8 @@ check('account: logging out leaves nothing of the account on this device',
   (await Q3(`document.getElementById('sync').textContent`)) === 'on this device');
 check('account: logging out also drops the account look',
   (await Q3(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(23, 195, 162)');
+check('account: logging out hands the editor theme back to the machine',
+  (await Q3(`document.documentElement.dataset.ui`)) === 'dark');
 await p3.click('#btnAuth'); await p3.waitForTimeout(150);
 await p3.fill('#authEmail', 'piero@test.dev'); await p3.fill('#authPass', 'wrong-password'); await p3.click('#authSubmit'); await p3.waitForTimeout(300);
 check('account: a wrong password gets a plain message', (await Q3(`document.getElementById('authMsg').textContent`)) === 'Wrong email or password.');
@@ -1090,6 +1100,8 @@ check('account: the untouched example on this device did not replace the account
   (await Q3(`document.querySelectorAll('.cell[data-row="6"][data-col="0"] .chip').length`)) === 1);
 check('account: the profile look follows the account onto this device',
   (await Q3(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(16, 185, 129)');
+check('account: the editor theme comes back with the account',
+  (await Q3(`document.documentElement.dataset.ui`)) === 'light');
 
 // a quarter edited on the device more recently than in the account wins over it
 await p3.click('#btnMore'); await p3.click('#mAuth'); await p3.waitForTimeout(600);
@@ -1150,6 +1162,221 @@ await p3.click('#authSubmit'); await p3.waitForTimeout(1000);
 check('account: logging in again pushes the work done after the session ended',
   (await cloudCell(1, 7)) === 'delivery');
 await ctx3.close();
+
+// ---------- 15. THE EDITOR THEME: LIGHT, DARK AND READABLE ----------
+/* Every visible label in the chrome, against the real surface behind it.
+   Text must clear 4.5:1, large text 3:1 (WCAG AA). The slide is excluded:
+   it is brand artwork, and its colours are the user's to choose. */
+const CONTRAST = `(() => {
+  const chan = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = (c) => 0.2126 * chan(c[0]) + 0.7152 * chan(c[1]) + 0.0722 * chan(c[2]);
+  const parse = (s) => {
+    const m = String(s).match(/rgba?\\(([^)]+)\\)/);
+    if (!m) return null;
+    const p = m[1].split(',').map(x => parseFloat(x.trim()));
+    return { rgb: [p[0], p[1], p[2]], a: p.length > 3 ? p[3] : 1 };
+  };
+  const over = (fg, bg) => fg.rgb.map((v, i) => v * fg.a + bg[i] * (1 - fg.a));
+  const ratio = (a, b) => {
+    const hi = Math.max(lum(a), lum(b)), lo = Math.min(lum(a), lum(b));
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const behind = (el, under) => {
+    const stack = [];
+    let floats = false;
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      const pos = getComputedStyle(n).position;
+      const c = parse(getComputedStyle(n).backgroundColor);
+      if (c && c.a > 0) {
+        stack.push(c);
+        // A translucent sticky or fixed layer has the scrolling page behind
+        // it, not the body: anything at all can pass under it.
+        if (c.a < 1 && (pos === 'sticky' || pos === 'fixed')) floats = true;
+        if (c.a === 1) break;
+      }
+    }
+    const body = parse(getComputedStyle(document.body).backgroundColor);
+    let base = floats ? under : (body && body.a === 1 ? body.rgb : [255, 255, 255]);
+    for (let i = stack.length - 1; i >= 0; i--) base = over(stack[i], base);
+    return base;
+  };
+  const bad = []; let seen = 0;
+  document.querySelectorAll('.topbar *, .sidebar *, .brushbar *, .hint, .sheet-card *, .onboard-card *, .menu *, .notice, .notice *, .toast, .toast *, .tip, .tip *').forEach(el => {
+    if (el.closest('.slide')) return;
+    const own = [...el.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim());
+    if (!own.length) return;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) return;
+    // WCAG 1.4.3 exempts inactive controls, and a greyed-out button is the
+    // point: it has to look unavailable.
+    if (el.closest('[disabled]')) return;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const fg = parse(cs.color);
+    if (!fg) return;
+    fg.a *= +cs.opacity;
+    const px = parseFloat(cs.fontSize);
+    const need = px >= 24 || (px >= 18.66 && +cs.fontWeight >= 700) ? 3 : 4.5;
+    // White paper and black ink are the extremes that can scroll under a
+    // frosted bar; the worse of the two is the one that has to clear AA.
+    const got = [[255, 255, 255], [0, 0, 0]].reduce((worst, under) => {
+      const bg = behind(el, under);
+      return Math.min(worst, ratio(over(fg, bg), bg));
+    }, Infinity);
+    seen++;
+    if (got < need) bad.push(el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + ' "' + own.map(n => n.textContent).join(' ').trim().slice(0, 28) + '" @' + px + 'px = ' + got.toFixed(2) + ':1');
+  });
+  return { seen, bad };
+})()`;
+
+const ctx4 = await b.newContext({ viewport: { width: 1600, height: 1040 }, colorScheme: 'dark' });
+const p4 = await ctx4.newPage();
+p4.on('pageerror', e => pageErrors.push('theme: ' + String(e.message)));
+const Q4 = (s) => p4.evaluate(s);
+// No ONBOARDED here: the first-visit card is one of the surfaces being measured.
+await p4.goto(PAGE); await p4.waitForTimeout(900);
+
+check('theme: a dark machine opens the editor dark',
+  (await Q4(`document.documentElement.dataset.ui`)) === 'dark' &&
+  (await Q4(`document.getElementById('btnUi').getAttribute('aria-label')`)) === 'Switch to the light theme');
+check('theme: the host page keeps its own data-theme',
+  (await Q4(`document.documentElement.hasAttribute('data-theme')`)) === false);
+
+/* The chrome is measured with every surface that carries text on screen. The
+   onboarding card has a font step and a colours step, and the account dialog
+   covers the whole window, so each theme is swept in two passes. */
+const openMenu = async () => {
+  if (await p4.locator('#menu').isHidden()) { await p4.click('#btnMore'); await p4.waitForTimeout(150); }
+};
+const showSheet = (on) => p4.evaluate((v) => {
+  document.getElementById('authSheet').hidden = !v;
+  if (v) document.getElementById('authMsg').textContent = 'Wrong email or password.';
+}, on);
+// The toast, the hover card and the two notices only appear on their own cue.
+const showFloating = () => p4.evaluate(() => {
+  const toast = document.getElementById('toast');
+  toast.hidden = false;
+  toast.innerHTML = 'Row removed <button class="toast-act">Undo</button>';
+  const tip = document.getElementById('tip');
+  tip.hidden = false;
+  tip.style.left = '20px'; tip.style.top = '300px';
+  tip.innerHTML = '<div class="tip-area">Growth</div><div class="tip-name">Push notifications</div><div>Send the first release to the mobile app.</div>';
+  const ro = document.getElementById('roNotice'), fit = document.getElementById('fitNotice');
+  ro.hidden = false;
+  fit.hidden = false;
+  if (!fit.textContent.trim()) fit.textContent = 'The slide is scaled down to fit this window.';
+});
+const hideFloating = () => p4.evaluate(() => {
+  ['toast', 'tip', 'roNotice', 'fitNotice'].forEach(id => { document.getElementById(id).hidden = true; });
+});
+const sweep = async () => {
+  const saw = {};
+  await showSheet(false);
+  await p4.click('#onboard [data-ob="next"]'); await p4.waitForTimeout(250);   // welcome -> font
+  await openMenu();
+  await showFloating();
+  saw.font = await Q4(`!!document.querySelector('.onboard-card .fontopt')`);
+  saw.menu = await Q4(`!!document.querySelector('.menu button')`);
+  const a = await Q4(CONTRAST);
+  await p4.click('#onboard [data-ob="next"]'); await p4.waitForTimeout(250);   // font -> colours
+  await openMenu();
+  await showSheet(true); await p4.waitForTimeout(200);
+  saw.colours = await Q4(`!!document.querySelector('.onboard-card .preset')`);
+  saw.dialog = await Q4(`!!document.querySelector('.auth-card label')`);
+  saw.floating = await Q4(`['#toast .toast-act','#tip .tip-area','#roNotice','#fitNotice']
+    .every(s=>{const e=document.querySelector(s);return e && !e.hidden})`);
+  const c = await Q4(CONTRAST);
+  await hideFloating();
+  await showSheet(false);
+  await p4.click('#onboard [data-ob="back"]'); await p4.waitForTimeout(200);
+  await p4.click('#onboard [data-ob="back"]'); await p4.waitForTimeout(200);   // back to welcome
+  return { seen: a.seen + c.seen, bad: a.bad.concat(c.bad), saw };
+};
+
+const darkSweep = await sweep();
+check('theme: the sweep covers every chrome surface, floating ones included',
+  darkSweep.saw.font && darkSweep.saw.colours && darkSweep.saw.menu && darkSweep.saw.dialog && darkSweep.saw.floating,
+  JSON.stringify(darkSweep.saw));
+check('theme: every label in the dark editor clears WCAG AA',
+  darkSweep.bad.length === 0 && darkSweep.seen > 150,
+  darkSweep.seen + ' checked, ' + darkSweep.bad.length + ' under AA: ' + (darkSweep.bad.slice(0, 3).join(' | ') || 'none'));
+await showSheet(true); await p4.waitForTimeout(150);
+check('theme: the account fields are ours, not the browser default',
+  (await Q4(`(()=>{const i=document.getElementById('authEmail'),c=getComputedStyle(i);
+    return Math.round(i.getBoundingClientRect().height)+'|'+c.backgroundColor+'|'+c.color})()`))
+    === '38|rgb(11, 13, 17)|rgb(243, 244, 247)');
+await showSheet(false);
+
+await p4.click('#btnUi'); await p4.waitForTimeout(250);
+check('theme: the button switches the editor to light',
+  (await Q4(`document.documentElement.dataset.ui`)) === 'light' &&
+  (await Q4(`document.getElementById('btnUi').getAttribute('aria-label')`)) === 'Switch to the dark theme' &&
+  (await Q4(`getComputedStyle(document.body).backgroundColor`)) === 'rgb(244, 246, 250)');
+check('theme: the slide is untouched by the editor theme',
+  (await Q4(`getComputedStyle(document.querySelector('.slide')).backgroundColor`)) === 'rgb(255, 255, 255)' &&
+  (await Q4(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(23, 195, 162)');
+const lightSweep = await sweep();
+check('theme: every label in the light editor clears WCAG AA',
+  lightSweep.bad.length === 0 && lightSweep.seen > 150,
+  lightSweep.seen + ' checked, ' + lightSweep.bad.length + ' under AA: ' + (lightSweep.bad.slice(0, 3).join(' | ') || 'none'));
+
+await p4.reload(); await p4.waitForTimeout(800);
+check('theme: the choice survives a reload, with no flash of the other one',
+  (await Q4(`document.documentElement.dataset.ui`)) === 'light' &&
+  (await Q4(`localStorage.getItem('roadmap-studio-v1:ui')`)) === 'light');
+check('theme: with a choice made, the machine no longer moves the editor',
+  await (async () => {
+    await p4.emulateMedia({ colorScheme: 'light' }); await p4.waitForTimeout(250);
+    const kept = (await Q4(`document.documentElement.dataset.ui`)) === 'light';
+    await p4.emulateMedia({ colorScheme: 'dark' }); await p4.waitForTimeout(250);
+    return kept && (await Q4(`document.documentElement.dataset.ui`)) === 'light';
+  })());
+check('theme: with no choice made, the editor follows the machine live',
+  await (async () => {
+    await p4.evaluate(() => { try { localStorage.removeItem('roadmap-studio-v1:ui'); } catch (e) {} });
+    await p4.reload(); await p4.waitForTimeout(700);
+    await p4.emulateMedia({ colorScheme: 'light' }); await p4.waitForTimeout(300);
+    const toLight = (await Q4(`document.documentElement.dataset.ui`)) === 'light';
+    await p4.emulateMedia({ colorScheme: 'dark' }); await p4.waitForTimeout(300);
+    return toLight && (await Q4(`document.documentElement.dataset.ui`)) === 'dark';
+  })());
+check('theme: with no choice made, the host page moves the editor too',
+  await (async () => {
+    await p4.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+    await p4.waitForTimeout(300);
+    const followed = (await Q4(`document.documentElement.dataset.ui`)) === 'light';
+    await p4.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+    await p4.waitForTimeout(300);
+    return followed;
+  })());
+check('theme: a selected tab reads as raised over its track',
+  await Q4(`(()=>{const on=getComputedStyle(document.querySelector('.vtab.is-on')).backgroundColor,
+    track=getComputedStyle(document.querySelector('.viewtabs')).backgroundColor;
+    const n=(s)=>s.match(/\\d+/g).slice(0,3).reduce((a,v)=>a+ +v,0);
+    return n(on) > n(track)})()`));
+// The top bar wraps to two rows around 1280px once the Log in button is up.
+await p4.evaluate(() => { document.getElementById('btnAuth').hidden = false; });
+await p4.setViewportSize({ width: 1280, height: 800 }); await p4.waitForTimeout(500);
+await p4.evaluate(() => window.scrollTo(0, 500)); await p4.waitForTimeout(300);
+check('theme: the sidebar clears the top bar even when the bar wraps',
+  await Q4(`(()=>{const b=document.querySelector('.topbar').getBoundingClientRect(),
+    s=document.querySelector('.sidebar').getBoundingClientRect();
+    return s.top >= b.bottom - 1})()`),
+  'bar ' + (await Q4(`document.querySelector('.topbar').offsetHeight`)) + 'px, var ' +
+    (await Q4(`getComputedStyle(document.documentElement).getPropertyValue('--topbar-h').trim()`)));
+// the ... menu, and the look flow reopened from it
+await p4.click('#btnMore'); await p4.waitForTimeout(250);
+check('menu: keyboard focus lands on a visible item, never a hidden one',
+  await Q4(`(()=>{const a=document.activeElement;return !!a&&!a.hidden&&!!a.closest('#menu')})()`),
+  await Q4(`(document.activeElement&&document.activeElement.id)||'none'`));
+await p4.click('#mLook'); await p4.waitForTimeout(350);
+check('look: reopened from the menu, the flow is font and colours only',
+  (await Q4(`document.querySelectorAll('#obSteps i').length`)) === 3);
+await p4.click('#onboard [data-ob="next"]'); await p4.waitForTimeout(250);
+check('look: the colours step reached from the menu ends on Done',
+  (await Q4(`!!document.querySelector('#onboard [data-ob="finish"]')`)) &&
+  (await Q4(`!document.querySelector('#onboard [data-ob="signup"]')`)));
+await ctx4.close();
 
 // ---------- 12. RESPONSIVE ----------
 await p.setViewportSize({ width: 620, height: 900 }); await p.waitForTimeout(600);
