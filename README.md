@@ -60,6 +60,29 @@ Two settings live in the Supabase dashboard, not in this repository:
   "Confirm email" off (accounts work at once, no email needed); for real use,
   set a custom SMTP provider.
 
+## Sharing a quarter by link
+
+`•••` and *Share this quarter by link* makes a link to the quarter you have
+open. Anyone who has it can read that quarter without an account of their own:
+no login, nothing to install, nothing to download. The page refreshes itself
+every few seconds, so a reader who leaves it open follows your edits.
+
+What a reader gets is the slide and nothing else. No side panel, no brushes,
+no menu: the quarter cannot be changed from the link, and the reader's own
+roadmaps on that device are neither read nor written. They can switch between
+the Product and the Design roadmap, present it full screen and download the
+PNG, which is the point: nobody has to be sent an image any more.
+
+The link carries the look the quarter was shared with, so it reads the way you
+made it whatever the reader's own settings are.
+
+*Stop sharing* in the same dialog withdraws it, and the link stops opening
+anything from that moment. Deleting the quarter withdraws it too.
+
+How it works: the shared copy is a row of its own, refreshed by the same save
+that writes the quarter. The token in the link is the only way to reach it,
+the table cannot be listed, and the copy carries nothing about who owns it.
+
 ## The look of the slide
 
 The first visit opens a short flow: choose the font, choose the colours (a
@@ -172,10 +195,15 @@ Selecting a row on the slide opens the Initiatives panel at the top.
 ### Colour bars and the legend
 
 The coloured bar down the left of each row says why the initiative is on the
-roadmap:
+roadmap. There are two categories, plus "no bar". Out of the box they read
+"Legal obligation" in yellow and "Other initiatives" in green.
 
-- **legal obligation** (yellow in the default look)
-- **every other reason** (green in the default look)
+Both the colour and the wording are yours to set, in the Sprints panel under
+*Category bars*. They belong to the quarter, not to the editor, so one quarter
+can sort its rows by legal risk and the next by team, and a roadmap you send
+to someone else carries its own legend with it. A name left empty goes back to
+the default one. A new quarter starts from the colours of the look you chose,
+and can be changed from there.
 
 The legend is printed at the bottom of the slide and lists only the bars in
 use. Turn it on or off from the `•••` menu or in the Sprints panel.
@@ -246,10 +274,10 @@ in the deck:
 
 | Role | Hex |
 | --- | --- |
-| Discovery, "other" bar, go-live lines | `#17c3a2` |
+| Discovery, go-live lines, new "other" bars | `#17c3a2` |
 | Specs, Experience Conception | `#f4a32a` |
 | Delivery | `#5b4ee8` |
-| Note, "legal obligation" bar | `#dcf223` |
+| Note, new "legal obligation" bars | `#dcf223` |
 | Text | `#101012` |
 | Row pill | `#f0f0f1` |
 | Link | `#1155cc` |
@@ -334,5 +362,10 @@ roadmap use `•••` and `Import a backup (JSON)`, then delete the example fr
 - PNG and PDF export use `html2canvas` and `jsPDF` from a CDN, and accounts
   need the Supabase client from a CDN: with no network, export and login do
   not work, and the tool runs on this device only.
-- Roadmaps belong to one account. Sharing a quarter with a colleague is not
-  built yet; export the JSON or the PNG in the meantime.
+- A share link gives a read-only copy. There is no way to let someone else
+  edit a roadmap, and no comments.
+- One link per quarter. To send two quarters, send two links.
+- A reader asks for the quarter again every seven seconds, so an edit shows up
+  within about that. A tab in the background waits until it is looked at.
+- A shared quarter deleted while the editor is offline keeps its link working
+  until that device is back online and the deletion reaches the account.

@@ -466,6 +466,38 @@ await p.click('.stab[data-panel="init"]'); await p.waitForTimeout(200);
 check('theme: editor accent is #2151FF',
   (await Q(`getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim().toLowerCase()`)) === '#2151ff');
 
+// ---------- 11k. THE CATEGORY BARS BELONG TO THE QUARTER ----------
+await p.click('.stab[data-panel="sprint"]'); await p.waitForTimeout(250);
+check('bars: the panel offers a colour and a name for each of the two',
+  (await Q(`document.querySelectorAll('#accentList .acc-row').length`)) === 2 &&
+  (await Q(`document.querySelector('#accentList [data-acc="lime"] [data-key="label"]').value`)) === 'Legal obligation' &&
+  (await Q(`document.querySelector('#accentList [data-acc="teal"] [data-key="label"]').value`)) === 'Other initiatives');
+await p.fill('#accentList [data-acc="lime"] [data-key="label"]', 'Regulatory'); await p.waitForTimeout(700);
+check('bars: the legend says what this quarter calls the category',
+  (await Q(`[...document.querySelectorAll('.legend .lg')].map(e=>e.textContent.trim()).join('|')`)).includes('Regulatory'));
+await p.evaluate(() => {
+  const i = document.querySelector('#accentList [data-acc="lime"] [data-key="color"]');
+  i.value = '#ff00aa'; i.dispatchEvent(new Event('input', { bubbles: true }));
+});
+await p.waitForTimeout(700);
+check('bars: the rail takes the colour this quarter gives it',
+  (await Q(`getComputedStyle(document.querySelector('.rail--lime')).backgroundColor`)) === 'rgb(255, 0, 170)');
+check('bars: the name and the colour are kept on the quarter, not on the theme',
+  await Q(`(()=>{const d=JSON.parse(localStorage.getItem('roadmap-studio-v1'));
+    const b=d.boards.find(x=>x.id===document.getElementById('boardSel').value);
+    const t=JSON.parse(localStorage.getItem('roadmap-studio-v1:theme')||'null');
+    return b.accents.lime.color==='#ff00aa'&&b.accents.lime.label==='Regulatory'&&(!t||t.colors.barLegal!=='#ff00aa')})()`));
+check('bars: the inspector swatch shows the quarter own colour and wording',
+  await Q(`(()=>{const sw=document.querySelector('#inspector .sw-lime');
+    return sw.title==='Regulatory'&&sw.style.background.replace(/ /g,'')==='rgb(255,0,170)'})()`));
+await p.fill('#accentList [data-acc="lime"] [data-key="label"]', '');
+await p.evaluate(() => document.querySelector('#accentList [data-acc="lime"] [data-key="label"]')
+  .dispatchEvent(new Event('change', { bubbles: true })));
+await p.waitForTimeout(500);
+check('bars: a name left empty goes back to the default one',
+  (await Q(`document.querySelector('#accentList [data-acc="lime"] [data-key="label"]').value`)) === 'Legal obligation');
+await p.click('.stab[data-panel="init"]'); await p.waitForTimeout(200);
+
 // ---------- 11d. TYPING ON THE SLIDE ----------
 await p.goto(PAGE); await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
 await p.reload(); await p.waitForTimeout(900);
@@ -933,13 +965,15 @@ await p2.click('#onboard .fontopt input[value="Inter"]'); await p2.waitForTimeou
 check('onboarding: choosing a font applies it to the slide',
   (await Q2(`getComputedStyle(document.getElementById('slide')).fontFamily`)).startsWith('Inter'));
 await p2.click('#onboard [data-ob="next"]'); await p2.waitForTimeout(200);
-check('onboarding: the colour step offers presets and every colour',
+check('onboarding: the colour step offers presets and every slide colour',
   (await Q2(`document.querySelectorAll('#onboard [data-preset]').length`)) === 4 &&
-  (await Q2(`document.querySelectorAll('#onboard input[type="color"]').length`)) === 10);
+  // the two category bars are not here: they belong to the quarter
+  (await Q2(`document.querySelectorAll('#onboard input[type="color"]').length`)) === 8);
 await p2.click('#onboard [data-preset="ocean"]'); await p2.waitForTimeout(250);
 check('onboarding: a preset recolours the slide at once',
-  (await Q2(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(14, 165, 233)' &&
-  (await Q2(`getComputedStyle(document.querySelector('.rail--lime')).backgroundColor`)) === 'rgb(253, 224, 71)');
+  (await Q2(`getComputedStyle(document.querySelector('.chip--discovery')).backgroundColor`)) === 'rgb(14, 165, 233)');
+check('onboarding: a preset leaves the bars this quarter already has',
+  (await Q2(`getComputedStyle(document.querySelector('.rail--lime')).backgroundColor`)) === 'rgb(220, 242, 35)');
 check('onboarding: the brush swatches follow the theme',
   (await Q2(`getComputedStyle(document.querySelector('.brush[data-brush="discovery"] .swatch')).backgroundColor`)) === 'rgb(14, 165, 233)');
 await p2.evaluate(() => { const i = document.querySelector('#onboard input[data-color="delivery"]'); i.value = '#112233'; i.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -966,30 +1000,54 @@ await ctx2.close();
 const FAKE_SUPABASE = () => {
   // State lives in sessionStorage so a reload keeps the "account", as the real service would.
   let saved = null; try { saved = JSON.parse(sessionStorage.getItem('__fake') || 'null'); } catch (e) {}
-  const db = (saved && saved.db) || { boards: [], libraries: [], profiles: [] };
+  const db = (saved && saved.db) || { boards: [], libraries: [], profiles: [], shares: [] };
+  if (!db.shares) db.shares = [];
   const users = (saved && saved.users) || {}; const listeners = []; let session = (saved && saved.session) || null;
   const persist = () => { try { sessionStorage.setItem('__fake', JSON.stringify({ db, users, session })); } catch (e) {} };
   const emit = (ev, s) => listeners.forEach(cb => cb(ev, s));
-  const pk = { boards: ['owner_id', 'id'], libraries: ['owner_id'], profiles: ['id'] };
+  const pk = { boards: ['owner_id', 'id'], libraries: ['owner_id'], profiles: ['id'], shares: ['owner_id', 'board_id'] };
   const uid = () => 'u-' + Math.random().toString(36).slice(2, 10);
+  const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+  // the database stamps a share on every write, the way the trigger does
+  const stamp = (t, r) => { if (t === 'shares') r.updated_at = new Date().toISOString(); return r; };
   const clone = (x) => JSON.parse(JSON.stringify(x));
   function builder(table) {
-    const filters = []; let op = 'select', payload = null;
+    const filters = []; let op = 'select', payload = null, ret = false;
     const match = (r) => filters.every(([k, v]) => String(r[k]) === String(v));
     const run = () => {
       if (window.__fakeFail) return { data: null, error: { message: 'FetchError: network down' } };
+      // PostgREST answers a missing table with an error body, it does not throw
+      if (window.__fakeNoShares && table === 'shares') return { data: null, error: { message: 'relation "shares" does not exist' } };
       if (op === 'select') return { data: db[table].filter(match).map(clone), error: null };
       if (op === 'upsert') {
-        (Array.isArray(payload) ? payload : [payload]).forEach(row => {
+        const touched = (Array.isArray(payload) ? payload : [payload]).map(row => {
           const i = db[table].findIndex(r => pk[table].every(k => r[k] === row[k]));
-          if (i < 0) db[table].push(clone(row)); else Object.assign(db[table][i], clone(row));
+          if (i < 0) {
+            const fresh = clone(row);
+            if (table === 'shares' && !fresh.token) fresh.token = uuid();
+            db[table].push(stamp(table, fresh));
+            return fresh;
+          }
+          Object.assign(db[table][i], clone(row));
+          return stamp(table, db[table][i]);
         });
-        persist(); return { data: null, error: null };
+        persist(); return { data: ret ? touched.map(clone) : null, error: null };
+      }
+      if (op === 'update') {
+        const touched = db[table].filter(match);
+        touched.forEach(r => { Object.assign(r, clone(payload)); stamp(table, r); });
+        persist(); return { data: ret ? touched.map(clone) : null, error: null };
       }
       db[table] = db[table].filter(r => !match(r)); persist(); return { data: null, error: null };
     };
     const b = {
-      select() { op = 'select'; return b; }, upsert(row) { op = 'upsert'; payload = row; return b; },
+      // a select after a write asks for the rows back, it does not undo the write
+      select() { if (op !== 'select') ret = true; return b; },
+      upsert(row) { op = 'upsert'; payload = row; return b; },
+      update(row) { op = 'update'; payload = row; return b; },
       delete() { op = 'delete'; return b; }, eq(k, v) { filters.push([k, v]); return b; },
       maybeSingle() { const r = run(); return Promise.resolve({ data: (r.data && r.data[0]) || null, error: null }); },
       then(res, rej) { return Promise.resolve(run()).then(res, rej); }
@@ -1018,7 +1076,18 @@ const FAKE_SUPABASE = () => {
     resetPasswordForEmail() { return Promise.resolve({ data: {}, error: null }); },
     updateUser() { return Promise.resolve({ data: {}, error: null }); }
   };
-  const client = { auth, from: builder, channel() { const ch = { on() { return ch; }, subscribe() { return ch; } }; return ch; }, removeChannel() {} };
+  const rpc = (name, args) => {
+    if (window.__fakeFail) return Promise.resolve({ data: null, error: { message: 'FetchError: network down' } });
+    if (name !== 'get_shared_board') return Promise.resolve({ data: null, error: { message: 'unknown function' } });
+    const row = db.shares.filter(r => r.token === (args && args.share_token))[0];
+    return Promise.resolve({
+      data: row ? [{ board_id: row.board_id, data: clone(row.data),
+                     theme: row.theme ? clone(row.theme) : null,
+                     updated_at: row.updated_at || new Date().toISOString() }] : [],
+      error: null
+    });
+  };
+  const client = { auth, from: builder, rpc, channel() { const ch = { on() { return ch; }, subscribe() { return ch; } }; return ch; }, removeChannel() {} };
   window.__fakeDb = db; window.__fakeAuth = auth;
   window.supabase = { createClient: () => client };
 };
@@ -1161,6 +1230,109 @@ await p3.click('#btnAuth'); await p3.fill('#authEmail', 'piero@test.dev'); await
 await p3.click('#authSubmit'); await p3.waitForTimeout(1000);
 check('account: logging in again pushes the work done after the session ended',
   (await cloudCell(1, 7)) === 'delivery');
+
+// ---------- 14b. SHARE LINKS ----------
+await p3.click('#btnMore'); await p3.click('#mShare'); await p3.waitForTimeout(300);
+check('share: the dialog says what a link does and does not allow',
+  !(await Q3(`document.getElementById('shareSheet').hidden`)) &&
+  /cannot change it/.test(await Q3(`document.getElementById('shareIntro').textContent`)));
+await p3.click('#shareActions [data-sh="create"]'); await p3.waitForTimeout(900);
+const openQuarter = await Q3(`document.getElementById('boardSel').value`);
+const shareToken = await Q3(`(()=>{const r=window.__fakeDb.shares[0];return r?r.token:null})()`);
+check('share: creating a link stores one share, for the open quarter',
+  !!shareToken && (await Q3(`window.__fakeDb.shares.length`)) === 1 &&
+  (await Q3(`window.__fakeDb.shares[0].board_id`)) === openQuarter);
+check('share: the dialog shows the link, with the token in it',
+  (await Q3(`document.getElementById('shareUrl').value`)).endsWith('?s=' + shareToken));
+check('share: the shared copy carries the look, not only the board',
+  await Q3(`(()=>{const s=window.__fakeDb.shares[0];return !!(s.data&&s.data.views&&s.theme&&s.theme.font)})()`));
+await p3.keyboard.press('Escape'); await p3.waitForTimeout(150);
+
+// an edit has to reach the shared copy without anyone asking
+await p3.click('.brush[data-brush="delivery"]');
+await p3.click('.cell[data-row="2"][data-col="6"]'); await p3.waitForTimeout(2000);
+check('share: an edit reaches the shared copy on its own',
+  (await Q3(`(()=>{try{return window.__fakeDb.shares[0].data.views.product.rows[2].cells['6'][0]}catch(e){return null}})()`)) === 'delivery');
+
+// ---- the reader's side ----
+// Whatever this browser already holds has to come through the visit untouched.
+const beforeVisit = await Q3(`JSON.stringify([localStorage.getItem('roadmap-studio-v1'),
+  localStorage.getItem('roadmap-studio-v1:theme'), localStorage.getItem('roadmap-studio-v1:last')])`);
+const readerUrl = PAGE + '?s=' + shareToken;
+await p3.goto(readerUrl); await p3.waitForTimeout(1400);
+check('share: a reader gets the quarter with nothing that edits',
+  (await Q3(`document.body.classList.contains('is-shared')`)) &&
+  (await Q3(`getComputedStyle(document.querySelector('.sidebar')).display`)) === 'none' &&
+  (await Q3(`getComputedStyle(document.querySelector('.brushbar')).display`)) === 'none' &&
+  !(await Q3(`document.getElementById('slide').classList.contains('is-live')`)));
+check('share: the reader sees what was painted last',
+  (await Q3(`document.querySelectorAll('.cell[data-row="2"][data-col="6"] .chip').length`)) === 1);
+check('share: the reader is told it keeps itself up to date',
+  /refreshes on its own/.test(await Q3(`document.getElementById('shareNotice').textContent`)));
+const afterVisit = await Q3(`JSON.stringify([localStorage.getItem('roadmap-studio-v1'),
+  localStorage.getItem('roadmap-studio-v1:theme'), localStorage.getItem('roadmap-studio-v1:last')])`);
+check('share: the roadmaps and the look the reader keeps here are left untouched',
+  afterVisit === beforeVisit,
+  afterVisit === beforeVisit ? '' : 'storage changed during the visit');
+check('share: the slide is visible once the shared quarter has arrived',
+  !(await Q3(`document.body.classList.contains('is-loading')`)));
+
+// the owner renames the quarter; the reader picks it up without reloading
+await p3.evaluate(() => {
+  const r = window.__fakeDb.shares[0];
+  r.data.name = 'Renamed while you watch';
+  r.updated_at = new Date(Date.now() + 1000).toISOString();
+});
+await p3.waitForTimeout(9000);
+check('share: the reader picks up a change without reloading',
+  /Renamed while you watch/.test(await Q3(`document.getElementById('shareNotice').textContent`)));
+
+// a link withdrawn while somebody is reading must take the slide away too
+await p3.evaluate(() => { window.__fakeDb.shares.length = 0; });
+await p3.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await p3.waitForTimeout(600);
+await p3.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await p3.waitForTimeout(600);
+check('share: withdrawing it while somebody reads takes the slide away as well',
+  /not active any more/.test(await Q3(`document.getElementById('shareNotice').textContent`)) &&
+  (await Q3(`getComputedStyle(document.querySelector('.canvas-wrap')).display`)) === 'none' &&
+  (await Q3(`getComputedStyle(document.getElementById('btnPng')).display`)) === 'none');
+
+// ---- back to the owner: the link survives a reload, and can be withdrawn ----
+await p3.goto(PAGE); await p3.waitForTimeout(1400);
+await p3.click('#btnMore'); await p3.click('#mShare'); await p3.waitForTimeout(400);
+check('share: the link is still there after a reload',
+  (await Q3(`document.getElementById('shareUrl') ? document.getElementById('shareUrl').value : ''`)).endsWith('?s=' + shareToken));
+await p3.click('#shareActions [data-sh="stop"]'); await p3.waitForTimeout(700);
+check('share: withdrawing the link removes it everywhere',
+  (await Q3(`window.__fakeDb.shares.length`)) === 0 &&
+  !(await Q3(`!!document.getElementById('shareUrl')`)) &&
+  /no longer opens/.test(await Q3(`document.getElementById('shareMsg').textContent`)));
+await p3.keyboard.press('Escape'); await p3.waitForTimeout(150);
+await p3.goto(readerUrl); await p3.waitForTimeout(1200);
+check('share: one empty answer is not taken as proof the link is gone',
+  /Looking for the roadmap/.test(await Q3(`document.getElementById('shareNotice').textContent`)));
+await p3.waitForTimeout(3500);
+check('share: a withdrawn link says so instead of showing anything',
+  /not active any more/.test(await Q3(`document.getElementById('shareNotice').textContent`)) &&
+  (await Q3(`getComputedStyle(document.querySelector('.canvas-wrap')).display`)) === 'none');
+
+// a link that was cut short is not an invitation to open the reader's own work
+await p3.goto(PAGE + '?s=not-a-real-token'); await p3.waitForTimeout(1200);
+check('share: a link that is not complete says so and shows nothing',
+  (await Q3(`document.body.classList.contains('is-shared')`)) &&
+  /not complete/.test(await Q3(`document.getElementById('shareNotice').textContent`)) &&
+  (await Q3(`getComputedStyle(document.querySelector('.canvas-wrap')).display`)) === 'none');
+
+// sharing is an extra: without its table the rest of the account still works
+await p3.addInitScript(() => { window.__fakeNoShares = true; });
+await p3.goto(PAGE); await p3.waitForTimeout(1500);
+const noShareState = await Q3(`document.getElementById('sync').textContent + '|' + document.getElementById('btnAuth').textContent + '|' + (document.getElementById('boardSel').options.length > 1)`);
+check('share: an account whose shares cannot be read still saves and loads',
+  noShareState === 'saved|piero@test.dev|true', noShareState);
+await p3.click('#btnMore'); await p3.click('#mShare'); await p3.waitForTimeout(300);
+check('share: with no share on record the dialog offers to make one',
+  !!(await Q3(`!!document.querySelector('#shareActions [data-sh="create"]')`)));
+await p3.keyboard.press('Escape'); await p3.waitForTimeout(150);
+
 await ctx3.close();
 
 // ---------- 15. THE EDITOR THEME: LIGHT, DARK AND READABLE ----------

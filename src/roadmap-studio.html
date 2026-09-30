@@ -284,6 +284,8 @@ body.sidebar-off .workspace{grid-template-columns:minmax(0,1fr)}
 .sw-lime{background:var(--pn-bar-legal)}
 .sw-none{background:repeating-linear-gradient(45deg,var(--ui-sunk),var(--ui-sunk) 4px,var(--ui-line) 4px,var(--ui-line) 8px)}
 
+.acc-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;align-items:center}
+.acc-row input[type=color]{width:34px;height:30px;border:1px solid var(--ui-line);border-radius:8px;padding:2px;background:var(--ui-field);cursor:pointer}
 .sprint-row{display:grid;grid-template-columns:1fr 46px 1.35fr auto;gap:5px;align-items:center}
 .sprint-row input{height:30px;font-size:12px;padding:0 8px}
 .ms-card{border:1px solid var(--ui-line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--ui-sunk)}
@@ -597,6 +599,25 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 .auth-msg.is-ok{color:var(--ui-ok)}
 .auth-links{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;margin-top:2px}
 
+/* share dialog */
+.share-card{max-width:520px}
+.share-link{display:flex;gap:8px;align-items:center;margin-top:14px}
+.share-link input{flex:1;min-width:0;font-family:"DM Mono",ui-monospace,monospace;font-size:12px}
+.share-msg{min-height:1.25em;margin:10px 0 0;font-weight:600;color:var(--ui-ok)}
+.share-msg.is-bad{color:var(--ui-danger)}
+/* a quarter opened from a share link: nothing that edits is on screen */
+body.is-shared .sidebar,body.is-shared .brushbar,body.is-shared .boardpick,
+body.is-shared .histgroup,body.is-shared #btnPanel,body.is-shared #btnMore,
+body.is-shared #btnAuth,body.is-shared #btnCopy,body.is-shared .sync,
+body.is-shared .stage > .hint{display:none}
+body.is-shared .workspace{grid-template-columns:minmax(0,1fr)}
+/* Until the shared quarter arrives there is nothing to show: what the reader
+   keeps on this device is theirs, and must not appear for a frame. */
+body.is-shared.is-loading .canvas-wrap,body.is-shared.is-loading .hint{visibility:hidden}
+/* A link that leads nowhere any more leaves nothing to look at or take away. */
+body.is-shared.is-nolink .canvas-wrap,body.is-shared.is-nolink .viewtabs,
+body.is-shared.is-nolink #btnPresent,body.is-shared.is-nolink #btnPng{display:none}
+
 /* onboarding: a card in the corner, the slide stays visible and live */
 .onboard{position:fixed;inset:0;z-index:94;pointer-events:none}
 .onboard[hidden]{display:none}
@@ -699,6 +720,10 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
   border:1px solid color-mix(in srgb,var(--ui-warn) 38%,transparent);
   color:var(--ui-text);font-size:12.5px;line-height:1.45;
 }
+.notice--info{
+  background:color-mix(in srgb,var(--ui-accent) 11%,var(--ui-panel));
+  border-color:color-mix(in srgb,var(--ui-accent) 32%,transparent);
+}
 .notice[hidden]{display:none}
 body.is-readonly .sidebar,body.is-readonly .brushbar{display:none}
 body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
@@ -794,6 +819,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     <button id="mLegend" role="menuitem">Show the legend</button>
     <button id="mPrune" role="menuitem">Remove unused initiatives</button>
     <hr>
+    <button id="mShare" role="menuitem">Share this quarter by link</button>
     <button id="mPdf" role="menuitem">Save both roadmaps as PDF</button>
     <button id="mExport" role="menuitem">Back up everything (JSON)</button>
     <button id="mImport" role="menuitem">Import a backup (JSON)</button>
@@ -907,6 +933,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           <button class="btn btn-sm" id="btnDelSprint">− Last sprint</button>
         </div>
         <hr class="divider">
+        <p class="eyebrow">Category bars</p>
+        <div class="panel" id="accentList"></div>
+        <p class="help">The bar down the left of a row, and what it says in the legend.
+        Both belong to this quarter, so another quarter can mean something else by them.</p>
+        <hr class="divider">
         <label class="check"><input type="checkbox" id="noteShow"> Show the note</label>
         <label class="check"><input type="checkbox" id="legendShow"> Show the legend on the slide</label>
       </section>
@@ -923,6 +954,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       <div class="notice" id="roNotice" hidden>
         <strong>Read only.</strong> You can look at this roadmap and export it, but not change it.
       </div>
+      <div class="notice notice--info" id="shareNotice" hidden></div>
       <div class="notice" id="fitNotice" hidden></div>
 
       <div class="brushbar">
@@ -1026,6 +1058,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   </div>
 </div>
 
+<div class="sheet" id="shareSheet" hidden role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+  <div class="sheet-card share-card">
+    <h2 id="shareTitle">Share this quarter</h2>
+    <p class="help" id="shareIntro"></p>
+    <div id="shareBody"></div>
+    <p class="help share-msg" id="shareMsg" role="status"></p>
+    <div class="rowline" id="shareActions"></div>
+  </div>
+</div>
+
 <div class="onboard" id="onboard" hidden role="dialog" aria-labelledby="obTitle">
   <div class="onboard-card">
     <div class="onboard-steps" id="obSteps" aria-hidden="true"></div>
@@ -1062,12 +1104,39 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     product: { name: "Product", brushes: ["discovery", "specs", "delivery"], sequence: ["discovery", "specs", "delivery"] },
     design:  { name: "Design",  brushes: ["discovery", "conception"],       sequence: ["discovery", "conception"] }
   };
-  /* What the colour bar down the left of the slide means. */
+  /* What the colour bar down the left of the slide means. The wording and the
+     two colours belong to the quarter, not to the editor theme: a roadmap sent
+     to someone else has to carry its own legend. These are only the defaults a
+     new quarter starts from. */
+  var BAR_KEYS = ["lime", "teal"];
+  var BAR_THEME_KEY = { lime: "barLegal", teal: "barOther" };
   var ACCENT_META = {
     lime: { label: "Legal obligation", hint: "Yellow bar: a legal obligation." },
     teal: { label: "Other initiatives", hint: "Green bar: any other initiative." },
     none: { label: "No bar", hint: "No bar: not listed in the legend." }
   };
+  function themeBar(k) {
+    var src = Theme.cur || PRESETS.papernest;
+    return Theme.normalize(src).colors[BAR_THEME_KEY[k]];
+  }
+  /* Fills in anything a board is missing, so the rest of the code can read
+     b.accents[k].label and .color without guarding every time. */
+  function fixAccents(b) {
+    if (!b.accents || typeof b.accents !== "object") b.accents = {};
+    BAR_KEYS.forEach(function (k) {
+      var a = b.accents[k] || {};
+      var label = typeof a.label === "string" && a.label.trim() ? a.label.trim() : ACCENT_META[k].label;
+      var color = /^#[0-9a-f]{6}$/i.test(String(a.color || "")) ? String(a.color).toLowerCase() : themeBar(k);
+      b.accents[k] = { label: label.slice(0, 60), color: color };
+    });
+  }
+  /* A name being typed can be empty for a moment: the legend falls back to
+     the default rather than printing a colour with nothing beside it. */
+  function accentLabel(b, k) {
+    var a = b && b.accents && b.accents[k];
+    var v = a && typeof a.label === "string" ? a.label.trim() : "";
+    return v || (ACCENT_META[k] || ACCENT_META.none).label;
+  }
   var MAX_SPRINTS = 12, MIN_SPRINTS = 2;
 
   function uid(p) { return (p || "x") + Math.random().toString(36).slice(2, 9); }
@@ -1190,6 +1259,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       } catch (e) { return null; }
     },
     lsWrite: function () {
+      /* A shared quarter is somebody else's: it must not land in the reader's
+         own storage, which holds their roadmaps. */
+      if (Shared.is()) return;
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({ boards: Store.boards, library: Store.library }));
       } catch (e) { /* private mode, quota: the session still works */ }
@@ -1213,6 +1285,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     /* Asynchronous: upgrade to shared storage if this page can run it. */
     initRemote: function (onRemote) {
+      if (Shared.is()) return;
       Store.onRemote = onRemote;
       if (!window.claude || !window.claude.use) return;
       window.claude.use("db").then(function (db) {
@@ -1355,6 +1428,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Store.boards = Store.boards.filter(function (b) { return b.id !== id; });
       Store.lsWrite();
       if (Store.mode === "cloud") {
+        /* The database drops the share along with the quarter it points at. */
+        delete Cloud.shares[id];
+        Store.cancel("share:" + id);
         if (Cloud.user && Cloud.loaded) Cloud.deleteBoard(id); else Cloud.pendingDeletes[id] = true;
         return;
       }
@@ -1376,6 +1452,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   var Cloud = {
     sb: null, user: null, channel: null, loaded: false, retryTimer: null, retryDelay: 0,
     pendingDeletes: {}, failed: {}, leaving: false,
+    /* board id -> share token, for the quarters this account has shared */
+    shares: {},
     hasFailures: function () { return Object.keys(Cloud.failed).length > 0; },
 
     available: function () {
@@ -1418,10 +1496,22 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       return Promise.all([
         sb.from("boards").select("id,data").eq("owner_id", uid),
         sb.from("libraries").select("items").eq("owner_id", uid).maybeSingle(),
-        sb.from("profiles").select("theme,onboarding_done,ui_theme").eq("id", uid).maybeSingle()
+        sb.from("profiles").select("theme,onboarding_done,ui_theme").eq("id", uid).maybeSingle(),
+        /* Sharing is an extra. A deployment without the shares table still
+           saves and loads, it simply cannot hand out links. */
+        sb.from("shares").select("token,board_id").eq("owner_id", uid)
+          .then(function (r) { return r; }, function () { return { data: [], error: true }; })
       ]).then(function (res) {
         if (Cloud.user !== user) return;
-        if (res[0].error || res[1].error || res[2].error) throw (res[0].error || res[1].error || res[2].error);
+        var bad = [res[0], res[1], res[2]].filter(function (r) { return r && r.error; })[0];
+        if (bad) throw bad.error;
+        /* Only a read that worked replaces what we know: a failed one would
+           otherwise turn every live link into "not shared" for the session. */
+        if (!res[3].error) {
+          var seen = {};
+          (res[3].data || []).forEach(function (r) { seen[r.board_id] = r.token; });
+          Cloud.shares = seen;
+        }
         Cloud.loaded = true;
         Cloud.retryDelay = 0;
         Cloud.merge(res[0].data || [], res[1].data, res[2].data);
@@ -1445,6 +1535,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
        was really edited; otherwise the account wins. Whatever the device
        contributes is pushed to the account. */
     merge: function (rows, libRow, profile) {
+      /* The look comes first: a quarter saved before category bars existed
+         seeds them while it migrates, and that has to read the account's
+         colours, not the ones this browser happens to hold. */
+      if (profile && profile.theme) Theme.set(profile.theme, true);
       /* Saved at least once here, or (boards from before the flag) older than a fresh example. */
       var edited = function (b) { return b.touched === true || (b.updatedAt || 0) - (b.createdAt || 0) > 5000; };
       var cloudBoards = [];
@@ -1482,7 +1576,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Store.lsWrite();
       push.forEach(function (b) { Cloud.putBoard(b); });
       if (!cloudLib || push.length) Cloud.putLibrary();
-      if (profile && profile.theme) Theme.set(profile.theme, true); else Cloud.putProfile();
+      if (!profile || !profile.theme) Cloud.putProfile();
       /* The editor theme has a column of its own, so a device that never
          picked one leaves the account's choice alone instead of clearing it. */
       if (profile && profile.ui_theme) UI.set(profile.ui_theme, true);
@@ -1543,6 +1637,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         .then(function (r) {
           if (r && r.error) throw r.error;
           delete Store._dirty[b.id]; delete Cloud.failed[b.id];
+          Cloud.putShare(b);
           setSync("idle");
         })
         .catch(function () {
@@ -1583,6 +1678,62 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           .then(function (r) { if (r && r.error) setSync("error", "not saved"); });
       });
     },
+    /* The shared copy is refreshed from the same save that wrote the board, so
+       a reader is at most a second behind plus their own refresh. */
+    putShare: function (b) {
+      if (!Cloud.user || !Cloud.shares[b.id]) return;
+      Store._debounce("share:" + b.id, function () {
+        if (!Cloud.user || !Cloud.shares[b.id]) return;
+        Cloud.sb.from("shares").update({ data: b, theme: Theme.current() })
+          .eq("owner_id", Cloud.user.id).eq("board_id", b.id)
+          .then(function (r) {
+            /* The quarter itself is already saved. Only the copy behind the
+               link failed, so it is tried again quietly rather than telling
+               the owner their work did not land. */
+            if (r && r.error) Store._debounce("share:" + b.id, function () { Cloud.putShare(b); }, 5000);
+          });
+      }, 900);
+    },
+    /* The quarter goes up first: the share row points at it by foreign key, so
+       a brand new quarter would otherwise have nothing to point at. */
+    createShare: function (b) {
+      /* The first write would be an upsert of the board: until the account has
+         been read, that could land on top of a newer copy. */
+      if (!Cloud.user || !Cloud.loaded) return Promise.reject(new Error("not ready"));
+      var uid = Cloud.user.id;
+      var mine = function () { return Cloud.user && Cloud.user.id === uid; };
+      return Cloud.sb.from("boards")
+        .upsert({ owner_id: uid, id: b.id, data: b, writer: CLIENT }, { onConflict: "owner_id,id" })
+        .then(function (r) {
+          if (r && r.error) throw r.error;
+          return Cloud.sb.from("shares")
+            .upsert({ owner_id: uid, board_id: b.id, data: b, theme: Theme.current() },
+                    { onConflict: "owner_id,board_id" })
+            .select("token");
+        })
+        .then(function (r) {
+          if (r.error) throw r.error;
+          var token = r.data && r.data[0] && r.data[0].token;
+          if (!token) throw new Error("no token");
+          /* Somebody else may have logged in while this was in flight. */
+          if (!mine()) throw new Error("account changed");
+          Cloud.shares[b.id] = token;
+          return token;
+        });
+    },
+    /* The local note goes only once the row is really gone, or the dialog
+       would say the link is dead while it still works. */
+    dropShare: function (id) {
+      Store.cancel("share:" + id);
+      if (!Cloud.shares[id]) { delete Cloud.shares[id]; return Promise.resolve(); }
+      if (!Cloud.user) return Promise.reject(new Error("no account"));
+      return Cloud.sb.from("shares").delete()
+        .eq("owner_id", Cloud.user.id).eq("board_id", id)
+        .then(function (r) {
+          if (r && r.error) throw r.error;
+          delete Cloud.shares[id];
+        });
+    },
     deleteBoard: function (id) {
       if (!Cloud.user) return;
       Cloud.sb.from("boards").delete().eq("owner_id", Cloud.user.id).eq("id", id)
@@ -1595,11 +1746,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     detach: function (wipe) {
       if (Cloud.channel) { try { Cloud.sb.removeChannel(Cloud.channel); } catch (e) {} Cloud.channel = null; }
       clearTimeout(Cloud.retryTimer);
-      Object.keys(Store._timers).forEach(function (k) { if (k.indexOf("b:") === 0 || k === "lib" || k === "profile") Store.cancel(k); });
+      Object.keys(Store._timers).forEach(function (k) {
+        if (k.indexOf("b:") === 0 || k.indexOf("share:") === 0 || k === "lib" || k === "profile") Store.cancel(k);
+      });
       Cloud.user = null;
       Cloud.loaded = false;
       Cloud.pendingDeletes = {};
       Cloud.failed = {};
+      Cloud.shares = {};
       Store.mode = "local";
       Store._dirty = {};
       if (!wipe) {
@@ -1728,6 +1882,223 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   };
 
   /* ========================================================
+     2b-ter. Share links: one quarter, read only, kept up to date
+     ======================================================== */
+
+  var SHARE_REFRESH = 7000;
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  function ago(iso) {
+    var t = Date.parse(iso || "");
+    if (!t) return "just now";
+    var sec = Math.max(0, Math.round((Date.now() - t) / 1000));
+    if (sec < 60) return "just now";
+    var m = Math.round(sec / 60);
+    if (m < 60) return m + (m === 1 ? " minute ago" : " minutes ago");
+    var h = Math.round(m / 60);
+    if (h < 24) return h + (h === 1 ? " hour ago" : " hours ago");
+    var d = Math.round(h / 24);
+    return d + (d === 1 ? " day ago" : " days ago");
+  }
+
+  /* The reader's side. The page holds one quarter, nothing can be edited, and
+     nothing of the reader's own work is read or written. */
+  var Shared = {
+    token: null, stamp: null, timer: null, tries: 0, empties: 0, bad: 0, asked: false,
+    /* asked, not token: a link that is there but malformed still means this
+       page belongs to somebody else, and must touch nothing of the reader's. */
+    is: function () { return Shared.asked; },
+    fromUrl: function () {
+      var m = /[?&]s=([^&]+)/.exec(location.search || "");
+      if (!m) return { asked: false, token: null };
+      var v = decodeURIComponent(m[1]).toLowerCase();
+      return { asked: true, token: UUID.test(v) ? v : null };
+    },
+    /* Called before anything renders, so the editor never flashes. */
+    claim: function () {
+      document.body.classList.add("is-shared");
+      document.body.classList.add("is-loading");
+      Store.canWrite = false;
+      var sl = $("slide");
+      if (sl) sl.classList.remove("is-live");
+      $("shareNotice").hidden = false;
+      $("shareNotice").textContent = "Opening the shared roadmap…";
+    },
+    start: function () {
+      if (!Shared.token) {
+        Shared.stop("This link is not complete. Ask whoever sent it for the whole address.");
+        return;
+      }
+      if (!Cloud.available()) {
+        Shared.stop("A shared roadmap needs the online service, and this copy runs without it.");
+        return;
+      }
+      Cloud.sb = window.supabase.createClient(CLOUD.url, CLOUD.key);
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden && Shared.timer) Shared.fetch();
+      });
+      Shared.fetch();
+    },
+    fetch: function () {
+      if (!Cloud.sb || !Shared.token) return;
+      clearTimeout(Shared.timer);
+      Cloud.sb.rpc("get_shared_board", { share_token: Shared.token }).then(function (r) {
+        if (r.error) throw r.error;
+        var row = r.data && r.data[0];
+        if (!row) {
+          /* One empty answer can be a hiccup; two in a row means it is gone. */
+          Shared.empties++;
+          if (Shared.empties < 2) { Shared.note("Looking for the roadmap…"); Shared.again(2500); return; }
+          Shared.stop("This link is not active any more. Ask whoever sent it for a new one.");
+          return;
+        }
+        Shared.empties = 0;
+        Shared.tries = 0;
+        /* apply schedules its own retry when it cannot draw. */
+        if (Shared.apply(row)) Shared.again(SHARE_REFRESH);
+      }).catch(function () {
+        Shared.tries++;
+        /* A failed ask says nothing about whether the link still exists. */
+        Shared.empties = 0;
+        Shared.note(Shared.stamp
+          ? "The roadmap could not be refreshed just now. Trying again."
+          : "The shared roadmap could not be loaded. Trying again.");
+        Shared.again(Math.min(60000, SHARE_REFRESH * Math.pow(2, Math.min(4, Shared.tries))));
+      });
+    },
+    again: function (ms) {
+      clearTimeout(Shared.timer);
+      Shared.timer = setTimeout(function () {
+        /* A tab nobody is looking at asks for nothing. */
+        if (document.hidden) { Shared.again(ms); return; }
+        Shared.fetch();
+      }, ms);
+    },
+    /* Nothing stays on screen that the link no longer stands behind: not the
+       slide, not the buttons that would present or download it. */
+    stop: function (why) {
+      clearTimeout(Shared.timer);
+      Shared.timer = null;
+      document.body.classList.add("is-nolink");
+      $("shareNotice").textContent = why;
+    },
+    /* Returns false when it dealt with a failure itself. */
+    apply: function (row) {
+      if (Shared.stamp && row.updated_at === Shared.stamp) { Shared.note(); return true; }
+      /* The look comes from whoever shared it, and is not stored here. */
+      if (row.theme) Theme.preview(row.theme);
+      /* The stamp is only set once this really drew: a copy that cannot be
+         rendered must not look like one already on screen. */
+      var kept = Store.boards, keptId = state.boardId;
+      try {
+        var b = migrateBoard(row.data);
+        if (!b || !b.id || !b.views) throw new Error("not a board");
+        Store.boards = [b];
+        state.boardId = b.id;
+        state.sel = null;
+        if (!hasContent(b.views[state.view])) {
+          var other = ["product", "design"].filter(function (v) { return hasContent(b.views[v]); })[0];
+          if (other) state.view = other;
+        }
+        document.title = (b.name ? b.name + " · " : "") + "Quartermap";
+        syncViewTabs();
+        renderAll();
+        History.reset();
+      } catch (e) {
+        /* Put back whatever was on screen and try once more before giving up:
+           one bad answer is not a broken roadmap. */
+        Store.boards = kept; state.boardId = keptId;
+        Shared.bad++;
+        if (Shared.bad >= 2) { Shared.stop("This roadmap cannot be shown."); return false; }
+        Shared.note("The roadmap could not be drawn. Trying again.");
+        Shared.again(SHARE_REFRESH);
+        return false;
+      }
+      Shared.bad = 0;
+      Shared.stamp = row.updated_at;
+      document.body.classList.remove("is-loading");
+      Shared.note();
+      return true;
+    },
+    note: function (msg) {
+      var b = Store.boards[0];
+      $("shareNotice").textContent = msg || ("Shared roadmap" + (b && b.name ? ": " + b.name : "") +
+        (Shared.stamp ? ", updated " + ago(Shared.stamp) : "") + ". It refreshes on its own.");
+    }
+  };
+
+  /* The owner's side: one link per quarter, made and withdrawn from here. */
+  var ShareUI = {
+    busy: false,
+    isOpen: function () { return !$("shareSheet").hidden; },
+    open: function () { $("shareSheet").hidden = false; ShareUI.say(""); ShareUI.render(); },
+    close: function () { $("shareSheet").hidden = true; },
+    link: function (token) { return location.origin + location.pathname + "?s=" + token; },
+    say: function (msg, bad) {
+      var el = $("shareMsg");
+      el.textContent = msg || "";
+      el.classList.toggle("is-bad", !!bad);
+    },
+    render: function () {
+      var token = Cloud.user ? Cloud.shares[state.boardId] : null;
+      var name = Store.boards.length ? quote(board().name) : "this quarter";
+      var intro = "", body = "", actions = "";
+      var close = '<button type="button" class="btn" data-sh="close">Close</button>';
+      if (!Cloud.available()) {
+        intro = "This copy of the tool runs without the online service, so a link cannot be made here.";
+        actions = close;
+      } else if (!Cloud.user) {
+        intro = "Log in first. A link belongs to your account, and stops working as soon as you withdraw it.";
+        actions = '<button type="button" class="btn btn-primary" data-sh="login">Log in</button>' + close;
+      } else if (token) {
+        intro = "Anyone with this link can read " + name + ". They cannot change it, and they see your edits a few seconds after you make them.";
+        body = '<div class="share-link"><input type="text" id="shareUrl" readonly value="' + esc(ShareUI.link(token)) + '"></div>';
+        actions = '<button type="button" class="btn btn-primary" data-sh="copy">Copy the link</button>' +
+                  '<button type="button" class="btn btn-danger" data-sh="stop">Stop sharing</button>' + close;
+      } else {
+        intro = "A link lets people read " + name + " without an account of their own. They cannot change it, and it keeps up with your edits by itself.";
+        actions = '<button type="button" class="btn btn-primary" data-sh="create">Create the link</button>' + close;
+      }
+      $("shareIntro").textContent = intro;
+      $("shareBody").innerHTML = body;
+      $("shareActions").innerHTML = actions;
+    },
+    act: function (what) {
+      if (ShareUI.busy) return;
+      if (what === "close") { ShareUI.close(); return; }
+      if (what === "login") { ShareUI.close(); Auth.open("login"); return; }
+      if (what === "copy") {
+        var el = $("shareUrl");
+        if (!el) return;
+        el.focus(); el.select();
+        var byHand = function () { ShareUI.say("Press Ctrl or Cmd and C to copy it."); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(el.value).then(function () { ShareUI.say("Link copied."); }).catch(byHand);
+        } else byHand();
+        return;
+      }
+      if (what === "create") {
+        if (!Cloud.loaded) { ShareUI.say("Your account is still loading. Please try again in a moment.", true); return; }
+        ShareUI.busy = true; ShareUI.say("Making the link…");
+        Cloud.createShare(board()).then(function () {
+          ShareUI.busy = false; ShareUI.render(); ShareUI.say("The link is ready.");
+        }).catch(function () {
+          ShareUI.busy = false; ShareUI.say("The link could not be made. Please try again.", true);
+        });
+        return;
+      }
+      if (what === "stop") {
+        ShareUI.busy = true; ShareUI.say("Withdrawing it…");
+        Cloud.dropShare(state.boardId).then(function () {
+          ShareUI.busy = false; ShareUI.render(); ShareUI.say("The link no longer opens anything.");
+        }).catch(function () {
+          ShareUI.busy = false; ShareUI.render(); ShareUI.say("It could not be withdrawn. Please try again.", true);
+        });
+      }
+    }
+  };
+
+  /* ========================================================
      2b-bis. The editor's own light / dark, kept apart from the
      slide theme: this one never touches the exported artwork.
      ======================================================== */
@@ -1805,6 +2176,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   var FONTS = ["Figtree", "Inter", "DM Sans", "Manrope", "Poppins", "Work Sans", "Nunito", "Source Sans 3"];
   var THEME_KEYS = ["discovery", "specs", "delivery", "conception", "barLegal", "barOther", "note", "ink", "row", "link"];
+  /* barLegal and barOther are still carried by the theme, because they seed a
+     new quarter's bars, but they are not offered in the look flow any more. */
+  var THEME_GRID_KEYS = THEME_KEYS.filter(function (k) { return k !== "barLegal" && k !== "barOther"; });
   var THEME_LABELS = {
     discovery: "Discovery", specs: "Specs", delivery: "Delivery", conception: "Experience Conception",
     barLegal: "Bar: legal obligation", barOther: "Bar: other initiatives", note: "Note", ink: "Text", row: "Row background", link: "Link"
@@ -1859,8 +2233,19 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Theme.cur = Theme.normalize(t);
       Theme.apply();
       try { localStorage.setItem(LS_KEY + ":theme", JSON.stringify(Theme.cur)); } catch (e) {}
-      if (!localOnly && Cloud.user) Cloud.putProfile();
+      if (!localOnly && Cloud.user) {
+        Cloud.putProfile();
+        /* Every shared quarter carries a copy of the look, so all of them are
+           refreshed, not only the one on screen. */
+        Object.keys(Cloud.shares).forEach(function (id) {
+          var b = Store.boards.filter(function (x) { return x.id === id; })[0];
+          if (b) Cloud.putShare(b);
+        });
+      }
     },
+    /* Apply a look without storing it: used for a quarter someone else shared,
+       where the reader's own look must survive the visit. */
+    preview: function (t) { Theme.cur = Theme.normalize(t); Theme.apply(); },
     apply: function () {
       var st = document.documentElement.style, t = Theme.cur;
       THEME_KEYS.forEach(function (k) { st.setProperty(CSS_VAR[k], t.colors[k]); });
@@ -1924,12 +2309,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       } else if (step === 2) {
         title = "Colours";
         intro = "Pick a preset, or set each colour. The slide behind updates as you go.";
+        /* The two bar colours are not here: they belong to the quarter now,
+           and the Sprints panel is where they are edited. */
         body = '<div class="presets">' + Object.keys(PRESETS).map(function (k) {
           var p = PRESETS[k];
           return '<button type="button" class="preset' + (Theme.presetOn(k) ? " is-on" : "") + '" data-preset="' + k + '">' +
             '<i style="background:' + p.colors.discovery + '"></i><i style="background:' + p.colors.specs + '"></i><i style="background:' + p.colors.delivery + '"></i>' + esc(p.name) + "</button>";
         }).join("") + "</div>" +
-        '<div class="colorgrid">' + THEME_KEYS.map(function (k) {
+        '<div class="colorgrid">' + THEME_GRID_KEYS.map(function (k) {
           return '<label>' + esc(THEME_LABELS[k]) + '<input type="color" data-color="' + k + '" value="' + Theme.cur.colors[k] + '"></label>';
         }).join("") + "</div>";
         actions = (step === last
@@ -2067,8 +2454,15 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     Object.keys(b.views).forEach(function (k) {
       (b.views[k].rows || []).forEach(migrateRow);
     });
+    /* A row imported from elsewhere may name no category at all. */
+    Object.keys(b.views).forEach(function (k) {
+      (b.views[k].rows || []).forEach(function (r) {
+        if (r.accent !== "none" && BAR_KEYS.indexOf(r.accent) < 0) r.accent = "teal";
+      });
+    });
     /* An empty row left behind by a closed tab is scratch, not content. */
     purgeBlankRows(b);
+    fixAccents(b);
     return b;
   }
   function migrateAll() { Store.boards.forEach(migrateBoard); }
@@ -2415,6 +2809,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var rh = autoRowHeight(v.rows.length);
     slide.style.setProperty("--cols", cols);
     slide.style.setProperty("--row-h", rh + "px");
+    /* The rails and the legend marks read these two, so a quarter's own
+       colours reach them without a second set of rules. */
+    BAR_KEYS.forEach(function (k) {
+      slide.style.setProperty(k === "lime" ? "--pn-bar-legal" : "--pn-bar-other", b.accents[k].color);
+    });
     slide.classList.toggle("is-dense", cols > DENSE_HEADER_FROM);
     slide.classList.toggle("is-crowded", cols > DENSE_CHIPS_FROM);
 
@@ -2496,7 +2895,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     html += '<div class="legend"' + (legendOn ? "" : " hidden") + ">";
     ["lime", "teal"].forEach(function (k) {
       if (!used[k]) return;
-      html += '<span class="lg"><i class="mark mark--' + k + '"></i>' + esc(ACCENT_META[k].label) + "</span>";
+      html += '<span class="lg"><i class="mark mark--' + k + '"></i>' + esc(accentLabel(b, k)) + "</span>";
     });
     html += "</div>";
 
@@ -2649,7 +3048,32 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     Array.prototype.forEach.call(box.querySelectorAll(".sw"), function (sw) {
       sw.setAttribute("aria-pressed", String(sw.dataset.accent === row.accent));
     });
-    $("accentHint").textContent = (ACCENT_META[row.accent] || {}).hint || "";
+    $("accentHint").textContent = row.accent === "none"
+      ? ACCENT_META.none.hint
+      : quote(accentLabel(board(), row.accent)) + " in the legend.";
+  }
+
+  /* The swatches in the inspector name and show the same two categories. Kept
+     apart from renderAccents, which rebuilds the fields being typed into. */
+  function paintAccentSwatches() {
+    var b = board();
+    Array.prototype.forEach.call(document.querySelectorAll("#inspector .sw"), function (sw) {
+      var k = sw.dataset.accent, name = accentLabel(b, k);
+      sw.setAttribute("aria-label", name);
+      sw.title = name;
+      if (k !== "none") sw.style.background = b.accents[k].color;
+    });
+  }
+
+  function renderAccents() {
+    var b = board();
+    paintAccentSwatches();
+    $("accentList").innerHTML = BAR_KEYS.map(function (k) {
+      return '<div class="acc-row" data-acc="' + k + '">' +
+        '<input type="color" data-key="color" value="' + b.accents[k].color + '" aria-label="' + esc(b.accents[k].label) + ' colour">' +
+        '<input type="text" data-key="label" maxlength="60" value="' + esc(b.accents[k].label) + '" aria-label="' + esc(b.accents[k].label) + ' name">' +
+        "</div>";
+    }).join("");
   }
 
   function renderSprints() {
@@ -2711,6 +3135,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function renderAll() {
     renderBoardSel();
     renderBrushes();
+    renderAccents();
     renderLibrary();
     renderInspector();
     renderSprints();
@@ -2817,10 +3242,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   function syncViewTabs() {
+    var b = Store.boards.length ? board() : null;
     Array.prototype.forEach.call(document.querySelectorAll(".vtab"), function (t) {
       var on = t.dataset.view === state.view;
       t.classList.toggle("is-on", on);
       t.setAttribute("aria-selected", String(on));
+      /* A shared quarter shows the roadmaps it has, and no empty tab. */
+      if (Shared.is() && b) t.hidden = !hasContent(b.views[t.dataset.view]);
     });
   }
 
@@ -3584,6 +4012,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       deleteRow(state.sel.row);
     });
 
+    /* category bars: colour and wording, per quarter */
+    $("accentList").addEventListener("input", function (e) {
+      var wrap = e.target.closest("[data-acc]");
+      if (!wrap) return;
+      var k = wrap.dataset.acc, key = e.target.dataset.key, b = board();
+      if (key === "label") b.accents[k].label = e.target.value.slice(0, 60);
+      else b.accents[k].color = e.target.value;
+      commit(key === "label" ? "text:acc:" + k : "acc:" + k);
+      paintAccentSwatches(); renderSlide(); renderInspector();
+    });
+    $("accentList").addEventListener("change", function (e) {
+      /* An empty name would leave the legend with a blank entry. */
+      var wrap = e.target.closest("[data-acc]");
+      if (!wrap || e.target.dataset.key !== "label" || e.target.value.trim()) return;
+      board().accents[wrap.dataset.acc].label = ACCENT_META[wrap.dataset.acc].label;
+      commitStep(); renderAccents(); renderSlide(); renderInspector();
+    });
+
     /* sprints */
     $("sprintList").addEventListener("input", function (e) {
       var wrap = e.target.closest("[data-sprint]");
@@ -3745,6 +4191,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           design: { title: "Quarter design roadmap snapshot (" + name.split(" ")[0] + ")", milestones: [], rows: [] }
         }
       };
+      fixAccents(b);
       Store.boards.unshift(b);
       setBoard(b.id); state.sel = null;
       Store.saveBoard(b, true);
@@ -3952,6 +4399,13 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (Cloud.user) Auth.logout(); else Auth.open("login");
     });
     $("mLook").addEventListener("click", function () { closeMenu(); Onboard.open(1, true); });
+    $("mShare").addEventListener("click", function () { closeMenu(); ShareUI.open(); });
+
+    $("shareActions").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-sh]");
+      if (b) ShareUI.act(b.dataset.sh);
+    });
+    $("shareSheet").addEventListener("click", function (e) { if (e.target === $("shareSheet")) ShareUI.close(); });
 
     Array.prototype.forEach.call($("authTabs").querySelectorAll("[data-mode]"), function (t) {
       t.addEventListener("click", function () { Auth.mode = t.dataset.mode; Auth.render(); $("authEmail").focus(); });
@@ -4162,6 +4616,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
       if (e.key === "Escape") {
         if (!$("sheet").hidden) { toggleSheet(false); return; }
+        if (ShareUI.isOpen()) { ShareUI.close(); return; }
         if (Auth.isOpen()) { Auth.close(); return; }
         if (Onboard.isOpen()) { Onboard.finish(); return; }
         if (!$("menu").hidden) { closeMenu(true); return; }
@@ -4210,9 +4665,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     try { last = localStorage.getItem(LS_KEY + ":last"); } catch (e) {}
     state.boardId = (last && Store.boards.some(function (b) { return b.id === last; })) ? last : Store.boards[0].id;
 
-    UI.load();
-    Theme.load();
     wireSlide(); wireSidebar(); wireTopbar(); wireKeys(); Onboard.wire();
+    if (Shared.is()) Shared.claim();
 
     /* default sprint generator to a sensible "next monday" */
     var d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
@@ -4229,9 +4683,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
     renderAll();
     History.reset();
-    /* Account and live saving, when the client library is here and this is
-       not the artifact. The stored session, if any, logs in on its own. */
-    Cloud.init();
+    /* A share link opens somebody else's quarter and nothing else. Otherwise:
+       account and live saving, when the client library is here and this is not
+       the artifact. The stored session, if any, logs in on its own. */
+    if (Shared.is()) Shared.start(); else Cloud.init();
     Auth.renderState();
     setSync("idle");
     if (Store.canWrite && !Onboard.done()) Onboard.open(0);
@@ -4245,6 +4700,14 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (document.fonts) document.fonts.ready.then(function () { fitSlide(true); });
   }
 
+  /* Decided before anything is loaded: from here on, a shared page must not
+     read or write the roadmaps this reader keeps on their own device. */
+  var fromLink = Shared.fromUrl();
+  Shared.asked = fromLink.asked;
+  Shared.token = fromLink.token;
+  /* Before the boards: migrating one seeds its bars from the theme. */
+  UI.load();
+  Theme.load();
   Store.initLocal();
   boot();
   Store.initRemote(function () {
