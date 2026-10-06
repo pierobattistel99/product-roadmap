@@ -10,17 +10,36 @@
  *
  * Env:
  *   CHROMIUM       path to a Chromium binary (default: Playwright's own)
- *   PAGE_URL       page under test (default: file://<repo>/index.html)
+ *   PAGE_URL       page under test (default: <repo>/index.html, served on a
+ *                  local port for the run)
  *   H2C_PATH       local html2canvas bundle, for sandboxes with no CDN access
  *   JSPDF_PATH     local jsPDF bundle, same reason
  */
 import { chromium } from 'playwright';
 import fs from 'fs';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { FAKE_SUPABASE } from './fake-supabase.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PAGE = process.env.PAGE_URL || 'file://' + path.join(ROOT, 'index.html');
+/* The page is served over http rather than opened as file://: Chromium now and
+   then loses a file:// page's localStorage across a reload, which made the
+   persistence check fail at random. */
+let server = null, PAGE = process.env.PAGE_URL;
+if (!PAGE) {
+  const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
+    '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.css': 'text/css' };
+  server = http.createServer((req, res) => {
+    const rel = path.normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^[/\\]+/, '');
+    const file = path.join(ROOT, rel);
+    if (!file.startsWith(ROOT + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+    fs.createReadStream(file).pipe(res);
+  });
+  await new Promise((ok) => server.listen(0, '127.0.0.1', ok));
+  PAGE = 'http://127.0.0.1:' + server.address().port + '/index.html';
+}
 const results = []; let pageErrors = [];
 const check = (name, pass, detail) => results.push({ name, pass: !!pass, detail: detail ?? '' });
 
@@ -997,100 +1016,6 @@ check('appearance: Esc closes it', await Q2(`document.getElementById('onboard').
 await ctx2.close();
 
 // ---------- 14. ACCOUNT AND LIVE SAVING (fake Supabase client) ----------
-const FAKE_SUPABASE = () => {
-  // State lives in sessionStorage so a reload keeps the "account", as the real service would.
-  let saved = null; try { saved = JSON.parse(sessionStorage.getItem('__fake') || 'null'); } catch (e) {}
-  const db = (saved && saved.db) || { boards: [], libraries: [], profiles: [], shares: [] };
-  if (!db.shares) db.shares = [];
-  const users = (saved && saved.users) || {}; const listeners = []; let session = (saved && saved.session) || null;
-  const persist = () => { try { sessionStorage.setItem('__fake', JSON.stringify({ db, users, session })); } catch (e) {} };
-  const emit = (ev, s) => listeners.forEach(cb => cb(ev, s));
-  const pk = { boards: ['owner_id', 'id'], libraries: ['owner_id'], profiles: ['id'], shares: ['owner_id', 'board_id'] };
-  const uid = () => 'u-' + Math.random().toString(36).slice(2, 10);
-  const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-  // the database stamps a share on every write, the way the trigger does
-  const stamp = (t, r) => { if (t === 'shares') r.updated_at = new Date().toISOString(); return r; };
-  const clone = (x) => JSON.parse(JSON.stringify(x));
-  function builder(table) {
-    const filters = []; let op = 'select', payload = null, ret = false;
-    const match = (r) => filters.every(([k, v]) => String(r[k]) === String(v));
-    const run = () => {
-      if (window.__fakeFail) return { data: null, error: { message: 'FetchError: network down' } };
-      // PostgREST answers a missing table with an error body, it does not throw
-      if (window.__fakeNoShares && table === 'shares') return { data: null, error: { message: 'relation "shares" does not exist' } };
-      if (op === 'select') return { data: db[table].filter(match).map(clone), error: null };
-      if (op === 'upsert') {
-        const touched = (Array.isArray(payload) ? payload : [payload]).map(row => {
-          const i = db[table].findIndex(r => pk[table].every(k => r[k] === row[k]));
-          if (i < 0) {
-            const fresh = clone(row);
-            if (table === 'shares' && !fresh.token) fresh.token = uuid();
-            db[table].push(stamp(table, fresh));
-            return fresh;
-          }
-          Object.assign(db[table][i], clone(row));
-          return stamp(table, db[table][i]);
-        });
-        persist(); return { data: ret ? touched.map(clone) : null, error: null };
-      }
-      if (op === 'update') {
-        const touched = db[table].filter(match);
-        touched.forEach(r => { Object.assign(r, clone(payload)); stamp(table, r); });
-        persist(); return { data: ret ? touched.map(clone) : null, error: null };
-      }
-      db[table] = db[table].filter(r => !match(r)); persist(); return { data: null, error: null };
-    };
-    const b = {
-      // a select after a write asks for the rows back, it does not undo the write
-      select() { if (op !== 'select') ret = true; return b; },
-      upsert(row) { op = 'upsert'; payload = row; return b; },
-      update(row) { op = 'update'; payload = row; return b; },
-      delete() { op = 'delete'; return b; }, eq(k, v) { filters.push([k, v]); return b; },
-      maybeSingle() { const r = run(); return Promise.resolve({ data: (r.data && r.data[0]) || null, error: null }); },
-      then(res, rej) { return Promise.resolve(run()).then(res, rej); }
-    };
-    return b;
-  }
-  const auth = {
-    onAuthStateChange(cb) { listeners.push(cb); setTimeout(() => cb('INITIAL_SESSION', session), 0); return { data: { subscription: { unsubscribe() {} } } }; },
-    getSession() { return Promise.resolve({ data: { session }, error: null }); },
-    signUp({ email, password }) {
-      if (users[email]) return Promise.resolve({ data: { user: null, session: null }, error: { message: 'User already registered' } });
-      users[email] = { id: uid(), email, password };
-      session = { user: { id: users[email].id, email } }; persist();
-      setTimeout(() => emit('SIGNED_IN', session), 0);
-      return Promise.resolve({ data: { user: session.user, session }, error: null });
-    },
-    signInWithPassword({ email, password }) {
-      const u = users[email];
-      if (!u || u.password !== password) return Promise.resolve({ data: { user: null, session: null }, error: { message: 'Invalid login credentials' } });
-      session = { user: { id: u.id, email } }; persist();
-      setTimeout(() => emit('SIGNED_IN', session), 0);
-      return Promise.resolve({ data: { user: session.user, session }, error: null });
-    },
-    signOut(opts) { window.__lastSignOut = opts || null; session = null; persist(); setTimeout(() => emit('SIGNED_OUT', null), 0); return Promise.resolve({ error: null }); },
-    __expire() { session = null; persist(); emit('SIGNED_OUT', null); },
-    resetPasswordForEmail() { return Promise.resolve({ data: {}, error: null }); },
-    updateUser() { return Promise.resolve({ data: {}, error: null }); }
-  };
-  const rpc = (name, args) => {
-    if (window.__fakeFail) return Promise.resolve({ data: null, error: { message: 'FetchError: network down' } });
-    if (name !== 'get_shared_board') return Promise.resolve({ data: null, error: { message: 'unknown function' } });
-    const row = db.shares.filter(r => r.token === (args && args.share_token))[0];
-    return Promise.resolve({
-      data: row ? [{ board_id: row.board_id, data: clone(row.data),
-                     theme: row.theme ? clone(row.theme) : null,
-                     updated_at: row.updated_at || new Date().toISOString() }] : [],
-      error: null
-    });
-  };
-  const client = { auth, from: builder, rpc, channel() { const ch = { on() { return ch; }, subscribe() { return ch; } }; return ch; }, removeChannel() {} };
-  window.__fakeDb = db; window.__fakeAuth = auth;
-  window.supabase = { createClient: () => client };
-};
 const ctx3 = await b.newContext({ viewport: { width: 1600, height: 1000 }, colorScheme: 'dark' });
 const p3 = await ctx3.newPage();
 p3.on('pageerror', e => pageErrors.push('p3: ' + String(e.message)));
@@ -1373,7 +1298,7 @@ const CONTRAST = `(() => {
     return base;
   };
   const bad = []; let seen = 0;
-  document.querySelectorAll('.topbar *, .sidebar *, .brushbar *, .hint, .sheet-card *, .onboard-card *, .menu *, .notice, .notice *, .toast, .toast *, .tip, .tip *').forEach(el => {
+  document.querySelectorAll('.topbar *, .sidebar *, .brushbar *, .hint, .sheet-card *, .onboard-card *, .menu *, .notice, .notice *, .toast, .toast *, .tip, .tip *, .cpanel *').forEach(el => {
     if (el.closest('.slide')) return;
     const own = [...el.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim());
     if (!own.length) return;
@@ -1550,6 +1475,329 @@ check('look: the colours step reached from the menu ends on Done',
   (await Q4(`!document.querySelector('#onboard [data-ob="signup"]')`)));
 await ctx4.close();
 
+// ---------- 16. COMMENTS PINNED TO THE SLIDE ----------
+const ctx5 = await b.newContext({ viewport: { width: 1600, height: 1000 }, colorScheme: 'light' });
+const p5 = await ctx5.newPage();
+p5.on('pageerror', e => pageErrors.push('comments: ' + String(e.message)));
+const Q5 = (s) => p5.evaluate(s);
+await p5.addInitScript(ONBOARDED);
+await p5.addInitScript(FAKE_SUPABASE);
+await p5.goto(PAGE); await p5.waitForTimeout(900);
+check('comments: no Comments button without an account', await Q5(`document.getElementById('btnComments').hidden`));
+await p5.click('#btnAuth'); await p5.click('#authTabs [data-mode="signup"]');
+await p5.fill('#authEmail', 'piero.rossi@test.dev'); await p5.fill('#authPass', 'a-long-password');
+await p5.click('#authSubmit'); await p5.waitForTimeout(1000);
+check('comments: the Comments button shows once logged in', !(await Q5(`document.getElementById('btnComments').hidden`)));
+check('comments: rows, sprints and go-live lines carry ids, and they are saved',
+  await Q5(`(()=>{const b=window.__fakeDb.boards[0].data,v=b.views.product;
+    return v.rows.length>0&&v.rows.every(r=>r.id)&&b.sprints.every(s=>s.id)&&v.milestones.every(m=>m.id)&&
+      new Set(v.rows.map(r=>r.id)).size===v.rows.length})()`));
+const ownerId = await Q5(`window.__fakeDb.boards[0].owner_id`);
+const boardId = await Q5(`document.getElementById('boardSel').value`);
+// where a mark sits against the element it is about
+const markNear = (sel) => Q5(`(()=>{const m=document.querySelector('.cbadge'),e=document.querySelector('${sel}');
+  if(!m||!e)return false;const a=m.getBoundingClientRect(),r=e.getBoundingClientRect();
+  return Math.abs((a.left+a.width/2)-r.right)<30&&Math.abs((a.top+a.height/2)-r.top)<30})()`);
+
+await p5.keyboard.press('c'); await p5.waitForTimeout(300);
+check('comments: C opens the panel and asks which part of the slide',
+  (await Q5(`document.body.classList.contains('has-cpanel')`)) && !(await Q5(`document.getElementById('cpPick').hidden`)) &&
+  (await Q5(`document.body.classList.contains('c-pick')`)));
+const chipsBefore = await Q5(`document.querySelector('.cell[data-row="1"][data-col="2"]').innerHTML`);
+await p5.click('.cell[data-row="1"][data-col="2"]'); await p5.waitForTimeout(300);
+check('comments: choosing a cell paints nothing',
+  (await Q5(`document.querySelector('.cell[data-row="1"][data-col="2"]').innerHTML`)) === chipsBefore);
+check('comments: the form says what the comment is about',
+  !(await Q5(`document.getElementById('cpCompose').hidden`)) &&
+  (await Q5(`document.getElementById('cpOn').selectedOptions[0].textContent`)) === 'Cell: Push notifications · Sprint 2 Q4');
+check('comments: the owner\'s name is guessed from the account email', (await Q5(`document.getElementById('cpName').value`)) === 'Piero Rossi');
+check('comments: what it is about is lit up on the slide', !(await Q5(`document.querySelector('.c-box--sel').hidden`)));
+await p5.fill('#cpText', 'Can Specs start a sprint earlier?');
+await p5.click('#cpPost'); await p5.waitForTimeout(500);
+const c1 = await Q5(`(()=>{const c=window.__fakeDb.comments[0];const b=window.__fakeDb.boards[0].data;
+  return c?{kind:c.anchor.kind,row:c.anchor.rowId===b.views.product.rows[1].id,sprint:c.anchor.sprintId===b.sprints[2].id,
+    label:c.anchor.label,roadmap:c.roadmap,author:c.author_name,authorId:c.author_id,board:c.board_id,body:c.body}:null})()`);
+check('comments: the comment is saved with the cell it is about, by ids',
+  c1 && c1.kind === 'cell' && c1.row && c1.sprint && c1.roadmap === 'product' && c1.board === boardId, JSON.stringify(c1));
+check('comments: the comment carries its author and the words of its anchor',
+  c1 && c1.author === 'Piero Rossi' && c1.authorId === ownerId && c1.label === 'Push notifications · Sprint 2 Q4' && c1.body === 'Can Specs start a sprint earlier?', JSON.stringify(c1));
+check('comments: a mark appears on the corner of the cell', (await Q5(`document.querySelectorAll('.cbadge').length`)) === 1 &&
+  await markNear('.cell[data-row="1"][data-col="2"]'));
+check('comments: the button counts the open comments', (await Q5(`document.getElementById('cCount').textContent`)) === '1');
+check('comments: the thread shows the author, You and the text',
+  /Piero Rossi/.test(await Q5(`document.querySelector('.cthread').textContent`)) &&
+  (await Q5(`document.querySelector('.cthread .cm-tag').textContent`)) === 'You');
+
+// the mark follows its row when rows move
+await p5.hover('.brow--data[data-row="1"]'); await p5.waitForTimeout(350);
+await p5.click('.brow--data[data-row="1"] .rowtools button[data-act="down"]'); await p5.waitForTimeout(400);
+check('comments: the mark follows its row when the row moves', await markNear('.cell[data-row="2"][data-col="2"]'));
+
+// the marks are for the screen only
+check('comments: marks never reach an exported image',
+  await Q5(`(()=>{const s=document.getElementById('slide');s.classList.add('is-export');
+    const d=getComputedStyle(s.querySelector('.c-layer')).display;s.classList.remove('is-export');return d==='none'})()`));
+await p5.keyboard.press('Escape'); await p5.keyboard.press('p'); await p5.waitForTimeout(500);
+check('comments: no marks while presenting', (await Q5(`document.querySelectorAll('#slide .cbadge').length`)) === 0);
+await p5.keyboard.press('Escape'); await p5.waitForTimeout(500);
+check('comments: the marks come back after presenting', (await Q5(`document.querySelectorAll('#slide .cbadge').length`)) === 1);
+
+// choosing text does not start editing it; Esc gives up the choice
+await p5.click('#cpAdd'); await p5.waitForTimeout(150);
+await p5.click('#slideTitle'); await p5.waitForTimeout(300);
+check('comments: choosing the title does not start editing it',
+  (await Q5(`document.activeElement && document.activeElement.id`)) !== 'slideTitle' &&
+  (await Q5(`document.getElementById('cpOn').selectedOptions[0].textContent`)) === 'Title');
+await p5.click('#cpCancel'); await p5.waitForTimeout(150);
+await p5.click('#cpAdd'); await p5.waitForTimeout(150);
+await p5.keyboard.press('Escape'); await p5.waitForTimeout(150);
+check('comments: Esc gives up choosing', (await Q5(`document.getElementById('cpPick').hidden`)) && !(await Q5(`document.body.classList.contains('c-pick')`)));
+// the About list is the way in without a mouse
+await p5.click('#cpAdd'); await p5.click('#cpWhole'); await p5.waitForTimeout(200);
+const sprintOpt = await Q5(`[...document.getElementById('cpOn').options].find(o=>o.textContent==='Sprint: Sprint 3 Q4').value`);
+await p5.selectOption('#cpOn', sprintOpt);
+await p5.fill('#cpText', 'Sprint 3 is the busy one.');
+await p5.press('#cpText', 'Control+Enter'); await p5.waitForTimeout(500);
+check('comments: the About list changes what the comment is about, and Ctrl+Enter posts it',
+  (await Q5(`(()=>{const c=window.__fakeDb.comments[1],b=window.__fakeDb.boards[0].data;return !!c&&c.anchor.kind==='sprint'&&c.anchor.sprintId===b.sprints[3].id})()`)));
+check('comments: the threads read in slide order', (await Q5(`[...document.querySelectorAll('.cthread .ct-on .tx')].map(e=>e.textContent).join('|')`)) === 'Sprint 3 Q4|Push notifications · Sprint 2 Q4');
+
+// ---- the share link, and somebody reading it ----
+await p5.click('#btnMore'); await p5.click('#mShare'); await p5.waitForTimeout(200);
+await p5.click('#shareActions [data-sh="create"]'); await p5.waitForTimeout(900);
+check('comments: a new link lets people comment, and says so', await Q5(`!!document.getElementById('shareTalk') && document.getElementById('shareTalk').checked`));
+const ctok = await Q5(`window.__fakeDb.shares[0].token`);
+await p5.keyboard.press('Escape');
+await p5.evaluate(() => { try { localStorage.removeItem('roadmap-studio-v1:commenter'); } catch (e) {} });
+await p5.addInitScript(() => { window.__fakeAnon = true; });
+await p5.goto(PAGE + '?s=' + ctok); await p5.waitForTimeout(1600);
+check('comments: the reader finds the panel open with the owner\'s comments',
+  (await Q5(`document.body.classList.contains('has-cpanel')`)) && (await Q5(`document.querySelectorAll('.cthread').length`)) === 2 &&
+  (await Q5(`[...document.querySelectorAll('.cthread .cm-tag')].map(e=>e.textContent).join(',')`)) === 'Owner,Owner');
+check('comments: the reader sees the marks on the slide', (await Q5(`document.querySelectorAll('.cbadge').length`)) === 2);
+check('comments: a reader cannot resolve or delete', (await Q5(`document.querySelectorAll('#cpanel [data-cact="resolve"], #cpanel [data-cact="delete"]').length`)) === 0);
+await p5.click('.brow--data[data-row="3"] .pill'); await p5.waitForTimeout(300);
+check('comments: for a reader, a click on the slide starts a comment about that part',
+  !(await Q5(`document.getElementById('cpCompose').hidden`)) && (await Q5(`document.getElementById('cpOn').selectedOptions[0].textContent`)) === 'Row: Advanced search' &&
+  !(await Q5(`document.getElementById('cpNameField').hidden`)));
+await p5.fill('#cpText', 'Is the legal deadline confirmed?');
+await p5.click('#cpPost'); await p5.waitForTimeout(300);
+check('comments: no name, no comment', /type your name/.test(await Q5(`document.getElementById('cpMsg').textContent`)) &&
+  (await Q5(`window.__fakeDb.comments.length`)) === 2);
+await p5.fill('#cpName', 'Marco Bianchi');
+await p5.click('.sprint[data-sp="1"]'); await p5.waitForTimeout(300);
+check('comments: choosing another part keeps the name and the words typed',
+  (await Q5(`document.getElementById('cpOn').selectedOptions[0].textContent`)) === 'Sprint: Sprint 1 Q4' &&
+  (await Q5(`document.getElementById('cpName').value`)) === 'Marco Bianchi' &&
+  (await Q5(`document.getElementById('cpText').value`)) === 'Is the legal deadline confirmed?');
+await p5.click('.brow--data[data-row="3"] .pill'); await p5.waitForTimeout(300);
+await p5.click('#cpPost'); await p5.waitForTimeout(600);
+const rc = await Q5(`(()=>{const c=window.__fakeDb.comments[2];return c?{kind:c.anchor.kind,author:c.author_name,authorId:c.author_id,via:window.__lastComment.share_token}:null})()`);
+check('comments: the reader\'s comment goes through the link, as somebody without an account',
+  rc && rc.kind === 'row' && rc.author === 'Marco Bianchi' && rc.authorId === null && rc.via === ctok, JSON.stringify(rc));
+check('comments: the reader\'s comment is on screen at once', (await Q5(`document.querySelectorAll('.cthread').length`)) === 3 && (await Q5(`document.querySelectorAll('.cbadge').length`)) === 3);
+check('comments: the reader\'s name is the only thing kept in their browser', (await Q5(`localStorage.getItem('roadmap-studio-v1:commenter')`)) === 'Marco Bianchi');
+const cellThread = await Q5(`window.__fakeDb.comments[0].id`);
+await p5.click(`.cthread[data-cid="${cellThread}"] [data-cact="reply"]`); await p5.waitForTimeout(200);
+await p5.fill(`.cthread[data-cid="${cellThread}"] .ct-reply textarea`, 'Only if the API is ready.');
+await p5.press(`.cthread[data-cid="${cellThread}"] .ct-reply textarea`, 'Control+Enter'); await p5.waitForTimeout(600);
+check('comments: a reply joins its thread', (await Q5(`window.__fakeDb.comments.filter(c=>c.parent_id==='${cellThread}').length`)) === 1 &&
+  (await Q5(`document.querySelectorAll('.cthread[data-cid="${cellThread}"] .creply').length`)) === 1);
+await p5.click('.cbadge[data-cthread="' + cellThread + '"]'); await p5.waitForTimeout(300);
+check('comments: a mark on the slide brings its thread forward',
+  (await Q5(`document.querySelector('.cthread[data-cid="${cellThread}"]').classList.contains('is-sel')`)) &&
+  !(await Q5(`document.querySelector('.c-box--sel').hidden`)));
+// narrower windows: a go-live line takes the click with the panel closed, and
+// on a phone the panel steps aside while a part of the slide is chosen
+await p5.setViewportSize({ width: 1080, height: 900 }); await p5.waitForTimeout(400);
+await p5.click('#cpClose'); await p5.waitForTimeout(300);
+await p5.click('.brow--data[data-row="4"] .pill'); await p5.waitForTimeout(300);
+check('comments: with the panel closed a click on the slide is only a click (text can be selected)',
+  (await Q5(`document.getElementById('cpCompose').hidden`)) && !(await Q5(`document.body.classList.contains('c-pick')`)) &&
+  (await Q5(`(()=>{const e=document.querySelector('.brow--data[data-row="4"] .pill span'),r=document.createRange();r.selectNodeContents(e);
+    const s=getSelection();s.removeAllRanges();s.addRange(r);return s.toString()})()`)) === 'Mobile app launch');
+await p5.click('#btnComments'); await p5.waitForTimeout(300);
+await p5.click('.ms'); await p5.waitForTimeout(300);
+check('comments: with the panel out, a go-live line takes the click like any other part',
+  !(await Q5(`document.getElementById('cpCompose').hidden`)) &&
+  (await Q5(`document.getElementById('cpOn').selectedOptions[0].textContent`)) === 'Go-live line: Go-live onboarding');
+await p5.fill('#cpText', 'Draft kept');
+await p5.setViewportSize({ width: 700, height: 900 }); await p5.waitForTimeout(400);
+await p5.click('#cpAdd'); await p5.waitForTimeout(300);
+check('comments: on a phone the panel tucks away while a part is chosen',
+  (await Q5(`getComputedStyle(document.getElementById('cpanel')).display`)) === 'none' && /Tap the part/.test(await Q5(`document.getElementById('toast').textContent`)));
+await p5.click('.brow--data[data-row="5"] .pill'); await p5.waitForTimeout(300);
+check('comments: and comes back with the form for that part, words kept',
+  (await Q5(`getComputedStyle(document.getElementById('cpanel')).display`)) !== 'none' &&
+  (await Q5(`document.getElementById('cpOn').selectedOptions[0].textContent`)) === 'Row: Referral programme' &&
+  (await Q5(`document.getElementById('cpText').value`)) === 'Draft kept');
+await p5.click('#cpCancel'); await p5.waitForTimeout(150);
+await p5.setViewportSize({ width: 1600, height: 1000 }); await p5.waitForTimeout(400);
+// a refresh with nothing new redraws nothing; one with news keeps the reply being typed, and its focus
+await p5.evaluate(() => { document.querySelector('.cthread').__mark = 1; });
+await p5.waitForTimeout(8000);
+check('comments: a refresh with nothing new leaves the list alone', await Q5(`document.querySelector('.cthread').__mark === 1`));
+await p5.click(`.cthread[data-cid="${cellThread}"] [data-cact="reply"]`); await p5.waitForTimeout(200);
+await p5.keyboard.type('Half typed');
+await p5.evaluate((o) => { window.__fakeDb.comments.push({ id: 'c-live-0', owner_id: o.owner, board_id: o.board, roadmap: 'product',
+  anchor: { kind: 'slide', label: 'Whole slide' }, body: 'A general note.', author_name: 'Giulia Neri', author_id: null,
+  parent_id: null, resolved: false, created_at: new Date().toISOString() }); window.__fakeSave(); }, { owner: ownerId, board: boardId });
+await p5.waitForTimeout(8000);
+check('comments: news in the list keeps the reply being typed, and the focus on it',
+  (await Q5(`!!document.querySelector('.cthread[data-cid="c-live-0"]')`)) &&
+  (await Q5(`document.activeElement && document.activeElement.dataset.for`)) === cellThread &&
+  (await Q5(`document.activeElement.value`)) === 'Half typed');
+await p5.keyboard.type(' p');
+check('comments: so the next keys still go into the reply, not to the shortcuts',
+  (await Q5(`document.activeElement.value`)) === 'Half typed p' && (await Q5(`document.getElementById('present').hidden`)));
+await p5.keyboard.press('Escape'); await p5.waitForTimeout(150);
+await p5.evaluate(() => { window.__fakeDb.comments = window.__fakeDb.comments.filter(c => c.id !== 'c-live-0'); window.__fakeSave(); });
+// the owner answers from elsewhere; the reader sees it on the next refresh
+await p5.evaluate((o) => { window.__fakeDb.comments.push({ id: 'c-live-1', owner_id: o.owner, board_id: o.board, roadmap: 'product',
+  anchor: { kind: 'title', label: 'Title' }, body: 'Thanks, I will look at it.', author_name: 'Piero Rossi', author_id: o.owner,
+  parent_id: null, resolved: false, created_at: new Date().toISOString() }); window.__fakeSave(); }, { owner: ownerId, board: boardId });
+await p5.waitForTimeout(8000);
+check('comments: the reader sees new comments without reloading', (await Q5(`document.querySelectorAll('.cthread').length`)) === 4);
+// comments turned off while somebody reads, with the panel closed: the marks go too
+await p5.click('#cpClose'); await p5.waitForTimeout(200);
+const marksBefore = await Q5(`document.querySelectorAll('.cbadge').length`);
+await p5.evaluate(() => { const s = window.__fakeDb.shares[0]; s.allow_comments = false; s.updated_at = new Date(Date.now() + 1000).toISOString(); window.__fakeSave(); });
+await p5.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await p5.waitForTimeout(700);
+check('comments: turned off by the owner, the button and every mark go away',
+  marksBefore > 0 && !(await Q5(`document.body.classList.contains('has-cpanel')`)) && (await Q5(`document.getElementById('btnComments').hidden`)) &&
+  (await Q5(`document.querySelectorAll('.cbadge').length`)) === 0, 'marks before: ' + marksBefore);
+await p5.click('.brow--data[data-row="4"] .pill'); await p5.waitForTimeout(300);
+check('comments: with comments off a click on the slide starts nothing', await Q5(`document.getElementById('cpCompose').hidden`));
+await p5.evaluate(() => { const s = window.__fakeDb.shares[0]; s.allow_comments = true; s.updated_at = new Date(Date.now() + 2000).toISOString(); window.__fakeSave(); });
+
+// ---- back to the owner ----
+await p5.addInitScript(() => { window.__fakeAnon = false; });
+await p5.goto(PAGE); await p5.waitForTimeout(1500);
+check('comments: the owner\'s count includes the reader\'s comments', (await Q5(`document.getElementById('cCount').textContent`)) === '4');
+await p5.click('#btnComments'); await p5.waitForTimeout(500);
+check('comments: the owner sees the reader\'s comment and the reply',
+  (await Q5(`document.querySelectorAll('.cthread').length`)) === 4 && /Marco Bianchi/.test(await Q5(`document.getElementById('cpList').textContent`)) &&
+  (await Q5(`document.querySelectorAll('.creply').length`)) === 1);
+check('comments: below 1820px the side panel steps aside while the comments are out',
+  await Q5(`document.body.classList.contains('sidebar-off')`));
+const rowThread = await Q5(`window.__fakeDb.comments[2].id`);
+await p5.click(`.cthread[data-cid="${rowThread}"] [data-cact="resolve"]`); await p5.waitForTimeout(500);
+check('comments: resolving saves it and takes the thread and its mark away',
+  (await Q5(`window.__fakeDb.comments.find(c=>c.id==='${rowThread}').resolved`)) === true &&
+  !(await Q5(`!!document.querySelector('.cthread[data-cid="${rowThread}"]')`)) &&
+  (await Q5(`document.getElementById('cCount').textContent`)) === '3' && (await Q5(`document.querySelectorAll('.cbadge').length`)) === 3);
+check('comments: resolved threads can be shown again', /Show resolved \(1\)/.test(await Q5(`document.getElementById('cpResolvedWrap').textContent`)) &&
+  !(await Q5(`document.getElementById('cpResolvedWrap').hidden`)));
+await p5.check('#cpResolved'); await p5.waitForTimeout(200);
+await p5.click(`.cthread[data-cid="${rowThread}"] [data-cact="reopen"]`); await p5.waitForTimeout(500);
+check('comments: a resolved thread can be reopened', (await Q5(`window.__fakeDb.comments.find(c=>c.id==='${rowThread}').resolved`)) === false);
+p5.once('dialog', d => d.accept());
+await p5.click(`.cthread[data-cid="${cellThread}"] [data-cact="delete"][data-cid="${cellThread}"]`); await p5.waitForTimeout(500);
+check('comments: deleting a thread deletes its replies too',
+  (await Q5(`window.__fakeDb.comments.filter(c=>c.id==='${cellThread}'||c.parent_id==='${cellThread}').length`)) === 0 &&
+  !(await Q5(`!!document.querySelector('.cthread[data-cid="${cellThread}"]')`)));
+// live: a comment left on the link reaches the owner while they look
+await p5.evaluate((o) => window.__fakeEmit('comments', 'INSERT', { id: 'c-live-2', owner_id: o.owner, board_id: o.board, roadmap: 'product',
+  anchor: { kind: 'legend', label: 'Legend' }, body: 'What does yellow mean?', author_name: 'Anna Verdi', author_id: null,
+  parent_id: null, resolved: false, created_at: new Date().toISOString() }), { owner: ownerId, board: boardId });
+await p5.waitForTimeout(300);
+check('comments: a comment left on the link reaches the owner live, with a note',
+  !!(await Q5(`document.querySelector('.cthread[data-cid="c-live-2"]')`)) && /Anna Verdi commented on/.test(await Q5(`document.getElementById('toast').textContent`)));
+await p5.evaluate(() => window.__fakeEmit('comments', 'DELETE', { id: 'c-live-2' })); await p5.waitForTimeout(300);
+check('comments: and one deleted elsewhere goes away live', !(await Q5(`!!document.querySelector('.cthread[data-cid="c-live-2"]')`)));
+// a row that goes keeps its comments, marked as removed
+const searchRow = await Q5(`[...document.querySelectorAll('.brow--data')].find(r=>/Advanced search/.test(r.textContent)).dataset.row`);
+await p5.hover(`.brow--data[data-row="${searchRow}"]`); await p5.waitForTimeout(350);
+await p5.click(`.brow--data[data-row="${searchRow}"] .rowtools button[data-act="del"]`); await p5.waitForTimeout(500);
+check('comments: a comment on a deleted row stays, marked as removed, with no mark on the slide',
+  /Removed from the slide: Advanced search/.test(await Q5(`document.querySelector('.cthread[data-cid="${rowThread}"]').textContent`)) &&
+  (await Q5(`document.querySelectorAll('.cbadge').length`)) === 2);
+await p5.evaluate((o) => window.__fakeEmit('comments', 'INSERT', { id: 'c-live-3', owner_id: o.owner, board_id: o.board, roadmap: 'product',
+  anchor: { kind: 'slide', label: 'Whole slide' }, body: 'Nice.', author_name: 'Luca Neri', author_id: null,
+  parent_id: null, resolved: false, created_at: new Date().toISOString() }), { owner: ownerId, board: boardId });
+await p5.waitForTimeout(200);
+check('comments: a comment note never pushes an Undo off the screen',
+  !!(await Q5(`document.querySelector('#toast .toast-act')`)) && !/Luca Neri/.test(await Q5(`document.getElementById('toast').textContent`)));
+await p5.click('#toast .toast-act'); await p5.waitForTimeout(400);
+check('comments: the note shows once the Undo toast has gone', /Luca Neri commented on/.test(await Q5(`document.getElementById('toast').textContent`)));
+await p5.evaluate(() => window.__fakeEmit('comments', 'DELETE', { id: 'c-live-3' })); await p5.waitForTimeout(200);
+check('comments: undoing the delete brings the row and its mark back',
+  !/Removed from the slide/.test(await Q5(`document.querySelector('.cthread[data-cid="${rowThread}"]').textContent`)) &&
+  (await Q5(`document.querySelectorAll('.cbadge').length`)) === 3);
+// the other roadmap keeps its own comments
+await p5.click('.vtab[data-view="design"]'); await p5.waitForTimeout(400);
+check('comments: each roadmap has its own comments, and the panel points to the other one',
+  (await Q5(`document.querySelectorAll('.cthread').length`)) === 0 && /Product roadmap has 3 open comments/.test(await Q5(`document.getElementById('cpOther').textContent`)) &&
+  (await Q5(`document.querySelectorAll('.cbadge').length`)) === 0);
+await p5.click('#cpOther [data-cview]'); await p5.waitForTimeout(400);
+check('comments: Show them goes to that roadmap', (await Q5(`document.querySelector('.vtab.is-on').dataset.view`)) === 'product' &&
+  (await Q5(`document.querySelectorAll('.cthread').length`)) === 3);
+// more comments than the service gives in one answer still all arrive
+await p5.evaluate((o) => {
+  const t0 = Date.now() - 3600000;
+  for (let i = 0; i < 1005; i++) window.__fakeDb.comments.push({ id: 'bulk-' + String(i).padStart(4, '0'), owner_id: o.owner, board_id: o.board,
+    roadmap: 'design', anchor: { kind: 'slide', label: 'Whole slide' }, body: 'n' + i, author_name: 'Bulk', author_id: null,
+    parent_id: null, resolved: false, created_at: new Date(t0 + i * 1000).toISOString() });
+  window.__fakeSave();
+  document.dispatchEvent(new Event('visibilitychange'));
+}, { owner: ownerId, board: boardId });
+await p5.waitForTimeout(800);
+check('comments: more than 1,000 comments come in pages, none read as deleted',
+  /Design roadmap has 1005 open comments/.test(await Q5(`document.getElementById('cpOther').textContent`)),
+  await Q5(`document.getElementById('cpOther').textContent`));
+await p5.evaluate(() => {
+  window.__fakeDb.comments = window.__fakeDb.comments.filter(c => !/^bulk-/.test(c.id)); window.__fakeSave();
+  document.dispatchEvent(new Event('visibilitychange'));
+});
+await p5.waitForTimeout(800);
+// a form left open follows the roadmap brought up, and says so
+await p5.keyboard.press('c'); await p5.waitForTimeout(200);
+await p5.click('.cell[data-row="0"][data-col="0"]'); await p5.waitForTimeout(300);
+await p5.fill('#cpText', 'For the design team.');
+await p5.click('.vtab[data-view="design"]'); await p5.waitForTimeout(400);
+check('comments: an open form follows the roadmap on screen, words kept',
+  /Now about the Design roadmap/.test(await Q5(`document.getElementById('cpMsg').textContent`)) &&
+  (await Q5(`document.getElementById('cpOn').selectedOptions[0].textContent`)) === 'Whole slide' &&
+  (await Q5(`document.getElementById('cpText').value`)) === 'For the design team.');
+await p5.click('#cpPost'); await p5.waitForTimeout(500);
+check('comments: and it is posted where it is shown',
+  (await Q5(`(()=>{const c=window.__fakeDb.comments.find(x=>x.body==='For the design team.');return !!c&&c.roadmap==='design'&&c.anchor.kind==='slide'})()`)) &&
+  (await Q5(`document.querySelectorAll('.cthread').length`)) === 1);
+await p5.click('.vtab[data-view="product"]'); await p5.waitForTimeout(400);
+// turning comments off from the share dialog
+await p5.click('#btnMore'); await p5.click('#mShare'); await p5.waitForTimeout(300);
+await p5.uncheck('#shareTalk'); await p5.waitForTimeout(500);
+check('comments: the owner can turn comments off for the link', (await Q5(`window.__fakeDb.shares[0].allow_comments`)) === false &&
+  /Comments are off/.test(await Q5(`document.getElementById('shareMsg').textContent`)));
+await p5.check('#shareTalk'); await p5.waitForTimeout(500);
+check('comments: and on again', (await Q5(`window.__fakeDb.shares[0].allow_comments`)) === true);
+await p5.keyboard.press('Escape'); await p5.waitForTimeout(150);
+
+// readable in both themes, with every kind of thing the panel shows
+await p5.click('.cthread[data-cid="c-live-1"] [data-cact="resolve"]'); await p5.waitForTimeout(300);
+await p5.check('#cpResolved'); await p5.waitForTimeout(200);
+await p5.click(`.cthread[data-cid="${rowThread}"] [data-cact="reply"]`); await p5.waitForTimeout(200);
+await p5.click('#cpAdd'); await p5.waitForTimeout(150);
+await p5.click('#cpWhole'); await p5.waitForTimeout(200);
+await p5.evaluate(() => { const m = document.getElementById('cpMsg'); m.textContent = 'Please write something first.'; m.classList.add('is-bad'); });
+const lightC = await Q5(CONTRAST);
+await p5.click('#btnUi'); await p5.waitForTimeout(300);
+const darkC = await Q5(CONTRAST);
+check('comments: the sweep sees the form, a reply box and a resolved thread',
+  await Q5(`!document.getElementById('cpCompose').hidden && !!document.querySelector('.ct-reply textarea') && !!document.querySelector('.cm-tag--done')`));
+check('comments: every label in the panel clears WCAG AA, light and dark',
+  lightC.bad.length === 0 && darkC.bad.length === 0 && lightC.seen > 40,
+  lightC.seen + '/' + darkC.seen + ' checked: ' + (lightC.bad.concat(darkC.bad).slice(0, 3).join(' | ') || 'none'));
+
+await p5.click('#cpClose'); await p5.waitForTimeout(200);
+check('comments: closing the panel gives the side panel back', !(await Q5(`document.body.classList.contains('sidebar-off')`)));
+// logging out takes the comments away
+await p5.click('#btnMore'); await p5.click('#mAuth'); await p5.waitForTimeout(700);
+check('comments: logging out takes the comments and the name away',
+  (await Q5(`document.getElementById('btnComments').hidden`)) && !(await Q5(`document.body.classList.contains('has-cpanel')`)) &&
+  (await Q5(`localStorage.getItem('roadmap-studio-v1:commenter')`)) === null && (await Q5(`document.querySelectorAll('.cbadge').length`)) === 0);
+await ctx5.close();
+
 // ---------- 12. RESPONSIVE ----------
 await p.setViewportSize({ width: 620, height: 900 }); await p.waitForTimeout(600);
 const narrow = await Q(`({
@@ -1567,4 +1815,5 @@ console.log(results.map(r => (r.pass ? 'PASS  ' : 'FAIL  ') + r.name + (r.detail
 console.log(`\n${results.length - fail.length}/${results.length} passed`);
 if (pageErrors.length) console.log('PAGE ERRORS:\n' + pageErrors.join('\n'));
 await b.close();
+if (server) server.close();
 process.exit(fail.length || pageErrors.length ? 1 : 0);

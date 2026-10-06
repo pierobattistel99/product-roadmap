@@ -83,6 +83,57 @@ How it works: the shared copy is a row of its own, refreshed by the same save
 that writes the quarter. The token in the link is the only way to reach it,
 the table cannot be listed, and the copy carries nothing about who owns it.
 
+## Comments
+
+Comments work the way they do on a shared deck: each one is pinned to a part
+of the slide, and they sit in a panel on the right of it.
+
+- **Somebody with the link** opens it and finds the Comments panel already
+  out (on a wide enough window; elsewhere `Comments` opens it). While it is
+  out, a click on any part of the slide (a row, a cell, a sprint header, a
+  go-live line, the title, the note, the legend) starts a comment about it;
+  with it closed, the slide is just for reading, and text can be selected.
+  The first time, they type their name, which their browser remembers. They
+  can reply to any thread. They cannot resolve or delete anything. On a
+  phone the panel tucks away while they choose a part, and comes back with
+  what they had typed.
+- **You, the owner**, see the same comments in the editor: `Comments` in the
+  top bar, or the `C` key. `+ Comment`, then a click on the slide, adds one of
+  your own; picking a target never edits or paints what is under the pointer.
+  You can reply, resolve (and reopen with *Show resolved*) and delete. A
+  comment left on the link reaches you within a second or two, with a note at
+  the bottom of the screen.
+
+A yellow mark with a number sits on each part of the slide that has open
+comments. Clicking it brings its thread forward, and selecting a thread lights
+up what it is about. The marks are for the screen only: they are never in the
+PNG, the PDF or the presentation. The *About* list in the form is the way to
+choose a target with the keyboard, and to comment on the whole slide.
+
+A comment holds on to rows, sprints and go-live lines by id, not by position,
+so moving a row moves its comments with it. When the part it is about is
+deleted, the comment stays in the panel marked *Removed from the slide*, and
+undoing the delete brings its mark back. Each roadmap of a quarter has its own
+comments; the panel says when the other one has some.
+
+People with the link may comment by default. The share dialog has *Let people
+with the link comment* to turn it off and on again; while it is off, readers
+see no comments and cannot add any, and the ones already left stay in your
+panel. Comments live in the `comments` table and are deleted with their
+quarter. Readers reach them only through two functions that take the link's
+token, `get_share_comments` and `add_share_comment`; the table itself is
+readable by its owner only.
+
+While the panel is out, the side panel steps aside on windows narrower than
+1820 pixels, so the slide keeps a usable size, and comes back when the panel
+closes.
+
+Comments arrive in pages of 1,000, the most the service gives in one answer,
+so a long list is never cut short. A reader's page asks for them with every
+refresh of the slide while the panel is out, and every third refresh while it
+is closed. The owner gets them live, with a full check every 30 seconds while
+the panel is out and every two minutes while it is closed.
+
 ## The look of the slide
 
 The first visit opens a short flow: choose the font, choose the colours (a
@@ -321,9 +372,15 @@ and Backspace keys, the library with undo, the row-height fit, the dense
 header, the onboarding flow and the look settings, presentation mode, PNG and
 PDF export, the sprint generator, persistence and the narrow-window rules. The
 account flow (sign up, live save, log out clears the device, log in brings the
-data back) runs against an in-memory stand-in for the Supabase client, so the
-suite needs no network. It exits non-zero on the first failure or page
+data back), share links and comments (pinning, replies, resolve, delete, the
+live note, a reader with no account) run against an in-memory stand-in for
+the Supabase client in `test/fake-supabase.mjs`, so the suite needs no
+network. It exits non-zero on the first failure or page
 JavaScript error.
+
+The suite serves `index.html` on a local port for the run rather than opening
+it as a file: Chromium now and then loses a file page's local storage across a
+reload, which made the persistence check fail at random.
 
 Where the CDNs are unreachable, pass `H2C_PATH` and `JSPDF_PATH` pointing at
 local copies of html2canvas and jsPDF; `CHROMIUM` points at another binary and
@@ -362,8 +419,14 @@ roadmap use `•••` and `Import a backup (JSON)`, then delete the example fr
 - PNG and PDF export use `html2canvas` and `jsPDF` from a CDN, and accounts
   need the Supabase client from a CDN: with no network, export and login do
   not work, and the tool runs on this device only.
-- A share link gives a read-only copy. There is no way to let someone else
-  edit a roadmap, and no comments.
+- A share link gives a read-only copy: people with it can comment, but there
+  is no way to let someone else edit a roadmap.
+- Nobody is emailed about a comment. The owner sees new ones in the editor,
+  live while it is open, and on the button's count otherwise.
+- A comment cannot be edited once posted. A reader cannot delete theirs; the
+  owner can delete any comment.
+- A reader's name is whatever they type: the link does not say who they are.
+- At most 2,000 comments per quarter and 2,000 characters per comment.
 - One link per quarter. To send two quarters, send two links.
 - A reader asks for the quarter again every seven seconds, so an edit shows up
   within about that. A tab in the background waits until it is looked at.

@@ -616,7 +616,148 @@ body.is-shared .workspace{grid-template-columns:minmax(0,1fr)}
 body.is-shared.is-loading .canvas-wrap,body.is-shared.is-loading .hint{visibility:hidden}
 /* A link that leads nowhere any more leaves nothing to look at or take away. */
 body.is-shared.is-nolink .canvas-wrap,body.is-shared.is-nolink .viewtabs,
-body.is-shared.is-nolink #btnPresent,body.is-shared.is-nolink #btnPng{display:none}
+body.is-shared.is-nolink #btnPresent,body.is-shared.is-nolink #btnPng,
+body.is-shared.is-nolink #btnComments,body.is-shared.is-nolink .cpanel{display:none}
+.share-opt{margin-top:14px}
+.share-note{margin:6px 0 0 23px}
+
+/* ---------- comments ---------- */
+.cbtn{gap:7px;padding:0 11px}
+.cbtn-ic{display:inline-flex;line-height:0}
+.cbtn-ic svg{display:block;width:16px;height:16px}
+.cbtn[aria-expanded="true"]{background:var(--ui-accent-soft);border-color:color-mix(in srgb,var(--ui-accent) 45%,transparent)}
+.ccount{
+  min-width:19px;height:19px;padding:0 6px;border-radius:10px;
+  background:var(--ui-accent);color:var(--ui-accent-ink);
+  font-size:11px;font-weight:700;line-height:19px;text-align:center;font-variant-numeric:tabular-nums;
+}
+.ccount[hidden]{display:none}
+/* On a laptop the bar keeps one row: the word goes, the icon and count stay. */
+@media (max-width:1520px){ .cbtn-word{display:none} }
+#btnAuth .who{display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* The panel sits on the right of the slide, the way comments sit beside a
+   deck. On a narrow window it slides over the slide instead. */
+.cpanel{
+  display:none;flex-direction:column;gap:12px;min-width:0;
+  background:var(--ui-panel);border-left:1px solid var(--ui-line-soft);
+  padding:16px 16px 44px;
+}
+body.has-cpanel .cpanel{display:flex}
+@media (min-width:1041px){
+  body.has-cpanel .workspace{grid-template-columns:320px minmax(0,1fr) 340px}
+  body.has-cpanel.sidebar-off .workspace,body.has-cpanel.is-shared .workspace,
+  body.has-cpanel.is-readonly .workspace{grid-template-columns:minmax(0,1fr) 340px}
+  .cpanel{
+    position:sticky;top:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
+    min-height:calc(100dvh - var(--topbar-h));max-height:calc(100dvh - var(--topbar-h));overflow-y:auto;
+  }
+}
+@media (max-width:1040px){
+  .cpanel{
+    position:fixed;right:0;bottom:0;top:calc(var(--topbar-h) + env(safe-area-inset-top,0px));
+    width:min(380px,100vw);z-index:45;overflow-y:auto;box-shadow:var(--ui-shadow-3);
+  }
+}
+.cp-head{display:flex;align-items:center;gap:8px}
+.cp-head h2{margin:0;flex:1;font-size:16px;font-weight:700;letter-spacing:-.02em}
+.cp-sub{margin:0;font-size:12.5px;line-height:1.45;color:var(--ui-muted)}
+.cp-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cp-tools .check[hidden]{display:none}
+.cp-pick{
+  display:flex;flex-direction:column;gap:9px;padding:11px 12px;border-radius:12px;
+  background:color-mix(in srgb,var(--ui-accent) 11%,var(--ui-panel));
+  border:1px solid color-mix(in srgb,var(--ui-accent) 32%,transparent);
+}
+.cp-pick[hidden]{display:none}
+.cp-pick p{margin:0;font-size:12.5px;font-weight:600;line-height:1.45;color:var(--ui-text)}
+.cp-compose{
+  display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:14px;
+  background:var(--ui-sunk);border:1px solid var(--ui-line);
+}
+.cp-compose[hidden]{display:none}
+.cp-compose .field[hidden]{display:none}
+.cp-compose select{width:100%}
+.cp-as{margin:0;font-size:12.5px;color:var(--ui-muted)}
+.cp-as[hidden]{display:none}
+.cp-as b{color:var(--ui-text)}
+.cp-link{
+  border:0;background:transparent;padding:0;margin-left:4px;cursor:pointer;
+  font-size:12.5px;font-weight:600;color:var(--ui-accent);text-decoration:underline;text-underline-offset:2px;
+}
+.cp-msg{margin:0;min-height:0;font-size:12.5px;font-weight:600;color:var(--ui-ok)}
+.cp-msg:empty{display:none}
+.cp-msg.is-bad{color:var(--ui-danger)}
+.cp-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.cp-empty{margin:0;font-size:12.5px;line-height:1.5;color:var(--ui-muted)}
+.cp-empty[hidden]{display:none}
+.cp-other{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  font-size:12.5px;color:var(--ui-muted);padding-top:9px;border-top:1px solid var(--ui-line-soft);
+}
+.cp-other[hidden]{display:none}
+.cthread{
+  display:flex;flex-direction:column;gap:9px;padding:11px 12px;cursor:pointer;
+  background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:14px;
+  box-shadow:var(--ui-shadow-1),var(--ui-hi);
+  transition:border-color .14s ease,box-shadow .14s ease;
+}
+.cthread:hover{border-color:var(--ui-line-strong)}
+.cthread.is-sel{border-color:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-ring)}
+.ct-on{
+  display:flex;align-items:center;gap:7px;width:100%;min-width:0;padding:0;border:0;background:transparent;
+  font-size:11.5px;font-weight:700;color:var(--ui-muted);text-align:left;cursor:pointer;
+}
+.ct-on::before{content:"";width:4px;height:15px;border-radius:2px;background:#f4b400;flex:none}
+.ct-on.is-gone::before{background:var(--ui-line-strong)}
+.ct-on .tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ct-on:hover .tx{color:var(--ui-text)}
+.cmsg{display:flex;flex-direction:column;gap:5px}
+.cm-head{display:flex;align-items:center;gap:8px;min-width:0}
+.cm-av{
+  width:26px;height:26px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;
+  font-size:10.5px;font-weight:800;letter-spacing:.02em;color:#fff;
+}
+.cm-name{font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-tag{
+  flex:none;font-size:10.5px;font-weight:700;line-height:17px;padding:0 6px;border-radius:6px;
+  background:var(--ui-accent-soft);color:var(--ui-accent);
+}
+.cm-tag--done{background:color-mix(in srgb,var(--ui-ok) 14%,transparent);color:var(--ui-ok)}
+.cm-time{margin-left:auto;flex:none;font-size:11.5px;color:var(--ui-faint);white-space:nowrap}
+.cm-body{margin:0;font-size:13px;line-height:1.5;color:var(--ui-text);white-space:pre-wrap;overflow-wrap:anywhere}
+.cm-del{
+  flex:none;border:0;background:transparent;color:var(--ui-faint);font-size:14px;line-height:1;
+  width:22px;height:22px;border-radius:6px;cursor:pointer;padding:0;
+}
+.cm-del:hover{background:var(--ui-danger-bg);color:#fff}
+.creply{padding-left:11px;border-left:2px solid var(--ui-line-soft)}
+.ct-acts{display:flex;gap:2px;flex-wrap:wrap;margin:0 -6px -4px}
+.ct-reply{display:flex;flex-direction:column;gap:8px}
+.ct-reply textarea{width:100%}
+
+/* Drawn on the slide while comments are open; never exported or presented.
+   Sizes are in slide pixels, like everything else on the slide. */
+.c-layer{position:absolute;inset:0;z-index:30;pointer-events:none}
+.c-box{position:absolute;border-radius:8px;pointer-events:none}
+.c-box[hidden]{display:none}
+.c-box--pick{outline:2.5px dashed var(--mark);outline-offset:3px;background:rgba(33,81,255,.06)}
+.c-box--peek{outline:2.5px solid rgba(244,180,0,.6);outline-offset:3px}
+.c-box--sel{outline:3px solid #f4b400;outline-offset:3px;background:rgba(244,180,0,.12)}
+.cbadge{
+  position:absolute;pointer-events:auto;min-width:32px;height:30px;padding:0 8px;
+  border:2px solid #fff;border-radius:15px 15px 15px 4px;background:#f4b400;color:#101012;
+  font:800 15px/26px "Figtree",ui-sans-serif,system-ui,sans-serif;text-align:center;cursor:pointer;
+  box-shadow:0 2px 8px rgba(16,16,18,.3);
+}
+.cbadge:hover,.cbadge.is-sel{background:#ffcd3c}
+.cbadge:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+.slide.is-export .c-layer,.slide.is-present .c-layer{display:none!important}
+/* Choosing what a comment is about: everything on the slide is a target. */
+body.c-pick .slide:not(.is-present),body.c-pick .slide:not(.is-present) *{cursor:pointer!important}
+body.c-pick .slide:not(.is-present) .ms,body.c-pick .slide:not(.is-present) .ms .cap{pointer-events:auto}
+body.c-pick .slide:not(.is-present) .ms::before{content:"";position:absolute;left:-8px;right:-8px;top:0;bottom:0}
+@media (max-width:1040px){ body.c-tucked .cpanel{display:none} }
 
 /* onboarding: a card in the corner, the slide stays visible and live */
 .onboard{position:fixed;inset:0;z-index:94;pointer-events:none}
@@ -803,6 +944,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     <div class="sync" id="sync" data-state="idle" aria-live="polite"></div>
     <button class="btn btn-icon" id="btnUi" title="Switch to the light theme" aria-label="Switch to the light theme"></button>
     <button class="btn" id="btnAuth" hidden>Log in</button>
+    <button class="btn cbtn" id="btnComments" hidden aria-expanded="false" aria-controls="cpanel" title="Comments (C)"><span class="cbtn-ic" id="cIcon"></span><span class="cbtn-word">Comments</span><span class="ccount" id="cCount" hidden></span></button>
     <button class="btn" id="btnPresent" title="Present full screen (P)">▶ Present</button>
     <button class="btn" id="btnCopy" title="Copy this slide as an image">Copy PNG</button>
     <button class="btn btn-primary" id="btnPng" title="Download this slide as an image">Download PNG</button>
@@ -989,6 +1131,48 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         <kbd>?</kbd> shows every shortcut.
       </p>
     </main>
+
+    <aside class="cpanel" id="cpanel" aria-labelledby="cpTitle">
+      <div class="cp-head">
+        <h2 id="cpTitle">Comments</h2>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" id="cpClose" title="Close the comments" aria-label="Close the comments">×</button>
+      </div>
+      <p class="cp-sub" id="cpSub"></p>
+      <div class="cp-tools">
+        <button type="button" class="btn btn-primary btn-sm" id="cpAdd">+ Comment</button>
+        <label class="check" id="cpResolvedWrap" hidden><input type="checkbox" id="cpResolved"> <span id="cpResolvedLabel">Show resolved</span></label>
+      </div>
+      <div class="cp-pick" id="cpPick" hidden>
+        <p id="cpPickText">Click the part of the slide you want to comment on.</p>
+        <div class="rowline">
+          <button type="button" class="btn btn-sm" id="cpWhole">Whole slide</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="cpPickCancel">Cancel</button>
+        </div>
+      </div>
+      <form class="cp-compose" id="cpCompose" hidden novalidate>
+        <div class="field">
+          <label for="cpOn">About</label>
+          <select id="cpOn"></select>
+        </div>
+        <div class="field" id="cpNameField">
+          <label for="cpName">Your name</label>
+          <input type="text" id="cpName" maxlength="80" autocomplete="name" placeholder="Shown next to your comments">
+        </div>
+        <p class="cp-as" id="cpAs" hidden>Commenting as <b id="cpAsName"></b> <button type="button" class="cp-link" id="cpAsChange">Change</button></p>
+        <div class="field">
+          <label for="cpText">Comment</label>
+          <textarea id="cpText" rows="3" maxlength="2000" placeholder="Add a comment"></textarea>
+        </div>
+        <p class="cp-msg" id="cpMsg" role="status"></p>
+        <div class="rowline">
+          <button type="submit" class="btn btn-primary btn-sm" id="cpPost">Comment</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="cpCancel">Cancel</button>
+        </div>
+      </form>
+      <ol class="cp-list" id="cpList"></ol>
+      <p class="cp-empty" id="cpEmpty" hidden></p>
+      <div class="cp-other" id="cpOther" hidden></div>
+    </aside>
   </div>
 </div>
 
@@ -1022,6 +1206,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       <dt><kbd>Delete</kbd></dt><dd>Delete the selected row</dd>
       <dt><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd></dt><dd>Undo (add <kbd>Shift</kbd> to redo)</dd>
       <dt><kbd>P</kbd></dt><dd>Present</dd>
+      <dt><kbd>C</kbd></dt><dd>Comment on a part of the slide</dd>
       <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>While presenting: previous or next slide</dd>
       <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>While presenting: previous or next quarter</dd>
       <dt><kbd>Esc</kbd></dt><dd>Stop presenting, leave a text field, or deselect</dd>
@@ -1428,8 +1613,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Store.boards = Store.boards.filter(function (b) { return b.id !== id; });
       Store.lsWrite();
       if (Store.mode === "cloud") {
-        /* The database drops the share along with the quarter it points at. */
+        /* The database drops the share and the comments along with the
+           quarter they point at. */
         delete Cloud.shares[id];
+        delete Cloud.shareComments[id];
+        Comments.list = Comments.list.filter(function (c) { return c.board !== id; });
         Store.cancel("share:" + id);
         if (Cloud.user && Cloud.loaded) Cloud.deleteBoard(id); else Cloud.pendingDeletes[id] = true;
         return;
@@ -1454,6 +1642,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     pendingDeletes: {}, failed: {}, leaving: false,
     /* board id -> share token, for the quarters this account has shared */
     shares: {},
+    /* board id -> whether people with that link may comment */
+    shareComments: {},
     hasFailures: function () { return Object.keys(Cloud.failed).length > 0; },
 
     available: function () {
@@ -1499,7 +1689,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         sb.from("profiles").select("theme,onboarding_done,ui_theme").eq("id", uid).maybeSingle(),
         /* Sharing is an extra. A deployment without the shares table still
            saves and loads, it simply cannot hand out links. */
-        sb.from("shares").select("token,board_id").eq("owner_id", uid)
+        sb.from("shares").select("token,board_id,allow_comments").eq("owner_id", uid)
           .then(function (r) { return r; }, function () { return { data: [], error: true }; })
       ]).then(function (res) {
         if (Cloud.user !== user) return;
@@ -1508,14 +1698,17 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         /* Only a read that worked replaces what we know: a failed one would
            otherwise turn every live link into "not shared" for the session. */
         if (!res[3].error) {
-          var seen = {};
-          (res[3].data || []).forEach(function (r) { seen[r.board_id] = r.token; });
+          var seen = {}, talk = {};
+          (res[3].data || []).forEach(function (r) { seen[r.board_id] = r.token; talk[r.board_id] = r.allow_comments !== false; });
           Cloud.shares = seen;
+          Cloud.shareComments = talk;
         }
         Cloud.loaded = true;
         Cloud.retryDelay = 0;
         Cloud.merge(res[0].data || [], res[1].data, res[2].data);
         Cloud.listen();
+        Comments.tick();
+        Comments.load();
         setSync("idle");
         /* Quarters deleted here while the account was not loaded go now. */
         Object.keys(Cloud.pendingDeletes).forEach(function (id) { Cloud.deleteBoard(id); });
@@ -1595,6 +1788,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Cloud.channel = Cloud.sb.channel("qm-" + uid)
         .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: "owner_id=eq." + uid }, Cloud.onBoardChange)
         .on("postgres_changes", { event: "*", schema: "public", table: "libraries", filter: "owner_id=eq." + uid }, Cloud.onLibraryChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "comments", filter: "owner_id=eq." + uid }, Comments.onChange)
         .subscribe();
     },
     onBoardChange: function (payload) {
@@ -1709,7 +1903,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           return Cloud.sb.from("shares")
             .upsert({ owner_id: uid, board_id: b.id, data: b, theme: Theme.current() },
                     { onConflict: "owner_id,board_id" })
-            .select("token");
+            .select("token,allow_comments");
         })
         .then(function (r) {
           if (r.error) throw r.error;
@@ -1718,7 +1912,19 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           /* Somebody else may have logged in while this was in flight. */
           if (!mine()) throw new Error("account changed");
           Cloud.shares[b.id] = token;
+          Cloud.shareComments[b.id] = r.data[0].allow_comments !== false;
           return token;
+        });
+    },
+    /* Whether people with the link may comment. The link itself stays. */
+    setShareComments: function (id, on) {
+      if (!Cloud.user || !Cloud.shares[id]) return Promise.reject(new Error("no link"));
+      var uid = Cloud.user.id;
+      return Cloud.sb.from("shares").update({ allow_comments: on })
+        .eq("owner_id", uid).eq("board_id", id)
+        .then(function (r) {
+          if (r && r.error) throw r.error;
+          if (Cloud.user && Cloud.user.id === uid) Cloud.shareComments[id] = on;
         });
     },
     /* The local note goes only once the row is really gone, or the dialog
@@ -1732,6 +1938,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         .then(function (r) {
           if (r && r.error) throw r.error;
           delete Cloud.shares[id];
+          delete Cloud.shareComments[id];
         });
     },
     deleteBoard: function (id) {
@@ -1754,8 +1961,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Cloud.pendingDeletes = {};
       Cloud.failed = {};
       Cloud.shares = {};
+      Cloud.shareComments = {};
       Store.mode = "local";
       Store._dirty = {};
+      Comments.reset(wipe);
       if (!wipe) {
         Store.lsWrite();
         setSync("error", "logged out");
@@ -1870,7 +2079,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var on = Cloud.available(), user = Cloud.user;
       var b = $("btnAuth");
       b.hidden = !on;
-      b.textContent = user ? (user.email || "Account") : "Log in";
+      /* A long address must not push the bar onto a second row. */
+      b.innerHTML = '<span class="who">' + esc(user ? (user.email || "Account") : "Log in") + "</span>";
       b.title = user ? "Logged in as " + (user.email || "") + ". The menu has Log out." : "Log in or create an account";
       var m = $("mAuth");
       m.hidden = !on;
@@ -1878,6 +2088,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var row = $("mAccountRow");
       row.hidden = !(on && user);
       row.textContent = user ? (user.email || "") : "";
+      Comments.sync();
     }
   };
 
@@ -1942,7 +2153,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     fetch: function () {
       if (!Cloud.sb || !Shared.token) return;
       clearTimeout(Shared.timer);
-      Cloud.sb.rpc("get_shared_board", { share_token: Shared.token }).then(function (r) {
+      Cloud.sb.rpc("get_shared_quarter", { share_token: Shared.token }).then(function (r) {
         if (r.error) throw r.error;
         var row = r.data && r.data[0];
         if (!row) {
@@ -1955,7 +2166,11 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         Shared.empties = 0;
         Shared.tries = 0;
         /* apply schedules its own retry when it cannot draw. */
-        if (Shared.apply(row)) Shared.again(SHARE_REFRESH);
+        if (!Shared.apply(row)) return;
+        Shared.again(SHARE_REFRESH);
+        /* The comments come on the same beat as the slide. */
+        Comments.setAllowed(row.allow_comments === true);
+        Comments.refresh(true);
       }).catch(function () {
         Shared.tries++;
         /* A failed ask says nothing about whether the link still exists. */
@@ -1981,6 +2196,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Shared.timer = null;
       document.body.classList.add("is-nolink");
       $("shareNotice").textContent = why;
+      Comments.sync();
     },
     /* Returns false when it dealt with a failure itself. */
     apply: function (row) {
@@ -2052,7 +2268,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         actions = '<button type="button" class="btn btn-primary" data-sh="login">Log in</button>' + close;
       } else if (token) {
         intro = "Anyone with this link can read " + name + ". They cannot change it, and they see your edits a few seconds after you make them.";
-        body = '<div class="share-link"><input type="text" id="shareUrl" readonly value="' + esc(ShareUI.link(token)) + '"></div>';
+        var talk = Cloud.shareComments[state.boardId] !== false;
+        body = '<div class="share-link"><input type="text" id="shareUrl" readonly value="' + esc(ShareUI.link(token)) + '"></div>' +
+          '<label class="check share-opt"><input type="checkbox" id="shareTalk"' + (talk ? " checked" : "") + "> Let people with the link comment</label>" +
+          '<p class="help share-note">Their comments are pinned to the part of the slide they are about, and you answer them in Comments.</p>';
         actions = '<button type="button" class="btn btn-primary" data-sh="copy">Copy the link</button>' +
                   '<button type="button" class="btn btn-danger" data-sh="stop">Stop sharing</button>' + close;
       } else {
@@ -2095,6 +2314,1064 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           ShareUI.busy = false; ShareUI.render(); ShareUI.say("It could not be withdrawn. Please try again.", true);
         });
       }
+    },
+    /* The box shows what the database holds: it only moves once the change
+       has landed, and goes back if it did not. */
+    talk: function (box) {
+      var id = state.boardId, on = box.checked;
+      if (ShareUI.busy) { box.checked = !on; return; }
+      ShareUI.busy = true;
+      box.disabled = true;
+      ShareUI.say(on ? "Turning comments on…" : "Turning comments off…");
+      Cloud.setShareComments(id, on).then(function () {
+        ShareUI.busy = false; box.disabled = false;
+        ShareUI.say(on ? "People with the link can comment now." : "Comments are off for this link. The ones already left stay in Comments.");
+      }).catch(function () {
+        ShareUI.busy = false; box.disabled = false; box.checked = !on;
+        ShareUI.say("That could not be changed. Please try again.", true);
+      });
+    }
+  };
+
+  /* ========================================================
+     2b-quater. Comments, pinned to a part of the slide the way
+     comments sit beside a shared deck. The owner reads and answers
+     them in the editor. Somebody reading a share link can add their
+     own when the owner allows it.
+     ======================================================== */
+
+  var COMMENT_MAX = 2000, NAME_MAX = 80, COMMENT_PAGE = 1000;
+  var PICK_HINT = "Tap the part of the slide you want to comment on.";
+  /* The owner's safety net under the live updates: every 30 seconds with the
+     panel out, every two minutes with it closed. */
+  var OWNER_REFRESH = 30000, OWNER_REFRESH_IDLE = 120000;
+  var COMMENT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">' +
+    '<path d="M20.5 11.6c0 4.2-3.8 7.6-8.5 7.6-1.1 0-2.2-.2-3.2-.6L4 20l1.3-3.7a7.2 7.2 0 0 1-1.8-4.7C3.5 7.4 7.3 4 12 4s8.5 3.4 8.5 7.6Z"/></svg>';
+  /* White initials on each of these clear 5:1. */
+  var AVATAR_COLORS = ["#1f5fd6", "#0a7a5a", "#b42318", "#6d3fd1", "#9a4b00", "#00728a", "#a3236b", "#3d5a80"];
+
+  function idxOf(list, id) {
+    if (!id || !list) return -1;
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return i;
+    return -1;
+  }
+  function sprintName(s) { return ((s.name || "") + " " + (s.quarter || "")).trim() || "Sprint"; }
+  function fullDate(iso) {
+    var t = Date.parse(iso || "");
+    return t ? new Date(t).toLocaleString() : "";
+  }
+  /* The words of an element, not its box: a title is a full-width block, but
+     a comment marker belongs at the end of what it says. */
+  function textRect(el) {
+    try {
+      var r = document.createRange();
+      r.selectNodeContents(el);
+      var b = r.getBoundingClientRect();
+      if (b.width && b.height) return b;
+    } catch (e) {}
+    return el.getBoundingClientRect();
+  }
+
+  var Comments = {
+    list: [], allowed: false, open: false, pickOn: false, draft: null, sel: null, peek: null, hoverA: null,
+    replyTo: null, replyMsg: null, showResolved: false, busy: false, inflight: false, timer: null, name: null,
+    autoOpened: false, foldedSidebar: false, gone: {}, pending: {}, seq: 0, opts: [],
+
+    /* Comments exist in the owner's account, or behind a share link whose
+       owner lets people comment. Nowhere else. */
+    on: function () {
+      if (Shared.is()) return Comments.allowed && !!Shared.stamp && !document.body.classList.contains("is-nolink");
+      return !!(Cloud.available() && Cloud.user);
+    },
+    canPost: function () { return Comments.on() && (Shared.is() || Cloud.loaded); },
+    /* While the panel is out, a reader has nothing else to do with a click
+       on the slide, so every click starts a comment. With it closed the
+       slide is theirs to read, select and copy from. In the editor a click
+       edits, so the owner asks for it first with + Comment. */
+    picking: function () {
+      if (present.on || !Comments.canPost()) return false;
+      return Comments.pickOn || (Shared.is() && Comments.open);
+    },
+    /* The outline that follows the pointer shows what a click would pick. */
+    hovering: function () { return Comments.picking(); },
+
+    myName: function () {
+      if (Comments.name === null) {
+        var n = "";
+        try { n = localStorage.getItem(LS_KEY + ":commenter") || ""; } catch (e) {}
+        Comments.name = n.trim().slice(0, NAME_MAX);
+      }
+      return Comments.name;
+    },
+    setName: function (n) {
+      Comments.name = String(n || "").trim().slice(0, NAME_MAX);
+      try { localStorage.setItem(LS_KEY + ":commenter", Comments.name); } catch (e) {}
+    },
+    /* A first guess for the owner, from the account email: piero.rossi@ -> Piero Rossi. */
+    guessName: function () {
+      if (Shared.is() || !Cloud.user || !Cloud.user.email) return "";
+      return Cloud.user.email.split("@")[0].split(/[._+-]+/).map(function (w) {
+        w = w.replace(/\d+/g, "");
+        return w ? w.charAt(0).toUpperCase() + w.slice(1) : "";
+      }).filter(Boolean).join(" ").slice(0, NAME_MAX);
+    },
+    initials: function (n) {
+      var parts = String(n || "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
+      var out = parts.map(function (w) { return Array.from(w)[0] || ""; }).join("").toUpperCase();
+      return out || "?";
+    },
+    color: function (n) {
+      var h = 0, s = String(n || "").toLowerCase();
+      for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return AVATAR_COLORS[h % AVATAR_COLORS.length];
+    },
+
+    /* One shape for a comment, whichever way it arrived. */
+    norm: function (r, boardId) {
+      var a = r.anchor && typeof r.anchor === "object" && !Array.isArray(r.anchor) ? r.anchor : {};
+      var mine = !Shared.is() && !!Cloud.user && r.author_id === Cloud.user.id;
+      return {
+        id: String(r.id), board: boardId || r.board_id, roadmap: VIEWS[r.roadmap] ? r.roadmap : "product",
+        anchor: a, body: String(r.body || ""), author: String(r.author_name || "").trim(),
+        mine: mine, byOwner: r.by_owner === true || mine,
+        parent: r.parent_id || null, resolved: !!r.resolved, at: r.created_at || new Date().toISOString()
+      };
+    },
+    get: function (id) { return Comments.list.filter(function (c) { return c.id === id; })[0] || null; },
+    threads: function (boardId, roadmap) {
+      return Comments.list.filter(function (c) {
+        return !c.parent && c.board === boardId && (!roadmap || c.roadmap === roadmap);
+      });
+    },
+    openCount: function (boardId, roadmap) {
+      return Comments.threads(boardId, roadmap).filter(function (t) { return !t.resolved; }).length;
+    },
+    /* What the button counts: the quarter on screen, less a roadmap a reader
+       has no tab for (the owner emptied it), whose comments they cannot reach. */
+    shownCount: function () {
+      var b = board();
+      return Object.keys(VIEWS).reduce(function (n, k) {
+        return n + (Shared.is() && !hasContent(b.views[k]) ? 0 : Comments.openCount(b.id, k));
+      }, 0);
+    },
+    /* Add or replace one comment. */
+    put: function (c) {
+      if (Comments.gone[c.id]) return;
+      var p = Comments.pending[c.id];
+      if (p) c.resolved = p.v;
+      c.fresh = Date.now();
+      var i = idxOf(Comments.list, c.id);
+      if (i < 0) Comments.list.push(c); else Comments.list[i] = c;
+    },
+    /* The list in one string: the same string means nothing to redraw. */
+    sig: function (list) {
+      return list.map(function (c) { return c.id + ":" + (c.resolved ? 1 : 0) + (c.byOwner ? 1 : 0); }).sort().join("|");
+    },
+    /* The server's answer replaces the list, except for what changed here
+       while the question was on its way: a comment posted or deleted here, and
+       a resolve the answer may be older than. */
+    replace: function (rows, since) {
+      var seen = {};
+      rows = rows.filter(function (c) { return !Comments.gone[c.id]; });
+      rows.forEach(function (c) {
+        seen[c.id] = true;
+        var p = Comments.pending[c.id];
+        if (!p) return;
+        /* Asked after the change had landed: the answer already holds it. */
+        if (p.done && since > p.done) { delete Comments.pending[c.id]; return; }
+        c.resolved = p.v;
+      });
+      var fresh = Comments.list.filter(function (c) { return !seen[c.id] && c.fresh && c.fresh >= since; });
+      var next = rows.concat(fresh);
+      if (Comments.sig(next) === Comments.sig(Comments.list)) { Comments.ticks(); return; }
+      Comments.list = next;
+      Comments.changed();
+    },
+    /* The times move on even when nothing else does. */
+    ticks: function () {
+      Array.prototype.forEach.call($("cpList").querySelectorAll("time.cm-time"), function (t) {
+        var v = ago(t.getAttribute("datetime"));
+        if (t.textContent !== v) t.textContent = v;
+      });
+    },
+
+    /* ---- what a comment is about ---- */
+    key: function (a) { return [a.kind || "slide", a.rowId || "", a.sprintId || "", a.msId || ""].join("|"); },
+    /* The part of the slide under a click, as something that survives rows
+       moving: ids, not positions. */
+    anchorAt: function (t) {
+      var slide = $("slide");
+      if (!t || !t.closest || !slide.contains(t) || t.closest(".c-layer")) return null;
+      var b = board(), v = view();
+      var ms = t.closest("[data-ms]");
+      if (ms && v.milestones[+ms.dataset.ms]) return { kind: "milestone", msId: v.milestones[+ms.dataset.ms].id };
+      var cell = t.closest(".cell[data-row][data-col]");
+      if (cell) {
+        var cr = v.rows[+cell.dataset.row], cs = b.sprints[+cell.dataset.col];
+        if (cr && cs) return { kind: "cell", rowId: cr.id, sprintId: cs.id };
+      }
+      var rowEl = t.closest(".brow--data[data-row]");
+      if (rowEl && v.rows[+rowEl.dataset.row]) return { kind: "row", rowId: v.rows[+rowEl.dataset.row].id };
+      var sp = t.closest("[data-sp]");
+      if (sp && b.sprints[+sp.dataset.sp]) return { kind: "sprint", sprintId: b.sprints[+sp.dataset.sp].id };
+      if (t.closest("#slideTitle")) return { kind: "title" };
+      if (t.closest("#slideNote")) return { kind: "note" };
+      if (t.closest(".legend")) return { kind: "legend" };
+      return { kind: "slide" };
+    },
+    /* Live words for the anchor, or the words saved with the comment when that
+       part of the slide has gone. */
+    describe: function (a, roadmap, boardId) {
+      var b = boardId ? (Store.boards.filter(function (x) { return x.id === boardId; })[0] || board()) : board();
+      var v = b.views[roadmap] || view();
+      var gone = function () { return { text: a.label || "a part of the slide", gone: true }; };
+      var ri, si, mi;
+      switch (a.kind) {
+        case "title": return { text: "Title", gone: false };
+        case "note": return b.note && b.note.show ? { text: "Note", gone: false } : gone();
+        case "legend": return b.legend && b.legend.show ? { text: "Legend", gone: false } : gone();
+        case "sprint":
+          si = idxOf(b.sprints, a.sprintId);
+          return si < 0 ? gone() : { text: sprintName(b.sprints[si]), gone: false };
+        case "row":
+          ri = idxOf(v.rows, a.rowId);
+          return ri < 0 ? gone() : { text: rowLabel(v.rows[ri]), gone: false };
+        case "cell":
+          ri = idxOf(v.rows, a.rowId); si = idxOf(b.sprints, a.sprintId);
+          return ri < 0 || si < 0 ? gone() : { text: rowLabel(v.rows[ri]) + " · " + sprintName(b.sprints[si]), gone: false };
+        case "milestone":
+          mi = idxOf(v.milestones, a.msId);
+          return mi < 0 ? gone() : { text: "Go-live line: " + (v.milestones[mi].label || "Go-live"), gone: false };
+        default: return { text: "Whole slide", gone: false };
+      }
+    },
+    /* Where the anchor is on the slide, in slide pixels, or null. */
+    rect: function (a) {
+      var slide = $("slide"), b = board(), v = view(), rects = [], el, i;
+      var add = function (r) { if (r && (r.width || r.height)) rects.push(r); };
+      switch (a.kind) {
+        case "title": el = $("slideTitle"); if (el && el.textContent.trim()) add(textRect(el)); break;
+        case "note": el = $("slideNote"); if (el && !el.hidden) add(el.getBoundingClientRect()); break;
+        case "legend":
+          el = slide.querySelector(".legend");
+          if (el && !el.hidden) Array.prototype.forEach.call(el.querySelectorAll(".lg"), function (x) { add(x.getBoundingClientRect()); });
+          break;
+        case "sprint":
+          i = idxOf(b.sprints, a.sprintId);
+          el = i < 0 ? null : slide.querySelector('.sprint[data-sp="' + i + '"]');
+          if (el) add(el.getBoundingClientRect());
+          break;
+        case "row":
+          i = idxOf(v.rows, a.rowId);
+          el = i < 0 ? null : slide.querySelector('.brow--data[data-row="' + i + '"] .pill');
+          if (el) add(el.getBoundingClientRect());
+          break;
+        case "cell":
+          i = idxOf(v.rows, a.rowId);
+          var c = idxOf(b.sprints, a.sprintId);
+          el = i < 0 || c < 0 ? null : slide.querySelector('.cell[data-row="' + i + '"][data-col="' + c + '"]');
+          if (el) add(el.getBoundingClientRect());
+          break;
+        case "milestone":
+          i = idxOf(v.milestones, a.msId);
+          el = i < 0 ? null : slide.querySelector('.ms[data-ms="' + i + '"]');
+          if (el) {
+            add(el.getBoundingClientRect());
+            var cap = el.querySelector(".cap");
+            if (cap && cap.textContent.trim()) add(textRect(cap));
+          }
+          break;
+      }
+      if (!rects.length) return null;
+      var sr = slide.getBoundingClientRect(), k = sr.width / SLIDE_W || 1;
+      var x1 = Math.min.apply(null, rects.map(function (r) { return r.left; }));
+      var y1 = Math.min.apply(null, rects.map(function (r) { return r.top; }));
+      var x2 = Math.max.apply(null, rects.map(function (r) { return r.right; }));
+      var y2 = Math.max.apply(null, rects.map(function (r) { return r.bottom; }));
+      return { x: (x1 - sr.left) / k, y: (y1 - sr.top) / k, w: (x2 - x1) / k, h: (y2 - y1) / k };
+    },
+    /* Reading order of the slide: the whole slide first, then top to bottom. */
+    rank: function (t) {
+      var b = board(), v = b.views[t.roadmap] || view(), a = t.anchor;
+      var ri = idxOf(v.rows, a.rowId), si = idxOf(b.sprints, a.sprintId), mi = idxOf(v.milestones, a.msId);
+      switch (a.kind) {
+        case "title": return [1, 0, 0];
+        case "note": return [2, 0, 0];
+        case "sprint": return si < 0 ? [9, 0, 0] : [3, si, 0];
+        case "row": return ri < 0 ? [9, 0, 0] : [4, ri, -1];
+        case "cell": return ri < 0 || si < 0 ? [9, 0, 0] : [4, ri, si];
+        case "milestone": return mi < 0 ? [9, 0, 0] : [5, mi, 0];
+        case "legend": return [6, 0, 0];
+        default: return [0, 0, 0];
+      }
+    },
+    sorted: function (list) {
+      return list.map(function (t) { return { t: t, r: Comments.rank(t) }; }).sort(function (x, y) {
+        for (var i = 0; i < 3; i++) if (x.r[i] !== y.r[i]) return x.r[i] - y.r[i];
+        return Date.parse(x.t.at) - Date.parse(y.t.at);
+      }).map(function (x) { return x.t; });
+    },
+
+    /* ---- the marks on the slide ---- */
+    decorate: function () {
+      var slide = $("slide");
+      if (!slide) return;
+      var old = slide.querySelector(".c-layer");
+      if (old) old.remove();
+      if (present.on || !Comments.on() || !Store.boards.length) return;
+      var b = board(), groups = {}, order = [];
+      Comments.threads(b.id, state.view).forEach(function (t) {
+        if (t.resolved || t.anchor.kind === "slide" || !t.anchor.kind) return;
+        var k = Comments.key(t.anchor);
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(t);
+      });
+      var html = '<div class="c-box c-box--pick" hidden></div><div class="c-box c-box--peek" hidden></div><div class="c-box c-box--sel" hidden></div>';
+      order.forEach(function (k) {
+        var ts = Comments.sorted(groups[k]), r = Comments.rect(ts[0].anchor);
+        if (!r) return;
+        /* On the corner of a box; just after the words of a title or caption,
+           so the mark never sits on the last letters. */
+        var kind = ts[0].anchor.kind, words = kind === "title" || kind === "milestone";
+        var x = Math.max(4, Math.min(SLIDE_W - 38, words ? r.x + r.w + 6 : r.x + r.w - 16));
+        var y = Math.max(4, Math.min(SLIDE_H - 34, words ? r.y - 10 : r.y - 15));
+        var sel = ts.some(function (t) { return t.id === Comments.sel; });
+        var what = Comments.describe(ts[0].anchor, state.view).text;
+        var label = ts.length + (ts.length === 1 ? " comment on " : " comments on ") + what;
+        html += '<button type="button" class="cbadge' + (sel ? " is-sel" : "") + '" data-cthread="' + esc(ts[0].id) + '"' +
+          ' style="left:' + Math.round(x) + "px;top:" + Math.round(y) + 'px" aria-label="' + esc(label) + '" title="' + esc(label) + '">' + ts.length + "</button>";
+      });
+      var layer = document.createElement("div");
+      layer.className = "c-layer";
+      layer.innerHTML = html;
+      slide.appendChild(layer);
+      Comments.paintBoxes();
+    },
+    /* Layout that moves without a redraw (a title wrapping as it is typed,
+       a line dragged) catches up on the next frame. */
+    soon: function () {
+      if (Comments._raf) return;
+      Comments._raf = requestAnimationFrame(function () { Comments._raf = 0; Comments.decorate(); });
+    },
+    box: function (cls, a) {
+      var slide = $("slide"), el = slide && slide.querySelector(".c-box--" + cls);
+      if (!el) return;
+      var r = a && a.kind && a.kind !== "slide" ? Comments.rect(a) : null;
+      if (!r && a && a.kind === "slide") r = { x: 14, y: 14, w: SLIDE_W - 28, h: SLIDE_H - 28 };
+      el.hidden = !r;
+      if (!r) return;
+      el.style.left = Math.round(r.x) + "px"; el.style.top = Math.round(r.y) + "px";
+      el.style.width = Math.round(r.w) + "px"; el.style.height = Math.round(r.h) + "px";
+    },
+    here: function (c) { return !!c && Store.boards.length && c.board === board().id && c.roadmap === state.view; },
+    paintBoxes: function () {
+      if (!Store.boards.length) return;
+      var sel = Comments.sel ? Comments.get(Comments.sel) : null;
+      var d = Comments.draft;
+      var selA = Comments.here(sel) ? sel.anchor : (d && d.board === board().id && d.roadmap === state.view ? d.anchor : null);
+      var peek = Comments.peek ? Comments.get(Comments.peek) : null;
+      Comments.box("sel", selA);
+      Comments.box("peek", Comments.here(peek) && peek.id !== Comments.sel ? peek.anchor : null);
+      Comments.box("pick", Comments.hovering() ? Comments.hoverA : null);
+    },
+
+    /* ---- the button and the panel ---- */
+    sync: function () {
+      var on = Comments.on(), btn = $("btnComments");
+      btn.hidden = !on;
+      if (!on && Comments.open) Comments.show(false);
+      var n = on && Store.boards.length ? Comments.shownCount() : 0;
+      $("cCount").textContent = n;
+      $("cCount").hidden = !n;
+      btn.setAttribute("aria-label", n ? "Comments, " + n + " open" : "Comments");
+      /* Whenever a click picks, every part of the slide must take it: a
+         go-live line included, which otherwise lets clicks through. */
+      document.body.classList.toggle("c-pick", Comments.picking());
+    },
+    show: function (on) {
+      on = on === undefined ? !Comments.open : !!on;
+      if (on && !Comments.on()) return;
+      if (on === Comments.open) { if (on) Comments.render(); return; }
+      Comments.open = on;
+      document.body.classList.toggle("has-cpanel", on);
+      $("btnComments").setAttribute("aria-expanded", String(on));
+      var body = document.body;
+      if (on) {
+        /* Beside the side panel the slide would shrink below a usable size on
+           most laptops, so the side panel steps aside while comments are out. */
+        if (!Shared.is() && !body.classList.contains("sidebar-off") && window.innerWidth < 1820 && window.innerWidth > 1040) {
+          body.classList.add("sidebar-off");
+          $("btnPanel").setAttribute("aria-expanded", "false");
+          Comments.foldedSidebar = true;
+        }
+        Comments.load();
+      } else {
+        Comments.tuck(false);
+        Comments.pickOn = false; Comments.draft = null; Comments.replyTo = null;
+        Comments.sel = null; Comments.peek = null; Comments.hoverA = null;
+        $("cpCompose").hidden = true;
+        if (Comments.foldedSidebar && body.classList.contains("sidebar-off")) {
+          body.classList.remove("sidebar-off");
+          $("btnPanel").setAttribute("aria-expanded", "true");
+        }
+        Comments.foldedSidebar = false;
+      }
+      Comments.render();
+      Comments.decorate();
+      fitSlide(true);
+    },
+    say: function (msg, bad, el) {
+      el = el || $("cpMsg");
+      if (!el) return;
+      el.textContent = msg || "";
+      el.classList.toggle("is-bad", !!bad);
+    },
+    render: function () {
+      Comments.sync();
+      $("cpPick").hidden = !(Comments.open && Comments.pickOn);
+      if (!Comments.open || !Store.boards.length) return;
+      Comments.follow();
+      var b = board(), v = state.view, reader = Shared.is();
+      /* On a narrow window the panel covers the slide, so the way in is + Comment. */
+      $("cpSub").textContent = "On the " + roadmapName(v) + ". " + (reader && window.innerWidth > 1040
+        ? "Click any part of the slide to comment on it."
+        : "Click + Comment, then the part of the slide you want to talk about.");
+      $("cpAdd").disabled = !Comments.canPost();
+      var all = Comments.threads(b.id, v);
+      var resolved = all.filter(function (t) { return t.resolved; }).length;
+      $("cpResolvedWrap").hidden = !resolved;
+      $("cpResolved").checked = Comments.showResolved;
+      $("cpResolvedLabel").textContent = "Show resolved (" + resolved + ")";
+      var shown = Comments.sorted(all.filter(function (t) {
+        return Comments.showResolved || !t.resolved || t.id === Comments.sel;
+      }));
+      /* A reply being typed, and whatever had the focus, survive a redraw of
+         the list: a focus lost to the page would turn the next keys into
+         shortcuts. */
+      var host = $("cpList"), keep = Comments.keepFocus(host);
+      var rf = host.querySelector(".ct-reply"), draft = null;
+      if (rf) {
+        var rt = rf.querySelector("textarea"), rn = rf.querySelector("input");
+        draft = { id: rt.dataset.for, text: rt.value, name: rn ? rn.value : null };
+      }
+      var kids = Comments.byParent();
+      host.innerHTML = shown.map(function (t) { return Comments.threadHtml(t, kids[t.id] || []); }).join("");
+      if (draft) {
+        var nf = host.querySelector('.ct-reply textarea[data-for="' + draft.id + '"]');
+        if (nf) {
+          nf.value = draft.text;
+          var nn = nf.closest(".ct-reply").querySelector("input");
+          if (nn && draft.name !== null) nn.value = draft.name;
+        }
+      }
+      Comments.giveFocus(host, keep);
+      var empty = $("cpEmpty");
+      empty.hidden = shown.length > 0;
+      empty.textContent = all.length ? "Every comment here is resolved." : "No comments on the " + roadmapName(v) + " yet.";
+      var ov = v === "product" ? "design" : "product";
+      var on = Comments.openCount(b.id, ov), other = $("cpOther");
+      other.hidden = !on || (reader && !hasContent(b.views[ov]));
+      if (on) {
+        other.innerHTML = "<span>The " + esc(roadmapName(ov)) + " has " + on + (on === 1 ? " open comment." : " open comments.") + "</span>" +
+          '<button type="button" class="btn btn-sm" data-cview="' + ov + '">Show ' + (on === 1 ? "it" : "them") + "</button>";
+      }
+    },
+    /* Where the focus is in the list, said in a way that survives a redraw. */
+    keepFocus: function (host) {
+      var ae = document.activeElement;
+      if (!ae || !host.contains(ae)) return null;
+      var li = ae.closest("[data-cid]");
+      return {
+        cid: li ? li.dataset.cid : null, act: ae.dataset.cact || null, sub: ae.dataset.cid || null,
+        tag: ae.tagName, on: ae.classList.contains("ct-on"),
+        s: typeof ae.selectionStart === "number" ? ae.selectionStart : null, e: ae.selectionEnd
+      };
+    },
+    giveFocus: function (host, k) {
+      if (!k || !k.cid) return;
+      var li = host.querySelector('.cthread[data-cid="' + k.cid + '"]'), el = null;
+      /* The thread itself went (resolved, deleted): the next one takes the
+         focus, or + Comment when the list is empty. */
+      if (!li) { el = host.querySelector(".cthread .ct-on") || $("cpAdd"); if (!el.disabled) el.focus(); return; }
+      if (k.tag === "TEXTAREA") el = li.querySelector(".ct-reply textarea");
+      else if (k.tag === "INPUT") el = li.querySelector(".ct-reply input");
+      else if (k.on) el = li.querySelector(".ct-on");
+      else if (k.act) el = li.querySelector('[data-cact="' + k.act + '"]' + (k.sub ? '[data-cid="' + k.sub + '"]' : ""));
+      if (!el && k.act === "reply") el = li.querySelector(".ct-reply textarea");
+      /* What had the focus went with the redraw (a reply form closed): the
+         thread keeps it, never the page. */
+      if (!el) el = li.querySelector('[data-cact="reply"]') || li.querySelector(".ct-on");
+      if (!el) return;
+      el.focus();
+      if (k.s !== null && el.setSelectionRange) { try { el.setSelectionRange(k.s, k.e); } catch (e) {} }
+    },
+    /* Replies grouped by thread once per redraw, not searched for each thread. */
+    byParent: function () {
+      var out = {};
+      Comments.list.forEach(function (c) { if (c.parent) (out[c.parent] = out[c.parent] || []).push(c); });
+      Object.keys(out).forEach(function (k) { out[k].sort(function (a, b) { return Date.parse(a.at) - Date.parse(b.at); }); });
+      return out;
+    },
+    msgHtml: function (c, root) {
+      var tag = Shared.is() ? (c.byOwner ? "Owner" : "") : (c.mine ? "You" : "");
+      var del = !Shared.is() && !root
+        ? '<button type="button" class="cm-del" data-cact="delete" data-cid="' + esc(c.id) + '" title="Delete this reply" aria-label="Delete this reply">×</button>' : "";
+      return '<div class="cmsg"><div class="cm-head">' +
+        '<span class="cm-av" style="background:' + Comments.color(c.author) + '" aria-hidden="true">' + esc(Comments.initials(c.author)) + "</span>" +
+        '<span class="cm-name">' + esc(c.author || "Someone") + "</span>" +
+        (tag ? '<span class="cm-tag">' + tag + "</span>" : "") +
+        '<time class="cm-time" datetime="' + esc(c.at) + '" title="' + esc(fullDate(c.at)) + '">' + esc(ago(c.at)) + "</time>" +
+        del + "</div>" +
+        '<p class="cm-body">' + esc(c.body) + "</p></div>";
+    },
+    threadHtml: function (t, replies) {
+      var d = Comments.describe(t.anchor, t.roadmap, t.board), owner = !Shared.is();
+      var html = '<li class="cthread' + (t.id === Comments.sel ? " is-sel" : "") + (t.resolved ? " is-resolved" : "") + '" data-cid="' + esc(t.id) + '">' +
+        '<button type="button" class="ct-on' + (d.gone ? " is-gone" : "") + '" data-cact="show" title="Show it on the slide">' +
+        '<span class="tx">' + (d.gone ? "Removed from the slide: " : "") + esc(d.text) + "</span>" +
+        (t.resolved ? '<span class="cm-tag cm-tag--done">Resolved</span>' : "") + "</button>" +
+        Comments.msgHtml(t, true);
+      replies.forEach(function (r) { html += '<div class="creply">' + Comments.msgHtml(r, false) + "</div>"; });
+      var acts = "";
+      if (Comments.canPost() && !t.resolved && Comments.replyTo !== t.id) acts += '<button type="button" class="btn btn-ghost btn-sm" data-cact="reply">Reply</button>';
+      if (owner) {
+        acts += t.resolved
+          ? '<button type="button" class="btn btn-ghost btn-sm" data-cact="reopen">Reopen</button>'
+          : '<button type="button" class="btn btn-ghost btn-sm" data-cact="resolve">Resolve</button>';
+        acts += '<button type="button" class="btn btn-ghost btn-sm" data-cact="delete" data-cid="' + esc(t.id) + '">Delete</button>';
+      }
+      if (acts) html += '<div class="ct-acts">' + acts + "</div>";
+      if (Comments.replyTo === t.id && Comments.canPost()) {
+        var needName = !Comments.myName();
+        html += '<form class="ct-reply" novalidate>' +
+          (needName ? '<input type="text" maxlength="' + NAME_MAX + '" placeholder="Your name" aria-label="Your name" value="' + esc(Comments.guessName()) + '">' : "") +
+          '<textarea rows="2" maxlength="' + COMMENT_MAX + '" placeholder="Reply" aria-label="Reply" data-for="' + esc(t.id) + '"></textarea>' +
+          (function (m) {
+            return '<p class="cp-msg' + (m && m.bad ? " is-bad" : "") + '" role="status">' + esc(m ? m.text : "") + "</p>";
+          })(Comments.replyMsg && Comments.replyMsg.id === t.id ? Comments.replyMsg : null) +
+          '<div class="rowline"><button type="submit" class="btn btn-primary btn-sm">Reply</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-cact="reply-cancel">Cancel</button></div></form>';
+      }
+      return html + "</li>";
+    },
+
+    /* ---- choosing a part of the slide ---- */
+    startPick: function () {
+      if (!Comments.on()) return;
+      if (!Comments.canPost()) { toast("Your account is still loading. Please try again in a moment."); return; }
+      /* On a narrow window the panel covers the slide: it tucks away while a
+         part is chosen, with whatever is typed in it, and comes back with
+         the form. */
+      var narrow = window.innerWidth <= 1040;
+      if (!Comments.open) Comments.show(true);
+      if (narrow) Comments.tuck(true);
+      var ae = document.activeElement;
+      if (ae && ae !== document.body && $("slide").contains(ae)) ae.blur();
+      hideTip();
+      Comments.pickOn = true;
+      Comments.render();
+      Comments.paintBoxes();
+      if (narrow) toast(PICK_HINT);
+    },
+    tuck: function (on) { document.body.classList.toggle("c-tucked", !!on); },
+    cancelPick: function () {
+      Comments.tuck(false);
+      if (!Comments.pickOn) return;
+      Comments.pickOn = false;
+      Comments.hoverA = null;
+      Comments.render();
+      Comments.paintBoxes();
+    },
+    hoverAt: function (t) {
+      var a = Comments.hovering() ? Comments.anchorAt(t) : null;
+      if ((a && Comments.hoverA && Comments.key(a) === Comments.key(Comments.hoverA)) || (!a && !Comments.hoverA)) return;
+      Comments.hoverA = a;
+      Comments.box("pick", a);
+    },
+    pickAt: function (t) {
+      var a = Comments.anchorAt(t);
+      if (!a) return;
+      Comments.pickOn = false;
+      Comments.compose(a);
+    },
+    /* The choices in the About list: everything on the slide a comment can sit on. */
+    options: function (a) {
+      var b = board(), v = view(), out = [{ a: { kind: "slide" }, t: "Whole slide" }, { a: { kind: "title" }, t: "Title" }];
+      if (b.note && b.note.show) out.push({ a: { kind: "note" }, t: "Note" });
+      v.rows.forEach(function (r) { if (!isBlankRow(r)) out.push({ a: { kind: "row", rowId: r.id }, t: "Row: " + rowLabel(r) }); });
+      b.sprints.forEach(function (s) { out.push({ a: { kind: "sprint", sprintId: s.id }, t: "Sprint: " + sprintName(s) }); });
+      v.milestones.forEach(function (m) { out.push({ a: { kind: "milestone", msId: m.id }, t: "Go-live line: " + (m.label || "Go-live") }); });
+      if (b.legend && b.legend.show && v.rows.some(function (r) { return r.accent !== "none"; })) out.push({ a: { kind: "legend" }, t: "Legend" });
+      if (a && a.kind === "cell") out.splice(1, 0, { a: a, t: "Cell: " + Comments.describe(a, state.view).text });
+      return out;
+    },
+    about: function (a) {
+      Comments.opts = Comments.options(a);
+      var k = Comments.key(a);
+      $("cpOn").innerHTML = Comments.opts.map(function (o, i) {
+        return '<option value="' + i + '"' + (Comments.key(o.a) === k ? " selected" : "") + ">" + esc(o.t.length > 70 ? o.t.slice(0, 69) + "…" : o.t) + "</option>";
+      }).join("");
+    },
+    /* The form is about what is on screen. Another quarter or roadmap brought
+       up while it is open makes it about that one, as a whole, words kept. */
+    follow: function () {
+      var d = Comments.draft;
+      if (!d || !Store.boards.length || (d.board === board().id && d.roadmap === state.view)) return;
+      Comments.draft = { anchor: { kind: "slide" }, roadmap: state.view, board: board().id };
+      Comments.about(Comments.draft.anchor);
+      Comments.say("Now about the " + roadmapName() + ". Choose the part in About.");
+    },
+    compose: function (a) {
+      if (!Comments.canPost()) return;
+      if (!Comments.open) Comments.show(true);
+      var wasOpen = !!Comments.draft && !$("cpCompose").hidden;
+      var keepText = Comments.draft ? $("cpText").value : "";
+      Comments.draft = { anchor: a, roadmap: state.view, board: board().id };
+      Comments.hoverA = null;
+      Comments.sel = null;
+      Comments.about(a);
+      var name = Comments.myName();
+      /* A form already open keeps what is typed in it, the name included:
+         choosing another part is not starting again. */
+      if (!wasOpen) {
+        $("cpNameField").hidden = !!name;
+        $("cpName").value = name || Comments.guessName();
+        $("cpAs").hidden = !name;
+        $("cpAsName").textContent = name;
+        $("cpText").value = keepText;
+      }
+      Comments.tuck(false);
+      /* The hint has done its job once the form is back. */
+      if (!$("toast").hidden && $("toast").textContent === PICK_HINT) hideToast();
+      Comments.say("");
+      $("cpCompose").hidden = false;
+      Comments.render();
+      Comments.paintBoxes();
+      var f = $("cpNameField").hidden || $("cpName").value.trim() ? $("cpText") : $("cpName");
+      setTimeout(function () { f.focus(); }, 0);
+    },
+    cancelDraft: function () {
+      Comments.draft = null;
+      $("cpCompose").hidden = true;
+      Comments.say("");
+      Comments.paintBoxes();
+    },
+    friendly: function (err) {
+      var m = String((err && (err.message || err.details)) || err || "");
+      if (/not active/i.test(m)) return "This link is not active any more.";
+      if (/comments are off/i.test(m)) return "The owner has turned comments off for this link.";
+      if (/too many comments/i.test(m)) return "This roadmap has too many comments. Ask the owner to delete some.";
+      if (/no such thread/i.test(m)) return "That comment was deleted in the meantime.";
+      if (/fetch|network/i.test(m)) return "No connection. Please check your network and try again.";
+      return "The comment could not be posted. Please try again.";
+    },
+    /* Both forms check the same things before anything is sent. The answer
+       is what is wrong, or nothing. */
+    check: function (text, name) {
+      if (!name) return "Please type your name first.";
+      if (!text) return "Please write something first.";
+      if (text.length > COMMENT_MAX) return "Please keep it under " + COMMENT_MAX + " characters.";
+      return "";
+    },
+    submit: function () {
+      var d = Comments.draft;
+      if (!d || Comments.busy) return;
+      var text = $("cpText").value.trim();
+      var name = $("cpNameField").hidden ? Comments.myName() : $("cpName").value.trim().slice(0, NAME_MAX);
+      var wrong = Comments.check(text, name);
+      if (wrong) {
+        Comments.say(wrong, true);
+        (name ? $("cpText") : $("cpName")).focus();
+        return;
+      }
+      Comments.setName(name);
+      var pick = Comments.opts[+$("cpOn").value];
+      var a = clone(pick ? pick.a : d.anchor);
+      a.label = Comments.describe(a, d.roadmap, d.board).text.slice(0, 120);
+      Comments.busy = true;
+      $("cpPost").disabled = true;
+      Comments.say("Posting…");
+      Comments.post({ board: d.board, roadmap: d.roadmap, anchor: a, body: text, parent: null }).then(function (c) {
+        Comments.busy = false;
+        $("cpPost").disabled = false;
+        Comments.draft = null;
+        $("cpCompose").hidden = true;
+        $("cpText").value = "";
+        Comments.say("");
+        Comments.sel = c.id;
+        Comments.changed();
+      }, function (err) {
+        Comments.busy = false;
+        $("cpPost").disabled = false;
+        Comments.say(Comments.friendly(err), true);
+        Comments.afterFailure(err);
+      });
+    },
+    /* Says it in the reply form of that thread as it is now: the form may
+       have been redrawn while the reply was on its way. */
+    replySay: function (id, text, bad) {
+      Comments.replyMsg = text ? { id: id, text: text, bad: !!bad } : null;
+      var li = $("cpList").querySelector('.cthread[data-cid="' + id + '"]');
+      var msg = li && li.querySelector(".ct-reply .cp-msg");
+      if (msg) Comments.say(text, bad, msg);
+    },
+    reply: function (form) {
+      var li = form.closest("[data-cid]");
+      if (!li || Comments.busy) return;
+      var id = li.dataset.cid, ta = form.querySelector("textarea"), nm = form.querySelector("input");
+      var text = ta.value.trim(), name = nm ? nm.value.trim().slice(0, NAME_MAX) : Comments.myName();
+      var wrong = Comments.check(text, name);
+      if (wrong) { Comments.replySay(id, wrong, true); (name ? ta : nm).focus(); return; }
+      var t = Comments.get(id);
+      if (!t) return;
+      Comments.setName(name);
+      Comments.busy = true;
+      Comments.replySay(id, "Posting…");
+      Comments.post({ board: t.board, roadmap: t.roadmap, anchor: t.anchor, body: text, parent: t.id }).then(function () {
+        Comments.busy = false;
+        Comments.replyMsg = null;
+        if (Comments.replyTo === id) Comments.replyTo = null;
+        Comments.changed();
+      }, function (err) {
+        Comments.busy = false;
+        Comments.replySay(id, Comments.friendly(err), true);
+        Comments.afterFailure(err);
+      });
+    },
+    /* A refusal can mean the link or its comments are gone: ask again, so the
+       page shows the truth instead of a form that cannot work. */
+    afterFailure: function (err) {
+      var m = String((err && err.message) || "");
+      if (Shared.is() && /not active|comments are off/i.test(m)) Shared.fetch();
+    },
+    post: function (p) {
+      var name = Comments.myName();
+      if (Shared.is()) {
+        return Cloud.sb.rpc("add_share_comment", {
+          share_token: Shared.token, p_roadmap: p.roadmap, p_anchor: p.anchor,
+          p_body: p.body, p_author: name, p_parent: p.parent
+        }).then(function (r) {
+          if (r.error) throw r.error;
+          var row = r.data && r.data[0];
+          if (!row || !row.comment_id) throw new Error("no comment");
+          var c = Comments.norm({
+            id: row.comment_id, roadmap: p.roadmap, anchor: p.anchor, body: p.body, author_name: name,
+            by_owner: false, parent_id: p.parent, resolved: false, created_at: row.posted_at
+          }, p.board);
+          Comments.put(c);
+          Comments.refresh();
+          return c;
+        });
+      }
+      if (!Cloud.user) return Promise.reject(new Error("not logged in"));
+      var uid = Cloud.user.id;
+      return Cloud.sb.from("comments").insert({
+        owner_id: uid, board_id: p.board, roadmap: p.roadmap, anchor: p.anchor, body: p.body,
+        author_name: name, author_id: uid, parent_id: p.parent
+      }).select("id,created_at").then(function (r) {
+        if (r.error) throw r.error;
+        var row = r.data && r.data[0];
+        if (!row || !row.id) throw new Error("no comment");
+        /* Logged out, or somebody else logged in, while it was on its way. */
+        if (!Cloud.user || Cloud.user.id !== uid) throw new Error("account changed");
+        var c = Comments.norm({
+          id: row.id, board_id: p.board, roadmap: p.roadmap, anchor: p.anchor, body: p.body, author_name: name,
+          author_id: uid, parent_id: p.parent, resolved: false, created_at: row.created_at
+        });
+        Comments.put(c);
+        return c;
+      });
+    },
+    setResolved: function (id, v) {
+      var t = Comments.get(id);
+      if (!t || !Cloud.user || Shared.is()) return;
+      var was = t.resolved, uid = Cloud.user.id, n = ++Comments.seq;
+      t.resolved = v;
+      /* Kept until an answer asked after the change has come back: one asked
+         before it would otherwise undo the click on screen. */
+      Comments.pending[id] = { v: v, n: n, done: 0 };
+      if (v && Comments.sel === id && !Comments.showResolved) Comments.sel = null;
+      Comments.changed();
+      var mine = function () { var p = Comments.pending[id]; return p && p.n === n; };
+      Cloud.sb.from("comments").update({ resolved: v }).eq("owner_id", uid).eq("id", id).then(function (r) {
+        if (r && r.error) throw r.error;
+        if (mine()) Comments.pending[id].done = Date.now();
+      }).catch(function () {
+        if (!mine()) return;
+        delete Comments.pending[id];
+        var again = Comments.get(id);
+        if (again) again.resolved = was;
+        Comments.changed();
+        toast("That could not be saved. Please try again.");
+      });
+      if (v) toast(Comments.showResolved ? "Comment resolved" : "Comment resolved. Show resolved brings it back.", { soft: true });
+    },
+    remove: function (id) {
+      var c = Comments.get(id);
+      if (!c || !Cloud.user || Shared.is()) return;
+      if (!confirm(c.parent ? "Delete this reply?" : "Delete this comment and its replies?")) return;
+      var uid = Cloud.user.id;
+      var taken = Comments.list.filter(function (x) { return x.id === id || x.parent === id; });
+      Comments.gone[id] = true;
+      Comments.list = Comments.list.filter(function (x) { return x.id !== id && x.parent !== id; });
+      if (Comments.sel === id) Comments.sel = null;
+      if (Comments.replyTo === id) Comments.replyTo = null;
+      Comments.changed();
+      Cloud.sb.from("comments").delete().eq("owner_id", uid).eq("id", id).then(function (r) {
+        if (r && r.error) throw r.error;
+      }).catch(function () {
+        delete Comments.gone[id];
+        taken.forEach(function (x) { if (idxOf(Comments.list, x.id) < 0) Comments.list.push(x); });
+        Comments.changed();
+        toast("The comment could not be deleted. Please try again.");
+      });
+    },
+
+    /* ---- keeping up ---- */
+    changed: function () {
+      Comments.render();
+      Comments.decorate();
+    },
+    /* The service answers at most 1,000 rows at a time, so the list comes in
+       pages, oldest first, until one comes back short. A missing page would
+       read as comments deleted. */
+    pages: function (ask) {
+      var all = [];
+      var next = function (from) {
+        return ask(from, from + COMMENT_PAGE - 1).then(function (r) {
+          if (!r || r.error) throw (r && r.error) || new Error("no answer");
+          var rows = r.data || [];
+          all = all.concat(rows);
+          return rows.length < COMMENT_PAGE ? all : next(from + COMMENT_PAGE);
+        });
+      };
+      return next(0);
+    },
+    load: function () {
+      if (Shared.is()) { Comments.refresh(); return; }
+      if (!Cloud.user || !Cloud.loaded || Comments.inflight) return;
+      var user = Cloud.user, since = Date.now();
+      Comments.inflight = true;
+      Comments.lastLoad = since;
+      Comments.pages(function (a, z) {
+        return Cloud.sb.from("comments")
+          .select("id,board_id,roadmap,anchor,body,author_name,author_id,parent_id,resolved,created_at")
+          .eq("owner_id", user.id).order("created_at").order("id").range(a, z);
+      }).then(function (rows) {
+        Comments.inflight = false;
+        if (Cloud.user !== user) return;
+        Comments.replace(rows.map(function (x) { return Comments.norm(x); }), since);
+      }, function () { Comments.inflight = false; });
+    },
+    /* The reader's side asks with the link, on the slide's beat while the
+       panel is out, and on every third beat while it is closed. */
+    refresh: function (beat) {
+      if (!Shared.is() || !Comments.allowed || !Cloud.sb || !Shared.token || Comments.inflight) return;
+      if (beat && !Comments.open) {
+        var n = Comments.beats || 0;
+        Comments.beats = n + 1;
+        if (n % 3) return;
+      }
+      var since = Date.now(), token = Shared.token;
+      Comments.inflight = true;
+      Comments.pages(function (a, z) {
+        return Cloud.sb.rpc("get_share_comments", { share_token: token }).order("created_at").order("id").range(a, z);
+      }).then(function (rows) {
+        Comments.inflight = false;
+        if (!Comments.allowed) return;
+        var b = Store.boards[0];
+        Comments.replace(rows.map(function (x) { return Comments.norm(x, b && b.id); }), since);
+      }, function () { Comments.inflight = false; });
+    },
+    /* What the shared copy says about comments, on every refresh. */
+    setAllowed: function (on) {
+      var was = Comments.allowed;
+      Comments.allowed = !!on;
+      if (was && !on) {
+        Comments.list = [];
+        Comments.draft = null;
+        Comments.replyTo = null;
+        $("cpCompose").hidden = true;
+        Comments.show(false);
+        Comments.changed();
+        toast("The owner has turned comments off for this roadmap.");
+      }
+      if (!was && on && !Comments.autoOpened) {
+        Comments.autoOpened = true;
+        if (window.innerWidth >= 1100) Comments.show(true);
+      }
+      Comments.sync();
+    },
+    /* Live from the database for the owner: someone commenting on a shared
+       link shows up here within a second or two. */
+    onChange: function (payload) {
+      if (!Cloud.user || Shared.is() || !payload) return;
+      if (payload.eventType === "DELETE") {
+        var id = payload.old && payload.old.id;
+        if (!id) return;
+        Comments.gone[id] = true;
+        Comments.list = Comments.list.filter(function (c) { return c.id !== id && c.parent !== id; });
+        Comments.changed();
+        return;
+      }
+      var row = payload.new;
+      if (!row || row.owner_id !== Cloud.user.id) return;
+      var c = Comments.norm(row), isNew = !Comments.get(c.id);
+      Comments.put(c);
+      Comments.changed();
+      if (payload.eventType === "INSERT" && isNew && !c.mine) {
+        var b = Store.boards.filter(function (x) { return x.id === c.board; })[0];
+        if (b) toast((c.author || "Someone") + (c.parent ? " replied on " : " commented on ") + quote(b.name), { soft: true });
+      }
+    },
+    tick: function () {
+      clearInterval(Comments.timer);
+      Comments.timer = setInterval(function () {
+        if (document.hidden || Shared.is() || !Cloud.user || !Cloud.loaded) return;
+        if (!Comments.open && Date.now() - (Comments.lastLoad || 0) < OWNER_REFRESH_IDLE - 1000) return;
+        Comments.load();
+      }, OWNER_REFRESH);
+    },
+    /* Logged out: nothing of the account's comments stays on screen. */
+    reset: function (wipe) {
+      clearInterval(Comments.timer);
+      Comments.timer = null;
+      Comments.list = []; Comments.gone = {}; Comments.pending = {};
+      Comments.draft = null; Comments.replyTo = null; Comments.replyMsg = null; Comments.sel = null; Comments.peek = null;
+      Comments.pickOn = false; Comments.inflight = false;
+      $("cpCompose").hidden = true;
+      if (wipe) {
+        Comments.name = null;
+        try { localStorage.removeItem(LS_KEY + ":commenter"); } catch (e) {}
+      }
+      Comments.show(false);
+      Comments.changed();
+    },
+    /* Selecting a thread lights up what it is about; from the slide it also
+       brings the thread into view in the panel. */
+    select: function (id, from) {
+      var t = Comments.get(id);
+      if (!t) return;
+      if (from === "card" && Comments.sel === id) { Comments.sel = null; Comments.changed(); return; }
+      Comments.sel = id;
+      if (!Comments.open) Comments.show(true);
+      Comments.changed();
+      if (from === "slide") {
+        var card = $("cpList").querySelector('[data-cid="' + id + '"]');
+        if (card && card.scrollIntoView) card.scrollIntoView({ block: "nearest" });
+      } else if (Comments.here(t)) {
+        var badge = $("slide").querySelector(".c-box--sel");
+        if (badge && !badge.hidden && badge.scrollIntoView) badge.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    },
+    escape: function () {
+      if (Comments.pickOn) { Comments.cancelPick(); return true; }
+      if (Comments.sel && Comments.open) { Comments.sel = null; Comments.changed(); return true; }
+      return false;
+    },
+
+    wire: function () {
+      $("cIcon").innerHTML = COMMENT_ICON;
+      $("btnComments").addEventListener("click", function () { Comments.show(); });
+      $("cpClose").addEventListener("click", function () { Comments.show(false); $("btnComments").focus(); });
+      $("cpAdd").addEventListener("click", Comments.startPick);
+      $("cpWhole").addEventListener("click", function () { Comments.pickOn = false; Comments.compose({ kind: "slide" }); });
+      $("cpPickCancel").addEventListener("click", Comments.cancelPick);
+      $("cpResolved").addEventListener("change", function () { Comments.showResolved = $("cpResolved").checked; Comments.changed(); });
+      $("cpCompose").addEventListener("submit", function (e) { e.preventDefault(); Comments.submit(); });
+      $("cpCancel").addEventListener("click", Comments.cancelDraft);
+      $("cpAsChange").addEventListener("click", function () {
+        $("cpAs").hidden = true; $("cpNameField").hidden = false; $("cpName").focus(); $("cpName").select();
+      });
+      $("cpOn").addEventListener("change", function () {
+        var o = Comments.opts[+$("cpOn").value];
+        if (o && Comments.draft) { Comments.draft.anchor = o.a; Comments.paintBoxes(); }
+      });
+      var panel = $("cpanel");
+      panel.addEventListener("keydown", function (e) {
+        var t = e.target;
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && t.tagName === "TEXTAREA") {
+          e.preventDefault();
+          var f = t.closest("form");
+          if (f && f.requestSubmit) f.requestSubmit(); else if (f) f.dispatchEvent(new Event("submit", { cancelable: true }));
+          return;
+        }
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          if (t.closest(".ct-reply")) { Comments.replyTo = null; Comments.replyMsg = null; Comments.changed(); return; }
+          if (t.closest("#cpCompose")) { Comments.cancelDraft(); $("cpAdd").focus(); return; }
+          if (Comments.escape()) return;
+          Comments.show(false); $("btnComments").focus();
+        }
+      });
+      panel.addEventListener("submit", function (e) {
+        var f = e.target.closest(".ct-reply");
+        if (!f) return;
+        e.preventDefault();
+        Comments.reply(f);
+      });
+      panel.addEventListener("click", function (e) {
+        var v = e.target.closest("[data-cview]");
+        if (v) {
+          var tab = document.querySelector('.vtab[data-view="' + v.dataset.cview + '"]');
+          if (tab) tab.click();
+          return;
+        }
+        var li = e.target.closest(".cthread");
+        if (!li) return;
+        var id = li.dataset.cid, act = e.target.closest("[data-cact]");
+        if (act) {
+          var a = act.dataset.cact;
+          if (a === "show") Comments.select(id, "list");
+          else if (a === "reply") {
+            Comments.replyTo = id; Comments.replyMsg = null; Comments.sel = id; Comments.changed();
+            var f = $("cpList").querySelector('.ct-reply textarea[data-for="' + id + '"]');
+            var n = $("cpList").querySelector(".ct-reply input");
+            if (n) n.focus(); else if (f) f.focus();
+          }
+          else if (a === "reply-cancel") { Comments.replyTo = null; Comments.replyMsg = null; Comments.changed(); }
+          else if (a === "resolve") Comments.setResolved(id, true);
+          else if (a === "reopen") Comments.setResolved(id, false);
+          else if (a === "delete") Comments.remove(act.dataset.cid || id);
+          return;
+        }
+        if (e.target.closest(".ct-reply, a, input, textarea, button")) return;
+        Comments.select(id, "card");
+      });
+      panel.addEventListener("mouseover", function (e) {
+        var li = e.target.closest(".cthread"), id = li ? li.dataset.cid : null;
+        if (id === Comments.peek) return;
+        Comments.peek = id;
+        Comments.paintBoxes();
+      });
+      panel.addEventListener("mouseleave", function () { Comments.peek = null; Comments.paintBoxes(); });
+
+      var slide = $("slide");
+      /* Choosing a target owns the click: nothing under it is edited,
+         painted or focused on the way. The marks themselves still work. */
+      ["pointerdown", "mousedown", "click", "dblclick", "contextmenu"].forEach(function (type) {
+        slide.addEventListener(type, function (e) {
+          if (!Comments.picking() || e.target.closest(".cbadge")) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (type === "click") Comments.pickAt(e.target);
+        }, true);
+      });
+      slide.addEventListener("pointermove", function (e) { if (Comments.hovering()) Comments.hoverAt(e.target); });
+      slide.addEventListener("pointerleave", function () { if (Comments.hoverA) { Comments.hoverA = null; Comments.paintBoxes(); } });
+      slide.addEventListener("click", function (e) {
+        var bd = e.target.closest(".cbadge");
+        if (!bd) return;
+        Comments.pickOn = false;
+        Comments.tuck(false);
+        Comments.select(bd.dataset.cthread, "slide");
+      });
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden && !Shared.is() && Cloud.user && Cloud.loaded) Comments.load();
+      });
+      /* A mark set after the words of a title moves when the slide's font
+         arrives and the words change width. */
+      if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", Comments.soon);
     }
   };
 
@@ -2463,7 +3740,35 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* An empty row left behind by a closed tab is scratch, not content. */
     purgeBlankRows(b);
     fixAccents(b);
+    if (!Array.isArray(b.sprints)) b.sprints = [];
+    fixIds(b.sprints, function (s, i) { return "s-" + i; });
+    Object.keys(b.views).forEach(function (k) {
+      var v = b.views[k];
+      if (!Array.isArray(v.milestones)) v.milestones = [];
+      fixIds(v.rows, function (r) { return "r-" + (r.libId ? "l-" + slugId(r.libId) : "n-" + slugId(r.name)); });
+      fixIds(v.milestones, function (m, i) { return "m-" + i; });
+    });
     return b;
+  }
+  /* A comment pins itself to a row, a sprint or a go-live line, and must find
+     it again after rows move, so each of them carries an id. One saved before
+     rows had ids gets an id made from what it holds: the owner and a reader of
+     the same copy then agree on it before anything is saved again. */
+  function slugId(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
+  }
+  function fixIds(list, derive) {
+    var seen = {};
+    list.forEach(function (o) {
+      if (typeof o.id === "string" && o.id && !seen[o.id]) seen[o.id] = true; else o.id = "";
+    });
+    list.forEach(function (o, i) {
+      if (o.id) return;
+      var base = derive(o, i), id = base, n = 2;
+      while (seen[id]) id = base + "-" + n++;
+      o.id = id;
+      seen[id] = true;
+    });
   }
   function migrateAll() { Store.boards.forEach(migrateBoard); }
   function curRow() { return state.sel ? view().rows[state.sel.row] || null : null; }
@@ -2477,9 +3782,17 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   }
 
   /* A toast can carry an Undo, so a deleted row is never a dead end. */
-  var toastTimer;
+  var toastTimer, toastLater = null;
+  /* Hides the toast, then shows a note that was waiting behind it. */
+  function hideToast() {
+    $("toast").hidden = true;
+    clearTimeout(toastTimer);
+    if (toastLater) { var m = toastLater; toastLater = null; toast(m); }
+  }
   function toast(msg, opts) {
     var el = $("toast");
+    /* A note nobody asked for waits its turn behind a toast with an Undo. */
+    if (opts && opts.soft && !el.hidden && el.querySelector(".toast-act")) { toastLater = msg; return; }
     el.textContent = "";
     el.appendChild(document.createTextNode(msg));
     if (opts && opts.undo) {
@@ -2489,7 +3802,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var b = document.createElement("button");
       b.type = "button"; b.className = "toast-act"; b.textContent = "Undo";
       b.addEventListener("click", function () {
-        el.hidden = true;
+        hideToast();
         if (History.baseline === mark && !History.pendingKind) History.undo();
         else toast("Something changed since then. Use Ctrl/Cmd+Z to undo step by step.");
       });
@@ -2497,7 +3810,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     }
     el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, opts && opts.undo ? 6000 : 2600);
+    toastTimer = setTimeout(hideToast, opts && opts.undo ? 6000 : 2600);
   }
   function setSync(stateName, text) {
     var el = $("sync");
@@ -2830,7 +4143,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* sprint header */
     html += '<div class="slide-board"><div class="brow brow--head"><div class="rail"></div><div class="label"></div><div class="track">';
     b.sprints.forEach(function (s, i) {
-      html += '<div class="sprint">' +
+      html += '<div class="sprint" data-sp="' + i + '">' +
         '<div class="nm"><span' + ceH + ' data-sprint="' + i + '" data-key="name">' + esc(s.name) + "</span>" +
         '<span class="q"' + ceH + ' data-sprint="' + i + '" data-key="quarter">' + esc(s.quarter) + "</span></div>" +
         '<div class="dt"' + ceH + ' data-sprint="' + i + '" data-key="dates">' + esc(s.dates) + "</div>" +
@@ -2902,6 +4215,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     slide.innerHTML = html;
     fitRowHeight(v, edit);
     if (present.on) fitPresent(); else fitSlide();
+    Comments.decorate();
   }
 
   /* Rows must never run over the legend or off the slide: measure the room
@@ -3141,6 +4455,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     renderSprints();
     renderMilestones();
     renderSlide();
+    Comments.render();
   }
 
   /* ========================================================
@@ -3185,6 +4500,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     if (present.on) return;
     var deck = buildDeck();
     if (!deck.length) { toast("Add an initiative first"); return; }
+    Comments.cancelPick();
     present.deck = deck;
     present.savedView = state.view;
     present.on = true;
@@ -3620,8 +4936,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     /* contenteditable fields on the slide */
     slide.addEventListener("input", function (e) {
       var t = e.target;
-      if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit("text:title"); return; }
-      if (t.id === "slideNoteText") { board().note.text = t.textContent.trim(); commit("text:note"); return; }
+      if (t.id === "slideTitle") { view().title = t.textContent.trim(); commit("text:title"); Comments.soon(); return; }
+      if (t.id === "slideNoteText") { board().note.text = t.textContent.trim(); commit("text:note"); Comments.soon(); return; }
       if (t.dataset && t.dataset.namerow !== undefined) {
         var ri = +t.dataset.namerow, nrow = view().rows[ri];
         if (nrow) {
@@ -3638,12 +4954,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       }
       if (t.dataset && t.dataset.mscap !== undefined) {
         var m = view().milestones[+t.dataset.mscap];
-        if (m) { m.label = t.textContent.trim(); commit("text:cap:" + t.dataset.mscap); renderMilestones(); }
+        if (m) { m.label = t.textContent.trim(); commit("text:cap:" + t.dataset.mscap); renderMilestones(); Comments.soon(); }
         return;
       }
       if (t.dataset && t.dataset.sprint !== undefined) {
         board().sprints[+t.dataset.sprint][t.dataset.key] = t.textContent.trim();
-        commit("text:sprint:" + t.dataset.sprint + ":" + t.dataset.key); renderSprints();
+        commit("text:sprint:" + t.dataset.sprint + ":" + t.dataset.key); renderSprints(); Comments.soon();
       }
     });
 
@@ -3734,6 +5050,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       el.setAttribute("style", msStyle(m, v.rows.length));
       el.classList.toggle("is-right", msIsRight(m));
     }
+    Comments.soon();
   });
 
   window.addEventListener("pointerup", function (e) {
@@ -3758,7 +5075,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var have = it.id ? v.rows.map(function (r) { return r.libId; }).indexOf(it.id) : -1;
     if (have >= 0) return have;
     v.rows.push({
-      libId: it.id || null,
+      id: uid("r"), libId: it.id || null,
       name: it.name || "", url: it.url || "", desc: it.desc || "", area: it.area || "",
       accent: "teal", box: false, cells: {}
     });
@@ -3859,7 +5176,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     }
     var at = afterIdx + 1;
     insertRowAt(v, at, {
-      libId: null, name: "", url: "", desc: "", area: "",
+      id: uid("r"), libId: null, name: "", url: "", desc: "", area: "",
       accent: (v.rows[afterIdx] || {}).accent || "teal",
       box: false, cells: {}
     });
@@ -4405,6 +5722,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       var b = e.target.closest("[data-sh]");
       if (b) ShareUI.act(b.dataset.sh);
     });
+    $("shareBody").addEventListener("change", function (e) {
+      if (e.target.id === "shareTalk") ShareUI.talk(e.target);
+    });
     $("shareSheet").addEventListener("click", function (e) { if (e.target === $("shareSheet")) ShareUI.close(); });
 
     Array.prototype.forEach.call($("authTabs").querySelectorAll("[data-mode]"), function (t) {
@@ -4416,6 +5736,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     $("authSheet").addEventListener("click", function (e) { if (e.target === $("authSheet")) Auth.close(); });
 
     $("btnPanel").addEventListener("click", function () {
+      Comments.foldedSidebar = false;
       var off = document.body.classList.toggle("sidebar-off");
       $("btnPanel").setAttribute("aria-expanded", String(!off));
       try { localStorage.setItem(LS_KEY + ":panel", off ? "off" : "on"); } catch (e) {}
@@ -4620,7 +5941,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         if (Auth.isOpen()) { Auth.close(); return; }
         if (Onboard.isOpen()) { Onboard.finish(); return; }
         if (!$("menu").hidden) { closeMenu(true); return; }
+        if (Comments.pickOn) { Comments.cancelPick(); return; }
         if (typing) { t.blur(); return; }
+        if (Comments.escape()) return;
         selectRow(null); return;
       }
 
@@ -4629,7 +5952,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       /* Slide keys work from the slide and the toolbar, never from a panel,
          a dialog or the menu, where they would act unseen. */
       var inChrome = t && t !== document.body && t.closest &&
-        t.closest('.sidebar, .topbar, #menu, [role="dialog"]');
+        t.closest('.sidebar, .topbar, #menu, [role="dialog"], .cpanel');
       if (e.key === "Backspace" && Store.canWrite && !inChrome && !e.metaKey && !e.ctrlKey && !e.altKey) {
         /* Backspace is the eraser: once for the eraser, again for the brush you had. */
         e.preventDefault();
@@ -4645,6 +5968,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); toggleSheet(); return; }
       if (mod || e.altKey) return;
       if (e.key.toLowerCase() === "p") { e.preventDefault(); enterPresent(); return; }
+      if (e.key.toLowerCase() === "c" && Comments.on()) { e.preventDefault(); Comments.startPick(); return; }
       if (e.key.toLowerCase() === "h") { e.preventDefault(); $("btnHalf").click(); return; }
 
       var list = VIEWS[state.view].brushes;
@@ -4665,7 +5989,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     try { last = localStorage.getItem(LS_KEY + ":last"); } catch (e) {}
     state.boardId = (last && Store.boards.some(function (b) { return b.id === last; })) ? last : Store.boards[0].id;
 
-    wireSlide(); wireSidebar(); wireTopbar(); wireKeys(); Onboard.wire();
+    wireSlide(); wireSidebar(); wireTopbar(); wireKeys(); Onboard.wire(); Comments.wire();
     if (Shared.is()) Shared.claim();
 
     /* default sprint generator to a sensible "next monday" */
