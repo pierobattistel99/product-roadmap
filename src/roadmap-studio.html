@@ -605,6 +605,10 @@ body.gl-arming .canvas-wrap{outline:2px dashed var(--ui-accent);outline-offset:3
 .share-link input{flex:1;min-width:0;font-family:"DM Mono",ui-monospace,monospace;font-size:12px}
 .share-msg{min-height:1.25em;margin:10px 0 0;font-weight:600;color:var(--ui-ok)}
 .share-msg.is-bad{color:var(--ui-danger)}
+/* the Claude connector dialog */
+.claude-steps{margin:14px 0 10px;padding-left:20px;font-size:13px;color:var(--ui-muted)}
+.claude-steps li{margin:4px 0}
+.claude-card a{color:var(--ui-accent);font-weight:600}
 /* a quarter opened from a share link: nothing that edits is on screen */
 body.is-shared .sidebar,body.is-shared .brushbar,body.is-shared .boardpick,
 body.is-shared .histgroup,body.is-shared #btnPanel,body.is-shared #btnMore,
@@ -962,6 +966,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     <button id="mPrune" role="menuitem">Remove unused initiatives</button>
     <hr>
     <button id="mShare" role="menuitem">Share this quarter by link</button>
+    <button id="mClaude" role="menuitem">Use with Claude</button>
     <button id="mPdf" role="menuitem">Save both roadmaps as PDF</button>
     <button id="mExport" role="menuitem">Back up everything (JSON)</button>
     <button id="mImport" role="menuitem">Import a backup (JSON)</button>
@@ -1253,6 +1258,27 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   </div>
 </div>
 
+<div class="sheet" id="claudeSheet" hidden role="dialog" aria-modal="true" aria-labelledby="claudeTitle">
+  <div class="sheet-card share-card claude-card">
+    <h2 id="claudeTitle">Use Quartermap with Claude</h2>
+    <p class="help">Claude can read and build your roadmaps for you. Ask it to draft the next quarter, move a phase or add a go-live line: the changes show up here while it works, and you can ask it to take back its last change.</p>
+    <p class="help">Add Quartermap to Claude as a connector, with this address:</p>
+    <div class="share-link"><input type="text" id="claudeUrl" readonly aria-label="Connector address"></div>
+    <ol class="claude-steps">
+      <li>In Claude, open Settings, then Connectors.</li>
+      <li>Choose Add custom connector, name it Quartermap and paste the address.</li>
+      <li>Click Connect, log in with your Quartermap account and choose Allow.</li>
+    </ol>
+    <p class="help">On a Team or Enterprise plan, an owner of the organisation may need to add the connector first.</p>
+    <p class="help"><a id="claudeApps" href="/oauth/consent" target="_blank" rel="noopener">See the apps connected to your account</a>, and disconnect one if you want.</p>
+    <p class="help share-msg" id="claudeMsg" role="status"></p>
+    <div class="rowline">
+      <button type="button" class="btn btn-primary" id="claudeCopy">Copy the address</button>
+      <button type="button" class="btn" id="claudeClose">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="onboard" id="onboard" hidden role="dialog" aria-labelledby="obTitle">
   <div class="onboard-card">
     <div class="onboard-steps" id="obSteps" aria-hidden="true"></div>
@@ -1271,13 +1297,22 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script>
-(function () {
+<script id="qm-model">
+/* ============================================================
+   THE ROADMAP MODEL
+   The rules of a quarter: the phases each roadmap has, how rows, sprints
+   and go-live lines stay consistent, and how two copies of a quarter that
+   changed apart are put back together. Shared word for word with the
+   Claude connector: build.sh copies this block into lib/model.cjs, so the
+   editor and the connector always follow the same rules. Plain functions
+   on plain data; nothing in here touches the page.
+   ============================================================ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === "object" && module && module.exports) module.exports = api;
+  else root.QuartermapModel = api;
+})(typeof self !== "undefined" ? self : this, function () {
   "use strict";
-
-  /* ========================================================
-     1. Model
-     ======================================================== */
 
   var PHASES = {
     discovery:  { label: "Discovery",             short: "D", views: ["product", "design"] },
@@ -1289,10 +1324,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     product: { name: "Product", brushes: ["discovery", "specs", "delivery"], sequence: ["discovery", "specs", "delivery"] },
     design:  { name: "Design",  brushes: ["discovery", "conception"],       sequence: ["discovery", "conception"] }
   };
+  var VIEW_KEYS = ["product", "design"];
   /* What the colour bar down the left of the slide means. The wording and the
      two colours belong to the quarter, not to the editor theme: a roadmap sent
-     to someone else has to carry its own legend. These are only the defaults a
-     new quarter starts from. */
+     to someone else has to carry its own legend. */
   var BAR_KEYS = ["lime", "teal"];
   var BAR_THEME_KEY = { lime: "barLegal", teal: "barOther" };
   var ACCENT_META = {
@@ -1300,18 +1335,24 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     teal: { label: "Other initiatives", hint: "Green bar: any other initiative." },
     none: { label: "No bar", hint: "No bar: not listed in the legend." }
   };
-  function themeBar(k) {
-    var src = Theme.cur || PRESETS.papernest;
-    return Theme.normalize(src).colors[BAR_THEME_KEY[k]];
-  }
+  /* The bars a quarter starts with when nobody chose others: the papernest look. */
+  var DEFAULT_BAR = { lime: "#dcf223", teal: "#17c3a2" };
+  var MAX_SPRINTS = 12, MIN_SPRINTS = 2;
+  var QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
+
+  function uid(p) { return (p || "x") + Math.random().toString(36).slice(2, 9); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
   /* Fills in anything a board is missing, so the rest of the code can read
-     b.accents[k].label and .color without guarding every time. */
-  function fixAccents(b) {
+     b.accents[k].label and .color without guarding every time. barColor(k)
+     gives the colour a missing bar starts from. */
+  function fixAccents(b, barColor) {
+    var pick = typeof barColor === "function" ? barColor : function (k) { return DEFAULT_BAR[k]; };
     if (!b.accents || typeof b.accents !== "object") b.accents = {};
     BAR_KEYS.forEach(function (k) {
       var a = b.accents[k] || {};
       var label = typeof a.label === "string" && a.label.trim() ? a.label.trim() : ACCENT_META[k].label;
-      var color = /^#[0-9a-f]{6}$/i.test(String(a.color || "")) ? String(a.color).toLowerCase() : themeBar(k);
+      var color = /^#[0-9a-f]{6}$/i.test(String(a.color || "")) ? String(a.color).toLowerCase() : pick(k);
       b.accents[k] = { label: label.slice(0, 60), color: color };
     });
   }
@@ -1322,17 +1363,430 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var v = a && typeof a.label === "string" ? a.label.trim() : "";
     return v || (ACCENT_META[k] || ACCENT_META.none).label;
   }
-  var MAX_SPRINTS = 12, MIN_SPRINTS = 2;
 
-  function uid(p) { return (p || "x") + Math.random().toString(36).slice(2, 9); }
-  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function isBlankRow(row) {
+    return !row.name && !Object.keys(row.cells || {}).length && !row.desc && !row.url && !row.area;
+  }
+  /* A link the slide may open: the web, or an email address. Anything else
+     (javascript:, data:) is dropped, never drawn as a link. */
+  function safeUrl(u) { return /^(https?:|mailto:)/i.test(String(u || "").trim()) ? String(u).trim() : ""; }
+  /* Rows with a name or any content; empty scratch rows do not count. */
+  function hasContent(v) {
+    return !!(v && v.rows && v.rows.some(function (r) { return !isBlankRow(r); }));
+  }
+
+  /* Rows and go-live lines share one index space: every insert or removal
+     moves the lines along with the rows they sit on. */
+  function clampMilestones(v) {
+    var n = v.rows.length;
+    if (!n) return;
+    (v.milestones || []).forEach(function (m) {
+      m.row = Math.max(0, Math.min(m.row, n - 1));
+      m.endRow = Math.max(m.row, Math.min(m.endRow, n - 1));
+    });
+  }
+  function removeRowsAt(v, indexes) {
+    indexes.slice().sort(function (a, b) { return b - a; }).forEach(function (i) {
+      v.rows.splice(i, 1);
+      (v.milestones || []).forEach(function (m) {
+        if (i < m.row) { m.row--; m.endRow--; }
+        else if (i <= m.endRow && m.endRow > m.row) { m.endRow--; }
+      });
+    });
+    clampMilestones(v);
+  }
+  function insertRowAt(v, i, row) {
+    v.rows.splice(i, 0, row);
+    (v.milestones || []).forEach(function (m) {
+      if (i <= m.row) { m.row++; m.endRow++; }
+      else if (i <= m.endRow) { m.endRow++; }
+    });
+  }
+  function blankIndexes(rows) {
+    var out = [];
+    rows.forEach(function (r, i) { if (isBlankRow(r)) out.push(i); });
+    return out;
+  }
+  function purgeBlankRows(b) {
+    Object.keys(b.views).forEach(function (k) {
+      var v = b.views[k];
+      v.rows = v.rows || [];
+      var gone = blankIndexes(v.rows);
+      if (gone.length) removeRowsAt(v, gone);
+    });
+  }
+
+  /* A comment pins itself to a row, a sprint or a go-live line, and must find
+     it again after rows move, so each of them carries an id. One saved before
+     rows had ids gets an id made from what it holds: the owner and a reader of
+     the same copy then agree on it before anything is saved again. */
+  function slugId(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
+  }
+  function fixIds(list, derive) {
+    var seen = {};
+    list.forEach(function (o) {
+      if (typeof o.id === "string" && o.id && !seen[o.id]) seen[o.id] = true; else o.id = "";
+    });
+    list.forEach(function (o, i) {
+      if (o.id) return;
+      var base = derive(o, i), id = base, n = 2;
+      while (seen[id]) id = base + "-" + n++;
+      o.id = id;
+      seen[id] = true;
+    });
+  }
+
+  /* Each row carries its own name, link, description and area. The library is a
+     catalogue to pick from: a row remembers where it came from (libId) so the
+     library still knows where an initiative is used, but renaming a row on one
+     roadmap never touches the other. Rows written before this migrate on load;
+     libEntry(id) finds the library entry they pointed at. */
+  function migrateRow(r, libEntry) {
+    if (r.name !== undefined) return r;
+    var src = (r.iid && typeof libEntry === "function" && libEntry(r.iid)) || {};
+    r.libId = r.iid || null;
+    r.name = r.label || src.name || "(no name)";
+    r.url = src.url || "";
+    r.desc = src.desc || "";
+    r.area = src.area || "";
+    delete r.iid; delete r.label;
+    return r;
+  }
+  /* Brings any saved quarter to the current shape. opts.libEntry looks up the
+     library for rows from before rows held their own text; opts.barColor(k)
+     seeds the colour of a bar the quarter does not name yet. opts.keepBlank
+     leaves empty rows in: a copy about to be merged with another, where an
+     empty row may be the one somebody is typing into. */
+  function migrateBoard(b, opts) {
+    if (!b || !b.views) return b;
+    opts = opts || {};
+    Object.keys(b.views).forEach(function (k) {
+      (b.views[k].rows || []).forEach(function (r) { migrateRow(r, opts.libEntry); });
+    });
+    /* A row imported from elsewhere may name no category at all. */
+    Object.keys(b.views).forEach(function (k) {
+      (b.views[k].rows || []).forEach(function (r) {
+        if (r.accent !== "none" && BAR_KEYS.indexOf(r.accent) < 0) r.accent = "teal";
+      });
+    });
+    /* An empty row left behind by a closed tab is scratch, not content. */
+    if (!opts.keepBlank) purgeBlankRows(b);
+    fixAccents(b, opts.barColor);
+    if (!Array.isArray(b.sprints)) b.sprints = [];
+    fixIds(b.sprints, function (s, i) { return "s-" + i; });
+    Object.keys(b.views).forEach(function (k) {
+      var v = b.views[k];
+      if (!Array.isArray(v.milestones)) v.milestones = [];
+      fixIds(v.rows, function (r) { return "r-" + (r.libId ? "l-" + slugId(r.libId) : "n-" + slugId(r.name)); });
+      fixIds(v.milestones, function (m, i) { return "m-" + i; });
+    });
+    return b;
+  }
+
+  /* ---- sprints ---- */
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  /* Dates are worked out in UTC: a local day is 23 or 25 hours long around a
+     clock change, which used to move every later date by one day. */
+  function parseDay(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || "").trim());
+    if (!m) return null;
+    var t = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+    var d = new Date(t);
+    return d.getUTCDate() === +m[3] ? t : null;
+  }
+  function dayLabel(t) { var d = new Date(t); return pad(d.getUTCDate()) + "/" + pad(d.getUTCMonth() + 1); }
+  /* Sprint headers from a start date. o: { start: "YYYY-MM-DD", weeks, count,
+     from (first sprint number), perQ (sprints per quarter), quarter ("Q1".."Q4") }.
+     keep: the sprints there are now, whose ids carry over by position, so
+     comments on a sprint stay on it. Returns { sprints, count, asked }, or
+     null when the start date is not a date. */
+  function generateSprints(o, keep) {
+    var t = parseDay(o.start);
+    if (t === null) return null;
+    var weeks = Math.max(1, Math.min(8, Math.round(+o.weeks || 2)));
+    var asked = Math.round(+o.count || 8);
+    var count = Math.max(MIN_SPRINTS, Math.min(MAX_SPRINTS, asked));
+    var from = Math.max(1, Math.round(+o.from || 1));
+    var perQ = Math.max(2, Math.round(+o.perQ || 7));
+    var qIdx = Math.max(0, QUARTERS.indexOf(String(o.quarter || "Q1").toUpperCase()));
+    var day = 86400000, out = [];
+    keep = keep || [];
+    for (var i = 0; i < count; i++) {
+      var end = t + (weeks * 7 - 3) * day;
+      out.push({
+        id: (keep[i] && keep[i].id) || uid("s"),
+        name: "Sprint " + from,
+        quarter: QUARTERS[qIdx],
+        dates: dayLabel(t) + " – " + dayLabel(end)
+      });
+      from++;
+      if (from > perQ) { from = 1; qIdx = (qIdx + 1) % 4; }
+      t += weeks * 7 * day;
+    }
+    return { sprints: out, count: count, asked: asked };
+  }
+  /* Phases and go-live lines past the last sprint go when sprints are removed.
+     A line may sit at the very end of the last sprint. */
+  function fitToSprints(b) {
+    var n = b.sprints.length;
+    Object.keys(b.views).forEach(function (k) {
+      (b.views[k].rows || []).forEach(function (r) {
+        Object.keys(r.cells || {}).forEach(function (c) { if (+c >= n) delete r.cells[c]; });
+      });
+      b.views[k].milestones = (b.views[k].milestones || []).filter(function (m) { return m.col <= n; });
+    });
+  }
+  function sprintLabel(s) { return ((s && s.name || "") + " " + (s && s.quarter || "")).trim() || "Sprint"; }
+
+  /* ---- checking a quarter before it is saved ---- */
+
+  /* What would stop the editor from drawing this quarter, in plain words: a
+     list of { text, key }, empty when it is fine. The key leaves positions
+     out ("design row 3" and "design row 4" read the same), so a change that
+     only moves an old problem down a row is not taken for one that brings
+     a new problem. Two halves of a sprint with the same phase are fine: the
+     half-sprint brush paints exactly that. */
+  function problemList(b) {
+    var out = [];
+    var add = function (where, kind, what) {
+      out.push({ text: (where ? where + " " : "") + what, key: (kind ? kind + " " : "") + what });
+    };
+    if (!b || typeof b !== "object") { add("", "", "not a quarter"); return out; }
+    if (typeof b.id !== "string" || !b.id) add("", "", "the quarter has no id");
+    if (typeof b.name !== "string" || !b.name.trim()) add("", "", "the quarter has no name");
+    var n = Array.isArray(b.sprints) ? b.sprints.length : -1;
+    if (n < MIN_SPRINTS || n > MAX_SPRINTS) add("", "", "a quarter needs " + MIN_SPRINTS + " to " + MAX_SPRINTS + " sprints, this one has " + Math.max(0, n));
+    if (!b.views || typeof b.views !== "object") { add("", "", "the quarter has no roadmaps"); return out; }
+    VIEW_KEYS.forEach(function (k) {
+      var v = b.views[k];
+      if (!v || !Array.isArray(v.rows)) { add("", "", "the " + k + " roadmap is missing"); return; }
+      var allowed = VIEWS[k].brushes;
+      v.rows.forEach(function (r, i) {
+        var where = k + " row " + (i + 1), kind = k + " row";
+        if (typeof r.id !== "string" || !r.id) add(where, kind, "has no id");
+        if (typeof r.name !== "string") add(where, kind, "has no name");
+        if (r.accent !== "none" && BAR_KEYS.indexOf(r.accent) < 0) add(where, kind, "has an unknown bar");
+        Object.keys(r.cells || {}).forEach(function (c) {
+          var slots = r.cells[c];
+          if (!/^\d+$/.test(c) || +c >= n) { add(where, kind, "has a phase outside the sprints"); return; }
+          if (!Array.isArray(slots) || !slots.length || slots.length > 2) { add(where, kind, "has a sprint with " + (Array.isArray(slots) ? slots.length : 0) + " phases"); return; }
+          var real = slots.filter(Boolean);
+          if (!real.length) add(where, kind, "has an empty sprint");
+          real.forEach(function (p) { if (allowed.indexOf(p) < 0) add(where, kind, "uses " + p + ", which the " + k + " roadmap does not have"); });
+        });
+      });
+      (v.milestones || []).forEach(function (m, i) {
+        var where = k + " go-live line " + (i + 1), kind = k + " go-live line";
+        if (typeof m.col !== "number" || m.col < 0 || m.col > n) add(where, kind, "is outside the sprints");
+        if (v.rows.length && (typeof m.row !== "number" || typeof m.endRow !== "number" || m.row < 0 || m.endRow < m.row || m.endRow >= v.rows.length)) add(where, kind, "spans rows that are not there");
+      });
+    });
+    return out;
+  }
+  function problems(b) { return problemList(b).map(function (p) { return p.text; }); }
+
+  /* ---- putting two copies back together ----
+     merge3(base, local, remote): base is the copy both started from. What
+     only one side changed is taken from that side. Rows, sprints, go-live
+     lines and library entries are matched by id, so one side can add a row
+     while the other paints a cell and both survive. An element removed from
+     one of those lists on either side stays removed. When both changed the
+     same value, local wins: the person at the keyboard keeps what they see. */
+  var ABSENT = { absent: true };
+  function isObj(v) { return v !== null && typeof v === "object" && !Array.isArray(v) && v !== ABSENT; }
+  function present(o, k) { return isObj(o) && Object.prototype.hasOwnProperty.call(o, k) && o[k] !== undefined; }
+  function eq(a, b) {
+    if (a === b) return true;
+    if (a === ABSENT || b === ABSENT || a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+    if (Array.isArray(a) !== Array.isArray(b)) return false;
+    if (Array.isArray(a)) {
+      if (a.length !== b.length) return false;
+      for (var i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false;
+      return true;
+    }
+    /* Key order does not count: the database hands objects back with their
+       keys sorted its own way. */
+    var ka = Object.keys(a).filter(function (k) { return a[k] !== undefined; });
+    var kb = Object.keys(b).filter(function (k) { return b[k] !== undefined; });
+    if (ka.length !== kb.length) return false;
+    for (var j = 0; j < ka.length; j++) {
+      if (!present(b, ka[j]) || !eq(a[ka[j]], b[ka[j]])) return false;
+    }
+    return true;
+  }
+  function copy(v) { return v === ABSENT ? ABSENT : clone(v); }
+  function isIdList(v) {
+    return Array.isArray(v) && v.every(function (e) { return isObj(e) && typeof e.id === "string" && e.id; });
+  }
+  function byId(list) { var o = {}; list.forEach(function (e) { o[e.id] = e; }); return o; }
+  /* Did this side change the order of the elements it shares with base? */
+  function reordered(base, side) {
+    var inSide = byId(side), inBase = byId(base);
+    var a = base.map(function (e) { return e.id; }).filter(function (id) { return inSide[id]; });
+    var b = side.map(function (e) { return e.id; }).filter(function (id) { return inBase[id]; });
+    return a.join("\u0000") !== b.join("\u0000");
+  }
+  function mergeList(base, local, remote) {
+    base = Array.isArray(base) ? base : [];
+    var B = byId(base), L = byId(local), R = byId(remote), keep = {}, val = {};
+    var ids = [];
+    [base, local, remote].forEach(function (list) {
+      list.forEach(function (e) { if (ids.indexOf(e.id) < 0) ids.push(e.id); });
+    });
+    ids.forEach(function (id) {
+      var inB = !!B[id], inL = !!L[id], inR = !!R[id];
+      if (inB && (!inL || !inR)) return;
+      keep[id] = true;
+      if (!inB) val[id] = inL && inR ? merge3(ABSENT, L[id], R[id]) : clone(inL ? L[id] : R[id]);
+      else val[id] = merge3(B[id], L[id], R[id]);
+    });
+    /* The side that reordered sets the order; what only the other side has
+       goes in after the element it follows there. */
+    var first = reordered(base, local) ? local : remote, second = first === local ? remote : local;
+    var order = first.map(function (e) { return e.id; }).filter(function (id) { return keep[id]; });
+    second.forEach(function (e, i) {
+      if (!keep[e.id] || order.indexOf(e.id) >= 0) return;
+      var at = 0;
+      for (var j = i - 1; j >= 0; j--) {
+        var p = order.indexOf(second[j].id);
+        if (p >= 0) { at = p + 1; break; }
+      }
+      order.splice(at, 0, e.id);
+    });
+    return order.map(function (id) { return val[id]; });
+  }
+  function merge3(base, local, remote) {
+    if (eq(local, remote)) return copy(local);
+    if (eq(local, base)) return copy(remote);
+    if (eq(remote, base)) return copy(local);
+    if (isIdList(local) && isIdList(remote) && (base === ABSENT || isIdList(base))) return mergeList(base, local, remote);
+    if (isObj(local) && isObj(remote)) {
+      var b = isObj(base) ? base : {}, out = {}, keys = [];
+      [b, local, remote].forEach(function (o) {
+        Object.keys(o).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
+      });
+      keys.forEach(function (k) {
+        var m = merge3(present(b, k) ? b[k] : ABSENT, present(local, k) ? local[k] : ABSENT, present(remote, k) ? remote[k] : ABSENT);
+        if (m !== ABSENT) out[k] = m;
+      });
+      return out;
+    }
+    return copy(local);
+  }
+  /* Go-live lines sit on rows by position, while rows move, come and go by
+     id. lineRows(v) notes the ids of the rows each line covers; once the rows
+     have changed, placeLines(v, covered) puts each line back across the rows
+     it covered that are still there, first to last. A line none of whose
+     rows are left goes, and its label is returned, unless keepOrphans: then
+     it stays where it was (and is kept within the rows). */
+  function lineRows(v) {
+    var out = {}, rows = (v && Array.isArray(v.rows)) ? v.rows : [];
+    ((v && v.milestones) || []).forEach(function (m) {
+      var ids = [];
+      for (var i = m.row; i <= m.endRow; i++) if (rows[i] && rows[i].id) ids.push(rows[i].id);
+      out[m.id] = ids;
+    });
+    return out;
+  }
+  function placeLines(v, covered, keepOrphans) {
+    var at = {}, dropped = [];
+    v.rows.forEach(function (r, i) { if (r && r.id) at[r.id] = i; });
+    v.milestones = (v.milestones || []).filter(function (m) {
+      var ids = covered[m.id];
+      if (!ids) return true;
+      var idx = ids.map(function (id) { return at[id]; }).filter(function (i) { return i !== undefined; });
+      if (!idx.length) {
+        if (keepOrphans) return true;
+        dropped.push(m.label || "Go-live");
+        return false;
+      }
+      m.row = Math.min.apply(null, idx);
+      m.endRow = Math.max.apply(null, idx);
+      return true;
+    });
+    clampMilestones(v);
+    return dropped;
+  }
+  /* For a merge, each line of a copy also carries the rows it covers (the
+     copy is marked, never the original), so a line one side moved, or whose
+     rows one side moved, lands on the right rows whatever the other side did. */
+  function anchorLines(b) {
+    if (!isObj(b) || !isObj(b.views)) return b;
+    b = clone(b);
+    Object.keys(b.views).forEach(function (k) {
+      var v = b.views[k], covered = lineRows(v);
+      ((v && v.milestones) || []).forEach(function (m) { m._rows = covered[m.id] || []; });
+    });
+    return b;
+  }
+  function settleLines(v) {
+    var covered = {};
+    v.milestones.forEach(function (m) { if (Array.isArray(m._rows) && m._rows.length) covered[m.id] = m._rows; delete m._rows; });
+    placeLines(v, covered, true);
+  }
+  /* Two copies of a quarter (both already migrated), put back together and
+     left in a shape the editor can draw. An empty row being typed into stays:
+     it is not the merge's to tidy away. */
+  function mergeBoards(base, local, remote) {
+    var b = merge3(base ? anchorLines(base) : ABSENT, anchorLines(local), anchorLines(remote));
+    if (b === ABSENT || !isObj(b) || !isObj(b.views) || !Array.isArray(b.sprints)) return clone(local);
+    Object.keys(b.views).forEach(function (k) {
+      var v = b.views[k];
+      if (!Array.isArray(v.rows)) v.rows = [];
+      if (!Array.isArray(v.milestones)) v.milestones = [];
+      settleLines(v);
+      clampMilestones(v);
+    });
+    fitToSprints(b);
+    return b;
+  }
+  function mergeLists(base, local, remote) {
+    var m = merge3(Array.isArray(base) ? base : ABSENT, local, remote);
+    return Array.isArray(m) ? m : clone(local);
+  }
+
+  return {
+    PHASES: PHASES, VIEWS: VIEWS, VIEW_KEYS: VIEW_KEYS, BAR_KEYS: BAR_KEYS, BAR_THEME_KEY: BAR_THEME_KEY,
+    ACCENT_META: ACCENT_META, DEFAULT_BAR: DEFAULT_BAR, MAX_SPRINTS: MAX_SPRINTS, MIN_SPRINTS: MIN_SPRINTS, QUARTERS: QUARTERS,
+    uid: uid, clone: clone, fixAccents: fixAccents, accentLabel: accentLabel,
+    isBlankRow: isBlankRow, hasContent: hasContent, clampMilestones: clampMilestones,
+    removeRowsAt: removeRowsAt, insertRowAt: insertRowAt, blankIndexes: blankIndexes, purgeBlankRows: purgeBlankRows,
+    slugId: slugId, fixIds: fixIds, migrateRow: migrateRow, migrateBoard: migrateBoard,
+    parseDay: parseDay, generateSprints: generateSprints, fitToSprints: fitToSprints, sprintLabel: sprintLabel,
+    problems: problems, problemList: problemList, lineRows: lineRows, placeLines: placeLines, safeUrl: safeUrl, equal: eq, merge3: function (base, local, remote) { return merge3(base === undefined ? ABSENT : base, local, remote); },
+    mergeBoards: mergeBoards, mergeLists: mergeLists
+  };
+});
+</script>
+<script>
+(function () {
+  "use strict";
+
+  /* ========================================================
+     1. Model
+     ======================================================== */
+
+  /* The rules of a quarter live in the model block above, which the Claude
+     connector shares. These names keep the rest of the editor unchanged. */
+  var QM = window.QuartermapModel;
+  var PHASES = QM.PHASES, VIEWS = QM.VIEWS, BAR_KEYS = QM.BAR_KEYS, BAR_THEME_KEY = QM.BAR_THEME_KEY, ACCENT_META = QM.ACCENT_META;
+  var MAX_SPRINTS = QM.MAX_SPRINTS, MIN_SPRINTS = QM.MIN_SPRINTS;
+  var uid = QM.uid, clone = QM.clone, accentLabel = QM.accentLabel;
+  /* A new quarter's bars start from the colours of the look in use. */
+  function themeBar(k) {
+    var src = Theme.cur || PRESETS.papernest;
+    return Theme.normalize(src).colors[BAR_THEME_KEY[k]];
+  }
+  function fixAccents(b) { QM.fixAccents(b, themeBar); }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
   /* Only web links open from the slide. */
-  function safeUrl(u) { return /^(https?:|mailto:)/i.test(String(u || "").trim()) ? String(u).trim() : ""; }
+  var safeUrl = QM.safeUrl;
   function quote(s) { return '"' + s + '"'; }
 
   /* Starter content: a worked example quarter, so the tool opens on a real
@@ -1425,6 +1879,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   var LS_KEY = "roadmap-studio-v1";
   var CLIENT = uid("c");
+  /* The library's key wherever saves are tracked per quarter id. */
+  var LIB_KEY = "__lib";
 
   var Store = {
     mode: "local",
@@ -1644,6 +2100,18 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     shares: {},
     /* board id -> whether people with that link may comment */
     shareComments: {},
+    /* Every save names the version of the quarter it started from, so a
+       change made elsewhere meanwhile (another device, Claude) is merged
+       instead of written over. ver: board id -> the version this page last
+       saw. base: board id -> that version as JSON, the common ancestor of a
+       merge. The library has one of each. */
+    ver: {}, base: {}, libVer: null, libBase: null,
+    /* key (a board id, or LIB_KEY) -> the save on its way; whether another was
+       asked for meanwhile; the newest version seen while it travelled */
+    inflight: {}, again: {}, behind: {},
+    /* board id -> its delete is on the way */
+    deleting: {},
+    refreshing: false, refreshedAt: 0,
     hasFailures: function () { return Object.keys(Cloud.failed).length > 0; },
 
     available: function () {
@@ -1665,11 +2133,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         } else if (!user && Cloud.user) {
           var wipe = Cloud.leaving; Cloud.leaving = false;
           Cloud.detach(wipe);
+        } else if (!user && event === "INITIAL_SESSION" && Wanted.id) {
+          toast("Log in to open the quarter in your link.", { soft: true });
         }
         Auth.renderState();
       });
       window.addEventListener("online", function () {
-        if (Cloud.user && !Cloud.loaded) Cloud.attach(Cloud.user);
+        if (Cloud.user && !Cloud.loaded) Cloud.attach(Cloud.user); else Cloud.refresh(true);
+      });
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) Cloud.refresh();
       });
       return true;
     },
@@ -1684,8 +2157,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       setSync("saving");
       var uid = user.id, sb = Cloud.sb;
       return Promise.all([
-        sb.from("boards").select("id,data").eq("owner_id", uid),
-        sb.from("libraries").select("items").eq("owner_id", uid).maybeSingle(),
+        sb.from("boards").select("id,data,version").eq("owner_id", uid),
+        sb.from("libraries").select("items,version").eq("owner_id", uid).maybeSingle(),
         sb.from("profiles").select("theme,onboarding_done,ui_theme").eq("id", uid).maybeSingle(),
         /* Sharing is an extra. A deployment without the shares table still
            saves and loads, it simply cannot hand out links. */
@@ -1734,8 +2207,22 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (profile && profile.theme) Theme.set(profile.theme, true);
       /* Saved at least once here, or (boards from before the flag) older than a fresh example. */
       var edited = function (b) { return b.touched === true || (b.updatedAt || 0) - (b.createdAt || 0) > 5000; };
-      var cloudBoards = [];
-      rows.forEach(function (r) { var b = migrateBoard(r.data); if (b && b.id && b.views) cloudBoards.push(b); });
+      var cloudBoards = [], tidied = [];
+      Cloud.ver = {}; Cloud.base = {};
+      rows.forEach(function (r) {
+        /* What every later save of this quarter starts from: the account's
+           copy as it is, empty rows included. The copy opened here drops
+           them (they are scratch), and that is a change of its own: it
+           reaches the account with the next save. */
+        var held = r.data && typeof r.data === "object"
+          ? QM.migrateBoard(clone(r.data), { libEntry: libEntry, barColor: themeBar, keepBlank: true }) : null;
+        var b = migrateBoard(r.data);
+        if (!b || b.id !== r.id || !b.views) return;
+        cloudBoards.push(b);
+        Cloud.ver[b.id] = r.version;
+        Cloud.base[b.id] = JSON.stringify(held || b);
+        if (held && !QM.equal(held, b)) tidied.push(b.id);
+      });
       var firstLogin = !cloudBoards.length;
       var localById = {};
       Store.boards.forEach(function (b) { localById[b.id] = b; });
@@ -1751,6 +2238,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         if (!cloudIds[lb.id] && (firstLogin || edited(lb))) { result.push(lb); push.push(lb); }
       });
       var cloudLib = libRow && Array.isArray(libRow.items) ? libRow.items : null;
+      Cloud.libVer = libRow ? libRow.version : null;
+      Cloud.libBase = libRow ? JSON.stringify(cloudLib || []) : null;
       if (cloudLib) {
         /* The account's library, plus the entries the pushed boards point at. */
         var needed = {};
@@ -1768,6 +2257,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       sortBoards();
       Store.lsWrite();
       push.forEach(function (b) { Cloud.putBoard(b); });
+      /* Empty rows dropped on opening leave the account too, at once: until
+         they do, the account and this page would number rows differently. */
+      tidied.forEach(function (id) {
+        var b = findBoard(id);
+        if (b && push.indexOf(b) < 0) Cloud.putBoard(b);
+      });
       if (!cloudLib || push.length) Cloud.putLibrary();
       if (!profile || !profile.theme) Cloud.putProfile();
       /* The editor theme has a column of its own, so a device that never
@@ -1776,12 +2271,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       else if (UI.picked()) Cloud.putProfile();
       if (profile && profile.onboarding_done) { Onboard.markDone(false); Onboard.close(); }
       if (!Store.boards.some(function (b) { return b.id === state.boardId; })) setBoard(Store.boards[0].id);
+      if (Wanted.id && !Wanted.take()) {
+        Wanted.forget();
+        toast("The quarter in your link is not in this account. It may have been deleted.", { soft: true });
+      }
       state.sel = null;
       renderAll();
       History.reset();
     },
 
-    /* Live updates from the same account on another device. */
+    /* Live updates from the same account on another device, or from Claude. */
     listen: function () {
       if (!Cloud.user || Cloud.channel) return;
       var uid = Cloud.user.id;
@@ -1789,73 +2288,303 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: "owner_id=eq." + uid }, Cloud.onBoardChange)
         .on("postgres_changes", { event: "*", schema: "public", table: "libraries", filter: "owner_id=eq." + uid }, Cloud.onLibraryChange)
         .on("postgres_changes", { event: "*", schema: "public", table: "comments", filter: "owner_id=eq." + uid }, Comments.onChange)
-        .subscribe();
+        .subscribe(function (status) {
+          /* Nothing sent before the channel joined (between the account's
+             load and now, or while the connection was down) is replayed, so
+             each join asks what changed in the meantime. */
+          if (status === "SUBSCRIBED") Cloud.refresh(true);
+        });
     },
     onBoardChange: function (payload) {
       if (payload.eventType === "DELETE") {
         var gone = payload.old && payload.old.id;
-        if (!gone || Store._dirty[gone] || !removeRemoteBoard(gone)) return;
-        if (!Store.boards.length) { Store.boards = starterBoards(); migrateAll(); }
-        Cloud.afterRemote(gone);
+        /* An edit on its way here brings the quarter back (see catchUp). */
+        if (!gone || Store._dirty[gone] || Cloud.inflight[gone]) return;
+        Cloud.take(gone, null);
         return;
       }
       var row = payload.new;
-      if (!row || row.writer === CLIENT || Store._dirty[row.id]) return;
-      if (!applyRemoteBoard(row.data)) return;
-      sortBoards();
-      Cloud.afterRemote(row.id);
+      if (!row || !row.id || row.writer === CLIENT) return;
+      if (Store._dirty[row.id] || Cloud.inflight[row.id]) {
+        /* The save on its way meets this change and merges it. If it lands
+           first, the change is fetched once it has. */
+        Cloud.behind[row.id] = Math.max(Cloud.behind[row.id] || 0, row.version || 0);
+        return;
+      }
+      Cloud.take(row.id, row);
     },
     onLibraryChange: function (payload) {
       var row = payload.new;
-      if (!row || row.writer === CLIENT || Store._dirty.__lib || !Array.isArray(row.items)) return;
-      Store.library = row.items;
+      if (!row || row.writer === CLIENT || !Array.isArray(row.items)) return;
+      if (Store._dirty[LIB_KEY] || Cloud.inflight[LIB_KEY]) {
+        Cloud.behind[LIB_KEY] = Math.max(Cloud.behind[LIB_KEY] || 0, row.version || 0);
+        return;
+      }
+      Cloud.takeLibrary(row);
+    },
+
+    /* Live updates can be missed (a laptop asleep, a dropped connection), so
+       a page that comes back into view asks the account what changed. */
+    refresh: function (now) {
+      if (!Cloud.user || !Cloud.loaded || Cloud.refreshing) return;
+      /* Looking back at the tab asks at most every few seconds; a join or a
+         connection coming back always asks, and does not count. */
+      if (!now && Date.now() - Cloud.refreshedAt < 5000) return;
+      var uid = Cloud.user.id, sb = Cloud.sb;
+      Cloud.refreshing = true;
+      if (!now) Cloud.refreshedAt = Date.now();
+      Promise.all([
+        sb.from("boards").select("id,version").eq("owner_id", uid),
+        sb.from("libraries").select("version").eq("owner_id", uid).maybeSingle()
+      ]).then(function (res) {
+        Cloud.refreshing = false;
+        if (!Cloud.user || Cloud.user.id !== uid || res[0].error || res[1].error) return;
+        var there = {};
+        (res[0].data || []).forEach(function (r) {
+          there[r.id] = true;
+          if (r.version !== Cloud.ver[r.id]) Cloud.pull(r.id);
+        });
+        /* Known to the account before, gone from it now: deleted elsewhere. */
+        Store.boards.forEach(function (b) { if (!there[b.id] && Cloud.ver[b.id] != null) Cloud.pull(b.id); });
+        var lib = res[1].data;
+        if (lib && lib.version !== Cloud.libVer) Cloud.pullLibrary();
+        Cloud.loadShares();
+      }, function () { Cloud.refreshing = false; });
+    },
+    /* The links of this account, read again: Claude can make or withdraw one. */
+    loadShares: function () {
+      if (!Cloud.user || !Cloud.loaded) return Promise.resolve(false);
+      var uid = Cloud.user.id;
+      return Cloud.sb.from("shares").select("token,board_id,allow_comments").eq("owner_id", uid)
+        .then(function (r) {
+          if (!r || r.error || !Cloud.user || Cloud.user.id !== uid) return false;
+          /* A link being made or withdrawn here right now knows better. */
+          if (ShareUI.busy) return false;
+          var seen = {}, talk = {};
+          (r.data || []).forEach(function (x) { seen[x.board_id] = x.token; talk[x.board_id] = x.allow_comments !== false; });
+          Cloud.shares = seen;
+          Cloud.shareComments = talk;
+          return true;
+        }, function () { return false; });
+    },
+    pull: function (id) {
+      if (!Cloud.user || Store._dirty[id] || Cloud.inflight[id] || Cloud.deleting[id]) return;
+      var uid = Cloud.user.id;
+      Cloud.sb.from("boards").select("id,data,version,writer").eq("owner_id", uid).eq("id", id).maybeSingle()
+        .then(function (r) {
+          if (r.error || !Cloud.user || Cloud.user.id !== uid) return;
+          /* An edit made meanwhile has its own save coming, and that save merges. */
+          if (Store._dirty[id] || Cloud.inflight[id] || Cloud.deleting[id]) return;
+          /* Fetched just now, so taken even if its version looks older: a
+             quarter deleted and put back starts again at version 1. */
+          Cloud.take(id, r.data, false, true);
+        }, function () {});
+    },
+    pullLibrary: function () {
+      if (!Cloud.user || Store._dirty[LIB_KEY] || Cloud.inflight[LIB_KEY]) return;
+      var uid = Cloud.user.id;
+      Cloud.sb.from("libraries").select("items,version,writer").eq("owner_id", uid).maybeSingle()
+        .then(function (r) {
+          if (r.error || !r.data || !Cloud.user || Cloud.user.id !== uid) return;
+          if (Store._dirty[LIB_KEY] || Cloud.inflight[LIB_KEY]) return;
+          Cloud.takeLibrary(r.data);
+        }, function () {});
+    },
+
+    /* The account's copy of one quarter (`row`, or null once it is deleted)
+       takes the place of the one here. Edits made here since the last save
+       are merged in, never dropped: what only one side changed comes from
+       that side, and where both changed the same thing, the person at the
+       keyboard wins. `force`: a save of this quarter is under way and asked
+       for it, so it is taken even if it looks no newer. `fresh`: it was just
+       read from the account, so its version is not compared either. */
+    take: function (id, row, force, fresh) {
+      var mine = findBoard(id);
+      if (!row) {
+        delete Cloud.ver[id]; delete Cloud.base[id];
+        /* The account deleted its link and its comments along with it. */
+        delete Cloud.shares[id]; delete Cloud.shareComments[id];
+        Comments.list = Comments.list.filter(function (c) { return c.board !== id; });
+        /* With a save under way, the next round of it puts the quarter back. */
+        if (force || !mine) return;
+        Cloud.redraw(id, function () {
+          removeRemoteBoard(id);
+          if (!Store.boards.length) { Store.boards = starterBoards(); migrateAll(); }
+        });
+        return;
+      }
+      if (!force && !fresh && row.version != null && Cloud.ver[id] != null && row.version <= Cloud.ver[id]) return;
+      /* Deleted here meanwhile, or on its way to being: nothing to record. */
+      if (!mine && (force || Cloud.deleting[id])) return;
+      /* Empty rows stay in: dropping one here would read as the other side
+         deleting the row somebody here has just added and is typing into. */
+      var theirs = QM.migrateBoard(row.data, { libEntry: libEntry, barColor: themeBar, keepBlank: true });
+      Cloud.ver[id] = row.version;
+      /* Unreadable in the account: the copy here replaces it on the next save. */
+      if (!theirs || theirs.id !== id || !theirs.views) { delete Cloud.base[id]; return; }
+      var base = Cloud.base[id] ? JSON.parse(Cloud.base[id]) : theirs;
+      Cloud.base[id] = JSON.stringify(theirs);
+      var claude = /^mcp/.test(String(row.writer || ""));
+      if (!mine) {
+        if (force || Cloud.deleting[id]) return;
+        Cloud.redraw(id, function () { Store.boards.push(theirs); sortBoards(); });
+        if (claude) toast("Claude added the quarter " + quote(theirs.name || "Untitled") + ".", { soft: true });
+        return;
+      }
+      var next = QM.mergeBoards(base, mine, theirs);
+      if (QM.equal(next, mine)) return;
+      /* Edited here as well? Empty rows do not count: they are scratch. */
+      var tidy = function (x) { var c = clone(x); QM.purgeBlankRows(c); return c; };
+      var both = !QM.equal(tidy(base), tidy(mine));
+      Cloud.redraw(id, function () {
+        var i = Store.boards.indexOf(mine);
+        if (i >= 0) Store.boards[i] = next;
+        sortBoards();
+      });
+      if (id !== state.boardId) return;
+      if (both) toast("This quarter was also changed somewhere else. Both sets of changes are kept.", { soft: true });
+      else if (claude) toast("Claude updated this quarter.", { soft: true });
+    },
+    takeLibrary: function (row, force) {
+      if (!row) { Cloud.libVer = null; Cloud.libBase = null; return; }
+      if (!force && row.version != null && Cloud.libVer != null && row.version <= Cloud.libVer) return;
+      var theirs = Array.isArray(row.items) ? row.items : [];
+      var base = Cloud.libBase ? JSON.parse(Cloud.libBase) : theirs;
+      Cloud.libVer = row.version;
+      Cloud.libBase = JSON.stringify(theirs);
+      var next = QM.mergeLists(base, Store.library, theirs);
+      if (QM.equal(next, Store.library)) return;
+      Store.library = next;
       Store.libRev++;
       Store.lsWrite();
       renderLibrary(); renderInspector();
+      /* Undo steps compare libraries: one taken before this change would
+         remove the entries that just arrived. Like a quarter changed
+         elsewhere, it starts the undo history again. */
+      History.reset();
     },
-    afterRemote: function (id) {
+    /* Swap in what came from the account without pulling the floor from
+       under the person editing: the selected row and the caret stay on the
+       row they were on, wherever it moved, and go if it is gone. */
+    redraw: function (id, change) {
+      var here = id === state.boardId;
+      var f = here ? captureFocus() : null;
+      var selId = here && curRow() ? curRow().id : null;
+      change();
       Store.lsWrite();
-      if (!Store.boards.some(function (b) { return b.id === state.boardId; })) { setBoard(Store.boards[0].id); state.sel = null; }
+      if (!Store.boards.some(function (b) { return b.id === state.boardId; })) {
+        setBoard(Store.boards[0].id); state.sel = null; f = null;
+      } else if (here) {
+        var ids = view().rows.map(function (r) { return r.id; });
+        if (state.sel) {
+          var at = selId ? ids.indexOf(selId) : -1;
+          if (at < 0) state.sel = null; else state.sel.row = at;
+        }
+        if (f && f.rowId && ids.indexOf(f.rowId) < 0) f = null;
+      }
       renderAll();
-      if (id === state.boardId) History.reset();
+      if (here) { History.reset(); restoreFocus(f); }
     },
 
-    /* A save that fails stays dirty (so nothing from elsewhere overwrites it),
-       shows "not saved" until it lands, and is tried again a little later. */
-    putBoard: function (b) {
-      if (!Cloud.user) return;
-      var uid = Cloud.user.id;
-      Store._dirty[b.id] = true;
+    /* One save at a time per quarter, and one for the library: a save asked
+       for while another is on its way follows it, with whatever is there by
+       then. Each save names the version it started from. If the account moved
+       on meanwhile (another device, Claude), nothing is written over: the two
+       copies are merged and the merge is saved instead. A save that fails
+       stays dirty (so nothing from elsewhere overwrites it), shows "not saved"
+       until it lands, and is tried again a little later. The promise says
+       whether it landed; it never rejects. */
+    queue: function (key) {
+      if (!Cloud.user) return Promise.resolve(false);
+      Store._dirty[key] = true;
       setSync("saving");
-      Cloud.sb.from("boards").upsert({ owner_id: uid, id: b.id, data: b, writer: CLIENT }, { onConflict: "owner_id,id" })
+      if (Cloud.inflight[key]) { Cloud.again[key] = true; return Cloud.inflight[key]; }
+      var uid = Cloud.user.id, lib = key === LIB_KEY, timer = lib ? "lib" : "b:" + key;
+      var mine = function () { return !!Cloud.user && Cloud.user.id === uid; };
+      var round = function (clashes) {
+        delete Cloud.again[key];
+        return (lib ? Cloud.sendLibrary(uid) : Cloud.sendBoard(key, uid)).then(function (st) {
+          if (!mine()) return;
+          if (st === "clash") {
+            if (clashes >= 3) throw new Error("the account keeps changing");
+            return (lib ? Cloud.catchUpLibrary(uid) : Cloud.catchUp(key, uid)).then(function () { return round(clashes + 1); });
+          }
+          if (Cloud.again[key]) return round(0);
+        });
+      };
+      var p = round(0).then(function () {
+        if (Cloud.inflight[key] === p) delete Cloud.inflight[key];
+        if (!mine()) return false;
+        delete Cloud.failed[key];
+        /* An edit made while this save travelled has a save of its own coming. */
+        if (!Store._timers[timer]) delete Store._dirty[key];
+        setSync("idle");
+        var known = lib ? Cloud.libVer : Cloud.ver[key];
+        if ((Cloud.behind[key] || 0) > (known || 0)) { if (lib) Cloud.pullLibrary(); else Cloud.pull(key); }
+        delete Cloud.behind[key];
+        return true;
+      }, function () {
+        if (Cloud.inflight[key] === p) delete Cloud.inflight[key];
+        if (!mine()) return false;
+        Cloud.failed[key] = true;
+        setSync("error", "not saved");
+        Store._debounce(timer, lib ? Cloud.putLibrary : function () {
+          var b = findBoard(key);
+          if (b) Cloud.putBoard(b);
+        }, 5000);
+        return false;
+      });
+      Cloud.inflight[key] = p;
+      return p;
+    },
+    putBoard: function (b) { return Cloud.queue(b.id); },
+    putLibrary: function () { return Cloud.queue(LIB_KEY); },
+    /* One write: "done", or "clash" when the account holds another version. */
+    sendBoard: function (id, uid) {
+      var b = findBoard(id);
+      /* Deleted here meanwhile: its delete is on the way instead. */
+      if (!b) return Promise.resolve("done");
+      var known = Cloud.ver[id];
+      if (known != null && Cloud.base[id] && QM.equal(JSON.parse(Cloud.base[id]), b)) return Promise.resolve("done");
+      var json = JSON.stringify(b), t = Cloud.sb.from("boards");
+      var q = known == null
+        ? t.insert({ owner_id: uid, id: id, data: JSON.parse(json), writer: CLIENT })
+        : t.update({ data: JSON.parse(json), writer: CLIENT }).eq("owner_id", uid).eq("id", id).eq("version", known);
+      return q.select("version").then(function (r) {
+        if (r.error) { if (r.error.code === "23505") return "clash"; throw r.error; }
+        var row = r.data && r.data[0];
+        if (!row) return "clash";
+        if (Cloud.user && Cloud.user.id === uid && findBoard(id)) { Cloud.ver[id] = row.version; Cloud.base[id] = json; }
+        return "done";
+      });
+    },
+    sendLibrary: function (uid) {
+      var known = Cloud.libVer;
+      if (known != null && Cloud.libBase && QM.equal(JSON.parse(Cloud.libBase), Store.library)) return Promise.resolve("done");
+      var json = JSON.stringify(Store.library), t = Cloud.sb.from("libraries");
+      var q = known == null
+        ? t.insert({ owner_id: uid, items: JSON.parse(json), writer: CLIENT })
+        : t.update({ items: JSON.parse(json), writer: CLIENT }).eq("owner_id", uid).eq("version", known);
+      return q.select("version").then(function (r) {
+        if (r.error) { if (r.error.code === "23505") return "clash"; throw r.error; }
+        var row = r.data && r.data[0];
+        if (!row) return "clash";
+        if (Cloud.user && Cloud.user.id === uid) { Cloud.libVer = row.version; Cloud.libBase = json; }
+        return "done";
+      });
+    },
+    catchUp: function (id, uid) {
+      return Cloud.sb.from("boards").select("id,data,version,writer").eq("owner_id", uid).eq("id", id).maybeSingle()
         .then(function (r) {
-          if (r && r.error) throw r.error;
-          delete Store._dirty[b.id]; delete Cloud.failed[b.id];
-          Cloud.putShare(b);
-          setSync("idle");
-        })
-        .catch(function () {
-          if (!Cloud.user) { delete Store._dirty[b.id]; return; }
-          Cloud.failed[b.id] = true;
-          setSync("error", "not saved");
-          Store._debounce("b:" + b.id, function () { Cloud.putBoard(b); }, 5000);
+          if (r.error) throw r.error;
+          if (Cloud.user && Cloud.user.id === uid) Cloud.take(id, r.data, true);
         });
     },
-    putLibrary: function () {
-      if (!Cloud.user) return;
-      Store._dirty.__lib = true;
-      setSync("saving");
-      Cloud.sb.from("libraries").upsert({ owner_id: Cloud.user.id, items: Store.library, writer: CLIENT })
+    catchUpLibrary: function (uid) {
+      return Cloud.sb.from("libraries").select("items,version,writer").eq("owner_id", uid).maybeSingle()
         .then(function (r) {
-          if (r && r.error) throw r.error;
-          delete Store._dirty.__lib; delete Cloud.failed.__lib;
-          setSync("idle");
-        })
-        .catch(function () {
-          if (!Cloud.user) { delete Store._dirty.__lib; return; }
-          Cloud.failed.__lib = true;
-          setSync("error", "not saved");
-          Store._debounce("lib", Cloud.putLibrary, 5000);
+          if (r.error) throw r.error;
+          if (Cloud.user && Cloud.user.id === uid) Cloud.takeLibrary(r.data, true);
         });
     },
     putProfile: function () {
@@ -1872,49 +2601,46 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
           .then(function (r) { if (r && r.error) setSync("error", "not saved"); });
       });
     },
-    /* The shared copy is refreshed from the same save that wrote the board, so
-       a reader is at most a second behind plus their own refresh. */
-    putShare: function (b) {
-      if (!Cloud.user || !Cloud.shares[b.id]) return;
-      Store._debounce("share:" + b.id, function () {
-        if (!Cloud.user || !Cloud.shares[b.id]) return;
-        Cloud.sb.from("shares").update({ data: b, theme: Theme.current() })
-          .eq("owner_id", Cloud.user.id).eq("board_id", b.id)
+    /* The database keeps the quarter behind a link in step with every save.
+       The look travels with it too, and that one is the page's to send. */
+    putShareTheme: function (id) {
+      if (!Cloud.user || !Cloud.shares[id]) return;
+      Store._debounce("share:" + id, function () {
+        if (!Cloud.user || !Cloud.shares[id]) return;
+        Cloud.sb.from("shares").update({ theme: Theme.current() })
+          .eq("owner_id", Cloud.user.id).eq("board_id", id)
           .then(function (r) {
-            /* The quarter itself is already saved. Only the copy behind the
-               link failed, so it is tried again quietly rather than telling
-               the owner their work did not land. */
-            if (r && r.error) Store._debounce("share:" + b.id, function () { Cloud.putShare(b); }, 5000);
+            /* The look is already saved to the account. Only the copy behind
+               the link missed it, so it is tried again quietly. */
+            if (r && r.error) Store._debounce("share:" + id, function () { Cloud.putShareTheme(id); }, 5000);
           });
       }, 900);
     },
-    /* The quarter goes up first: the share row points at it by foreign key, so
-       a brand new quarter would otherwise have nothing to point at. */
+    /* The quarter goes up first: the share row points at it by foreign key,
+       and the database fills the link's copy from it. */
     createShare: function (b) {
-      /* The first write would be an upsert of the board: until the account has
-         been read, that could land on top of a newer copy. */
+      /* Until the account has been read, a save could land on top of a newer copy. */
       if (!Cloud.user || !Cloud.loaded) return Promise.reject(new Error("not ready"));
-      var uid = Cloud.user.id;
+      var uid = Cloud.user.id, id = b.id;
       var mine = function () { return Cloud.user && Cloud.user.id === uid; };
-      return Cloud.sb.from("boards")
-        .upsert({ owner_id: uid, id: b.id, data: b, writer: CLIENT }, { onConflict: "owner_id,id" })
-        .then(function (r) {
-          if (r && r.error) throw r.error;
-          return Cloud.sb.from("shares")
-            .upsert({ owner_id: uid, board_id: b.id, data: b, theme: Theme.current() },
-                    { onConflict: "owner_id,board_id" })
-            .select("token,allow_comments");
-        })
-        .then(function (r) {
-          if (r.error) throw r.error;
-          var token = r.data && r.data[0] && r.data[0].token;
-          if (!token) throw new Error("no token");
-          /* Somebody else may have logged in while this was in flight. */
-          if (!mine()) throw new Error("account changed");
-          Cloud.shares[b.id] = token;
-          Cloud.shareComments[b.id] = r.data[0].allow_comments !== false;
-          return token;
-        });
+      var saved = Cloud.ver[id] == null || Store._dirty[id] || Cloud.inflight[id] ? Cloud.putBoard(b) : Promise.resolve(true);
+      return saved.then(function (ok) {
+        if (!ok) throw new Error("not saved");
+        if (!mine()) throw new Error("account changed");
+        return Cloud.sb.from("shares")
+          .upsert({ owner_id: uid, board_id: id, data: b, theme: Theme.current() },
+                  { onConflict: "owner_id,board_id" })
+          .select("token,allow_comments");
+      }).then(function (r) {
+        if (r.error) throw r.error;
+        var token = r.data && r.data[0] && r.data[0].token;
+        if (!token) throw new Error("no token");
+        /* Somebody else may have logged in while this was in flight. */
+        if (!mine()) throw new Error("account changed");
+        Cloud.shares[id] = token;
+        Cloud.shareComments[id] = r.data[0].allow_comments !== false;
+        return token;
+      });
     },
     /* Whether people with the link may comment. The link itself stays. */
     setShareComments: function (id, on) {
@@ -1943,8 +2669,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     },
     deleteBoard: function (id) {
       if (!Cloud.user) return;
-      Cloud.sb.from("boards").delete().eq("owner_id", Cloud.user.id).eq("id", id)
-        .then(function (r) { if (r && r.error) setSync("error", "not saved"); });
+      var uid = Cloud.user.id;
+      Cloud.deleting[id] = true;
+      delete Cloud.ver[id]; delete Cloud.base[id]; delete Cloud.behind[id];
+      var done = function () { delete Cloud.deleting[id]; };
+      /* A save still on its way would bring the quarter back after the delete. */
+      Promise.resolve(Cloud.inflight[id]).then(function () {
+        if (!Cloud.user || Cloud.user.id !== uid) return;
+        return Cloud.sb.from("boards").delete().eq("owner_id", uid).eq("id", id)
+          .then(function (r) { if (r && r.error) setSync("error", "not saved"); });
+      }).then(done, done);
     },
 
     /* Logged out. When the user asked for it, nothing of the account stays on
@@ -1962,6 +2696,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       Cloud.failed = {};
       Cloud.shares = {};
       Cloud.shareComments = {};
+      Cloud.ver = {}; Cloud.base = {}; Cloud.libVer = null; Cloud.libBase = null;
+      Cloud.inflight = {}; Cloud.again = {}; Cloud.behind = {}; Cloud.deleting = {};
+      Cloud.refreshing = false;
       Store.mode = "local";
       Store._dirty = {};
       Comments.reset(wipe);
@@ -2072,7 +2809,12 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (!Cloud.sb) return;
       Store.flush();
       Cloud.leaving = true;
-      Cloud.sb.auth.signOut({ scope: "local" }).then(function () { toast("Logged out. Nothing of your account stays on this device."); })
+      /* Saves still on their way need this session to land, so it ends once
+         they have (or after a few seconds, whatever happens to them). */
+      var going = Object.keys(Cloud.inflight).map(function (k) { return Cloud.inflight[k]; });
+      Promise.race([Promise.all(going), new Promise(function (r) { setTimeout(r, 4000); })])
+        .then(function () { return Cloud.sb.auth.signOut({ scope: "local" }); })
+        .then(function () { toast("Logged out. Nothing of your account stays on this device."); })
         .catch(function () { Cloud.leaving = false; toast("Could not log out. Please try again."); });
     },
     renderState: function () {
@@ -2244,10 +2986,77 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   };
 
   /* The owner's side: one link per quarter, made and withdrawn from here. */
+  /* Copies a field's text, or says how to when the browser will not. */
+  function copyField(el, say, done) {
+    el.focus(); el.select();
+    var byHand = function () { say("Press Ctrl or Cmd and C to copy it."); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(el.value).then(function () { say(done); }).catch(byHand);
+    } else byHand();
+  }
+
+  /* Where Claude reaches an account: the connector on the hosted site. Every
+     copy of the page (a preview, the GitHub Pages fallback, a file on disk)
+     shares the same accounts, so they all point at that one. */
+  var ClaudeUI = {
+    base: function () { return "https://roadmap-snapshot-studio.vercel.app"; },
+    isOpen: function () { return !$("claudeSheet").hidden; },
+    open: function () {
+      $("claudeUrl").value = ClaudeUI.base() + "/api/mcp";
+      $("claudeApps").href = ClaudeUI.base() + "/oauth/consent";
+      $("claudeMsg").textContent = "";
+      $("claudeMsg").classList.remove("is-bad");
+      $("claudeSheet").hidden = false;
+      $("claudeCopy").focus();
+    },
+    close: function () { $("claudeSheet").hidden = true; },
+    copy: function () {
+      copyField($("claudeUrl"), function (t) { $("claudeMsg").textContent = t; }, "Address copied.");
+    }
+  };
+
+  /* A link can name the quarter to open: ?q=<id>, as in the links Claude
+     gives. It counts once the quarter is here: at once if this device has
+     it, otherwise when the account has loaded. */
+  var Wanted = {
+    id: null,
+    read: function () {
+      var m = /[?&]q=([^&#]+)/.exec(location.search || ""), v = "";
+      if (!m) return;
+      try { v = decodeURIComponent(m[1]); } catch (e) {}
+      if (/^[A-Za-z0-9_-]{1,64}$/.test(v)) Wanted.id = v;
+      else Wanted.forget();
+    },
+    /* Opens the quarter if it is here. True when it did. */
+    take: function () {
+      if (!Wanted.id || !Store.boards.some(function (b) { return b.id === Wanted.id; })) return false;
+      setBoard(Wanted.id); state.sel = null;
+      Wanted.forget();
+      return true;
+    },
+    /* The address loses ?q= so a reload opens whatever is picked by then. */
+    forget: function () {
+      Wanted.id = null;
+      try {
+        var u = new URL(location.href);
+        if (!u.searchParams.has("q")) return;
+        u.searchParams.delete("q");
+        history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      } catch (e) {}
+    }
+  };
+
   var ShareUI = {
     busy: false,
     isOpen: function () { return !$("shareSheet").hidden; },
-    open: function () { $("shareSheet").hidden = false; ShareUI.say(""); ShareUI.render(); },
+    open: function () {
+      $("shareSheet").hidden = false; ShareUI.say(""); ShareUI.render();
+      /* A link may have been made or withdrawn elsewhere, by Claude. */
+      var id = state.boardId, was = Cloud.shares[id] + "|" + Cloud.shareComments[id];
+      Cloud.loadShares().then(function () {
+        if (ShareUI.isOpen() && !ShareUI.busy && Cloud.shares[id] + "|" + Cloud.shareComments[id] !== was) ShareUI.render();
+      });
+    },
     close: function () { $("shareSheet").hidden = true; },
     link: function (token) { return location.origin + location.pathname + "?s=" + token; },
     say: function (msg, bad) {
@@ -2287,13 +3096,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (what === "close") { ShareUI.close(); return; }
       if (what === "login") { ShareUI.close(); Auth.open("login"); return; }
       if (what === "copy") {
-        var el = $("shareUrl");
-        if (!el) return;
-        el.focus(); el.select();
-        var byHand = function () { ShareUI.say("Press Ctrl or Cmd and C to copy it."); };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(el.value).then(function () { ShareUI.say("Link copied."); }).catch(byHand);
-        } else byHand();
+        if ($("shareUrl")) copyField($("shareUrl"), function (t) { ShareUI.say(t); }, "Link copied.");
         return;
       }
       if (what === "create") {
@@ -3514,10 +4317,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
         Cloud.putProfile();
         /* Every shared quarter carries a copy of the look, so all of them are
            refreshed, not only the one on screen. */
-        Object.keys(Cloud.shares).forEach(function (id) {
-          var b = Store.boards.filter(function (x) { return x.id === id; })[0];
-          if (b) Cloud.putShare(b);
-        });
+        Object.keys(Cloud.shares).forEach(function (id) { Cloud.putShareTheme(id); });
       }
     },
     /* Apply a look without storing it: used for a quarter someone else shared,
@@ -3670,6 +4470,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   /* A board that changed elsewhere (another device, another editor) replaces
      the copy here, or joins the list. Used by both storage backends. */
+  function findBoard(id) {
+    for (var i = 0; i < Store.boards.length; i++) if (Store.boards[i].id === id) return Store.boards[i];
+    return null;
+  }
   function applyRemoteBoard(raw) {
     var b = migrateBoard(raw);
     if (!b || !b.id || !b.views) return false;
@@ -3707,69 +4511,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
     return base;
   }
-  function isBlankRow(row) {
-    return !row.name && !Object.keys(row.cells || {}).length && !row.desc && !row.url && !row.area;
-  }
-
-  /* Each row carries its own name, link, description and area. The library is a
-     catalogue you pick from: a row remembers where it came from (libId) so the
-     P/D badges and the tick boxes still work, but renaming a row on one roadmap
-     never touches the other. Rows written before this migrate on load. */
-  function migrateRow(r) {
-    if (r.name !== undefined) return r;
-    var src = (r.iid && libEntry(r.iid)) || {};
-    r.libId = r.iid || null;
-    r.name = r.label || src.name || "(no name)";
-    r.url = src.url || "";
-    r.desc = src.desc || "";
-    r.area = src.area || "";
-    delete r.iid; delete r.label;
-    return r;
-  }
-  function migrateBoard(b) {
-    if (!b || !b.views) return b;
-    Object.keys(b.views).forEach(function (k) {
-      (b.views[k].rows || []).forEach(migrateRow);
-    });
-    /* A row imported from elsewhere may name no category at all. */
-    Object.keys(b.views).forEach(function (k) {
-      (b.views[k].rows || []).forEach(function (r) {
-        if (r.accent !== "none" && BAR_KEYS.indexOf(r.accent) < 0) r.accent = "teal";
-      });
-    });
-    /* An empty row left behind by a closed tab is scratch, not content. */
-    purgeBlankRows(b);
-    fixAccents(b);
-    if (!Array.isArray(b.sprints)) b.sprints = [];
-    fixIds(b.sprints, function (s, i) { return "s-" + i; });
-    Object.keys(b.views).forEach(function (k) {
-      var v = b.views[k];
-      if (!Array.isArray(v.milestones)) v.milestones = [];
-      fixIds(v.rows, function (r) { return "r-" + (r.libId ? "l-" + slugId(r.libId) : "n-" + slugId(r.name)); });
-      fixIds(v.milestones, function (m, i) { return "m-" + i; });
-    });
-    return b;
-  }
-  /* A comment pins itself to a row, a sprint or a go-live line, and must find
-     it again after rows move, so each of them carries an id. One saved before
-     rows had ids gets an id made from what it holds: the owner and a reader of
-     the same copy then agree on it before anything is saved again. */
-  function slugId(s) {
-    return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "x";
-  }
-  function fixIds(list, derive) {
-    var seen = {};
-    list.forEach(function (o) {
-      if (typeof o.id === "string" && o.id && !seen[o.id]) seen[o.id] = true; else o.id = "";
-    });
-    list.forEach(function (o, i) {
-      if (o.id) return;
-      var base = derive(o, i), id = base, n = 2;
-      while (seen[id]) id = base + "-" + n++;
-      o.id = id;
-      seen[id] = true;
-    });
-  }
+  var isBlankRow = QM.isBlankRow;
+  /* Rows saved before they held their own text read it from the library. */
+  function migrateBoard(b) { return QM.migrateBoard(b, { libEntry: libEntry, barColor: themeBar }); }
   function migrateAll() { Store.boards.forEach(migrateBoard); }
   function curRow() { return state.sel ? view().rows[state.sel.row] || null : null; }
 
@@ -3931,49 +4675,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   };
 
   /* Rows and go-live lines share one index space: every insert or removal
-     moves the lines along with the rows they sit on. */
-  function clampMilestones(v) {
-    var n = v.rows.length;
-    if (!n) return;
-    (v.milestones || []).forEach(function (m) {
-      m.row = Math.max(0, Math.min(m.row, n - 1));
-      m.endRow = Math.max(m.row, Math.min(m.endRow, n - 1));
-    });
-  }
-  function removeRowsAt(v, indexes) {
-    indexes.slice().sort(function (a, b) { return b - a; }).forEach(function (i) {
-      v.rows.splice(i, 1);
-      (v.milestones || []).forEach(function (m) {
-        if (i < m.row) { m.row--; m.endRow--; }
-        else if (i <= m.endRow && m.endRow > m.row) { m.endRow--; }
-      });
-    });
-    clampMilestones(v);
-  }
-  function insertRowAt(v, i, row) {
-    v.rows.splice(i, 0, row);
-    (v.milestones || []).forEach(function (m) {
-      if (i <= m.row) { m.row++; m.endRow++; }
-      else if (i <= m.endRow) { m.endRow++; }
-    });
-  }
-  function blankIndexes(rows) {
-    var out = [];
-    rows.forEach(function (r, i) { if (isBlankRow(r)) out.push(i); });
-    return out;
-  }
-  function purgeBlankRows(b) {
-    Object.keys(b.views).forEach(function (k) {
-      var v = b.views[k];
-      v.rows = v.rows || [];
-      var gone = blankIndexes(v.rows);
-      if (gone.length) removeRowsAt(v, gone);
-    });
-  }
-  /* Rows with a name or any content; empty scratch rows do not count. */
-  function hasContent(v) {
-    return !!(v && v.rows && v.rows.some(function (r) { return !isBlankRow(r); }));
-  }
+     moves the lines along with the rows they sit on (see the model). */
+  var removeRowsAt = QM.removeRowsAt, insertRowAt = QM.insertRowAt;
+  var blankIndexes = QM.blankIndexes, purgeBlankRows = QM.purgeBlankRows, hasContent = QM.hasContent;
   /* Bring the live library from one step's library to another's: entries the
      step removed go, entries it added come back, entries it changed take that
      shape. Anything the two steps agree on is left as it is now. */
@@ -4108,8 +4812,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function renderSlide() {
     var b = board(), v = view(), slide = $("slide");
-    /* A rebuild drops the focused name without a blur, so settle its library
-       link first; the row itself stays whatever it holds. */
+    /* A rebuild drops the focused name (the browser may or may not report it
+       as a blur), so settle its library link first; the row itself stays
+       whatever it holds. */
     if (focusedRowRef && locateRow(b, focusedRowRef)) linkRowToLibrary(focusedRowRef);
     focusedRowRef = null;
     /* Presentation and read-only views must not hand out editable fields. */
@@ -4212,7 +4917,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
     html += "</div>";
 
-    slide.innerHTML = html;
+    /* Chromium reports the focused name as blurred when the rebuild removes
+       it; that is not somebody leaving the name (see the focusout handler). */
+    slideRebuilding = true;
+    try { slide.innerHTML = html; } finally { slideRebuilding = false; }
     fitRowHeight(v, edit);
     if (present.on) fitPresent(); else fitSlide();
     Comments.decorate();
@@ -4444,6 +5152,8 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   function renderMenu() {
     var b = board();
     $("mLegend").textContent = (b.legend && b.legend.show) ? "Hide the legend" : "Show the legend";
+    /* Claude reaches an account through the online service. */
+    $("mClaude").hidden = !Cloud.available();
   }
 
   function renderAll() {
@@ -4773,14 +5483,16 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
   var painting = null;
   var paintedLast = null;
   /* The row whose name holds the caret, as an object: indices shift under it. */
-  var focusedRowRef = null;
+  var focusedRowRef = null, slideRebuilding = false;
 
   /* Where the caret is, so a row removed under the pointer can put it back. */
   function captureFocus() {
     var ae = document.activeElement, slide = $("slide");
     if (!ae || !slide.contains(ae) || !ae.isContentEditable) return null;
     var f = { id: ae.id || null, namerow: ae.dataset.namerow, mscap: ae.dataset.mscap,
-              sprint: ae.dataset.sprint, key: ae.dataset.key, offset: null };
+              sprint: ae.dataset.sprint, key: ae.dataset.key, offset: null, rowId: null };
+    /* The row too, so the caret can follow it if rows move under it. */
+    if (f.namerow !== undefined) { var r = view().rows[+f.namerow]; f.rowId = r ? r.id : null; }
     try {
       var s = window.getSelection();
       if (s.rangeCount && ae.contains(s.anchorNode)) f.offset = s.anchorOffset;
@@ -4792,8 +5504,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var slide = $("slide"), el = null;
     if (f.id) el = $(f.id);
     else if (f.namerow !== undefined) {
-      var i = +f.namerow;
-      if (removedRow !== undefined && removedRow < i) i--;
+      var i = +f.namerow, at = f.rowId ? view().rows.map(function (r) { return r.id; }).indexOf(f.rowId) : -1;
+      if (at >= 0) i = at;
+      else if (removedRow !== undefined && removedRow < i) i--;
       el = slide.querySelector('[data-namerow="' + i + '"]');
     } else if (f.mscap !== undefined) el = slide.querySelector('[data-mscap="' + f.mscap + '"]');
     else if (f.sprint !== undefined) el = slide.querySelector('[data-sprint="' + f.sprint + '"][data-key="' + f.key + '"]');
@@ -5031,7 +5744,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
        the panel does not count as leaving. */
     slide.addEventListener("focusout", function (e) {
       var t = e.target;
-      if (!t.dataset || t.dataset.namerow === undefined) return;
+      if (slideRebuilding || !t.dataset || t.dataset.namerow === undefined) return;
       var row = focusedRowRef || view().rows[+t.dataset.namerow];
       focusedRowRef = null;
       if (!row) return;
@@ -5144,6 +5857,9 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var b = board(), at = locateRow(b, row);
     if (!at) return;
     var ae = document.activeElement;
+    /* A rebuild of the slide (a change arriving from elsewhere) blurs the name
+       and puts the caret straight back: the row was never left. */
+    if (ae && ae.dataset && ae.dataset.namerow !== undefined && at.view === state.view && +ae.dataset.namerow === at.index) return;
     var inPanel = !!(ae && ae.closest && ae.closest("#inspector"));
     if (isBlankRow(row)) {
       if (inPanel) return;
@@ -5411,39 +6127,17 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
 
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function generateSprints() {
-    var start = $("genStart").value;
-    if (!start) { toast("Pick the start date first"); return; }
-    var weeks = Math.max(1, +$("genWeeks").value || 2);
-    var asked = +$("genCount").value || 8;
-    var count = Math.max(MIN_SPRINTS, Math.min(MAX_SPRINTS, asked));
-    var from = Math.max(1, +$("genFrom").value || 1);
-    var perQ = Math.max(2, +$("genPerQ").value || 7);
-    var qIdx = ["Q1", "Q2", "Q3", "Q4"].indexOf($("genQ").value);
     var b = board();
-    var d = new Date(start + "T00:00:00");
-    var out = [];
-    for (var i = 0; i < count; i++) {
-      var end = new Date(d.getTime() + (weeks * 7 - 3) * 86400000);
-      out.push({
-        id: (b.sprints[i] && b.sprints[i].id) || uid("s"),
-        name: "Sprint " + from,
-        quarter: ["Q1", "Q2", "Q3", "Q4"][qIdx],
-        dates: pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + " – " + pad(end.getDate()) + "/" + pad(end.getMonth() + 1)
-      });
-      from++;
-      if (from > perQ) { from = 1; qIdx = (qIdx + 1) % 4; }
-      d = new Date(d.getTime() + weeks * 7 * 86400000);
-    }
-    /* keep painted phases that still have a sprint */
-    Object.keys(b.views).forEach(function (k) {
-      b.views[k].rows.forEach(function (r) {
-        Object.keys(r.cells).forEach(function (c) { if (+c >= out.length) delete r.cells[c]; });
-      });
-      b.views[k].milestones = (b.views[k].milestones || []).filter(function (m) { return m.col < out.length; });
-    });
-    b.sprints = out;
+    var made = QM.generateSprints({
+      start: $("genStart").value, weeks: $("genWeeks").value, count: $("genCount").value || 8,
+      from: $("genFrom").value, perQ: $("genPerQ").value, quarter: $("genQ").value
+    }, b.sprints);
+    if (!made) { toast("Pick the start date first"); return; }
+    /* Painted phases that still have a sprint stay where they are. */
+    b.sprints = made.sprints;
+    QM.fitToSprints(b);
     commitStep(); renderSprints(); renderMilestones(); renderSlide();
-    toast(count === asked ? "Sprints updated" : "Sprints updated (" + count + " is the limit)", { undo: true });
+    toast(made.count === made.asked ? "Sprints updated" : "Sprints updated (" + made.count + " is the limit)", { undo: true });
   }
 
   /* ---- top bar wiring ---- */
@@ -5717,6 +6411,10 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     });
     $("mLook").addEventListener("click", function () { closeMenu(); Onboard.open(1, true); });
     $("mShare").addEventListener("click", function () { closeMenu(); ShareUI.open(); });
+    $("mClaude").addEventListener("click", function () { closeMenu(); ClaudeUI.open(); });
+    $("claudeCopy").addEventListener("click", ClaudeUI.copy);
+    $("claudeClose").addEventListener("click", ClaudeUI.close);
+    $("claudeSheet").addEventListener("click", function (e) { if (e.target === $("claudeSheet")) ClaudeUI.close(); });
 
     $("shareActions").addEventListener("click", function (e) {
       var b = e.target.closest("[data-sh]");
@@ -5938,6 +6636,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
       if (e.key === "Escape") {
         if (!$("sheet").hidden) { toggleSheet(false); return; }
         if (ShareUI.isOpen()) { ShareUI.close(); return; }
+        if (ClaudeUI.isOpen()) { ClaudeUI.close(); return; }
         if (Auth.isOpen()) { Auth.close(); return; }
         if (Onboard.isOpen()) { Onboard.finish(); return; }
         if (!$("menu").hidden) { closeMenu(true); return; }
@@ -5988,6 +6687,7 @@ body.is-readonly .workspace{grid-template-columns:minmax(0,1fr)}
     var last = null;
     try { last = localStorage.getItem(LS_KEY + ":last"); } catch (e) {}
     state.boardId = (last && Store.boards.some(function (b) { return b.id === last; })) ? last : Store.boards[0].id;
+    if (!Shared.is()) { Wanted.read(); Wanted.take(); } else Wanted.forget();
 
     wireSlide(); wireSidebar(); wireTopbar(); wireKeys(); Onboard.wire(); Comments.wire();
     if (Shared.is()) Shared.claim();

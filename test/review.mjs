@@ -14,6 +14,9 @@
  *                  local port for the run)
  *   H2C_PATH       local html2canvas bundle, for sandboxes with no CDN access
  *   JSPDF_PATH     local jsPDF bundle, same reason
+ *   SUPABASE_JS_PATH  local copy of the supabase-js bundle the consent page
+ *                  loads (the exact file: its integrity hash is checked).
+ *                  Without it the consent page checks are skipped.
  */
 import { chromium } from 'playwright';
 import fs from 'fs';
@@ -1260,6 +1263,202 @@ await p3.keyboard.press('Escape'); await p3.waitForTimeout(150);
 
 await ctx3.close();
 
+// ---------- 14c. CHANGES MADE ELSEWHERE (another device, Claude) ----------
+const ctx6 = await b.newContext({ viewport: { width: 1600, height: 1000 } });
+const p6 = await ctx6.newPage();
+p6.on('pageerror', e => pageErrors.push('p6: ' + String(e.message)));
+const Q6 = (s) => p6.evaluate(s);
+await p6.addInitScript(ONBOARDED);
+await p6.addInitScript(FAKE_SUPABASE);
+await p6.goto(PAGE); await p6.waitForTimeout(900);
+await p6.click('#btnAuth'); await p6.click('#authTabs [data-mode="signup"]');
+await p6.fill('#authEmail', 'merge@test.dev'); await p6.fill('#authPass', 'a-long-password');
+await p6.click('#authSubmit'); await p6.waitForTimeout(1000);
+const qid = await Q6(`document.getElementById('boardSel').value`);
+const owner6 = await Q6(`window.__fakeDb.boards[0].owner_id`);
+// the account's copy of the open quarter, and what the slide and the toast say
+const acct = (expr) => p6.evaluate((e) => { const d = window.__fakeDb.boards.find(x => x.id === document.getElementById('boardSel').value); try { return new Function('b', 'return ' + e)(d); } catch (err) { return null; } }, expr);
+const toastText = () => Q6(`document.getElementById('toast').hidden ? '' : document.getElementById('toast').textContent`);
+const nameAt = (i) => Q6(`(document.querySelector('[data-namerow="${i}"]')||{}).textContent`);
+check('versions: every save names a version, and the first one is 1', (await acct('b.version')) === 1);
+
+// Claude changes the quarter while it is open but nobody is editing it
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => { r.data.views.product.rows[0].name = 'Renamed by Claude'; r.data.updatedAt = Date.now(); }, { writer: 'mcp' }), qid);
+await p6.waitForTimeout(300);
+check('versions: a change made by Claude shows up at once',
+  (await nameAt(0)) === 'Renamed by Claude' && /Claude updated this quarter/.test(await toastText()), await toastText());
+
+// an edit here, while another device adds a row to the same quarter and its live update is lost
+await p6.click('.brush[data-brush="specs"]');
+await p6.click('.cell[data-row="1"][data-col="5"]');
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => {
+  r.data.views.product.rows.push({ id: 'r-elsewhere', libId: null, name: 'Added elsewhere', url: '', desc: '', area: '', accent: 'teal', box: false, cells: { 2: ['discovery'] } });
+}, { silent: true }), qid);
+await p6.waitForTimeout(1200);
+check('versions: an edit here and a change made elsewhere both reach the account',
+  (await acct(`b.data.views.product.rows[1].cells['5'][0]`)) === 'specs' &&
+  (await acct(`b.data.views.product.rows.some(r => r.name === 'Added elsewhere')`)) === true &&
+  (await acct(`b.data.views.product.rows[0].name`)) === 'Renamed by Claude');
+check('versions: and both are on screen, with a note that both were kept',
+  (await Q6(`document.querySelectorAll('.cell[data-row="1"][data-col="5"] .chip--specs').length`)) === 1 &&
+  (await Q6(`[...document.querySelectorAll('[data-namerow]')].some(e => e.textContent === 'Added elsewhere')`)) &&
+  /Both sets of changes are kept/.test(await toastText()), await toastText());
+
+// the same cell changed on both sides: the person at the keyboard wins
+await p6.click('.cell[data-row="2"][data-col="6"]');
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => { r.data.views.product.rows[2].cells['6'] = ['delivery']; }, { silent: true }), qid);
+await p6.waitForTimeout(1200);
+check('versions: where both sides changed the same cell, the edit made here wins',
+  (await acct(`b.data.views.product.rows[2].cells['6'][0]`)) === 'specs' &&
+  (await Q6(`document.querySelectorAll('.cell[data-row="2"][data-col="6"] .chip--specs').length`)) === 1);
+const vNow = await acct('b.version');
+
+// a live update that never arrived is fetched when the page is looked at again
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => { r.data.name = 'Q1 2027 by Claude'; }, { silent: true, writer: 'mcp' }), qid);
+await p6.waitForTimeout(200);
+const before6 = await Q6(`document.getElementById('boardSel').selectedOptions[0].textContent`);
+await p6.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await p6.waitForTimeout(500);
+check('versions: a change whose live update was lost arrives when the page is looked at again',
+  !/by Claude/.test(before6) && /Q1 2027 by Claude/.test(await Q6(`document.getElementById('boardSel').selectedOptions[0].textContent`)) &&
+  (await acct('b.version')) === vNow + 1);
+
+// the library: a change made elsewhere and missed comes in when the connection is back
+await p6.evaluate((o) => window.__fakeTouch('libraries', { owner_id: o }, (r) => {
+  r.items.push({ id: 'i-elsewhere', name: 'Library entry from elsewhere', url: '', desc: '', area: '' });
+}, { silent: true }), owner6);
+await p6.evaluate(() => window.__fakeRejoin()); await p6.waitForTimeout(500);
+check('versions: a connection that comes back catches up with the library too',
+  /Library entry from elsewhere/.test(await Q6(`document.getElementById('libList').textContent`)));
+
+// rows inserted above the row being edited: the selection and the caret stay with it
+await p6.click('[data-namerow="3"]'); await p6.waitForTimeout(150);
+const picked = await Q6(`document.getElementById('iName').value`);
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => {
+  r.data.views.product.rows.unshift({ id: 'r-top', libId: null, name: 'New first row', url: '', desc: '', area: '', accent: 'teal', box: false, cells: {} });
+  r.data.views.product.milestones.forEach((m) => { m.row++; m.endRow++; });
+}, { writer: 'mcp' }), qid);
+await p6.waitForTimeout(300);
+check('versions: a row added above keeps the selection and the caret on the same row',
+  (await Q6(`document.getElementById('iName').value`)) === picked && (await nameAt(0)) === 'New first row' &&
+  (await Q6(`document.activeElement && document.activeElement.dataset.namerow`)) === '4', picked);
+await p6.keyboard.press('Escape');
+
+// a row just added here, empty and with the caret in it, survives a change Claude makes meanwhile
+await p6.click('#rowAdd'); await p6.waitForTimeout(900);
+const rowsNow = await Q6(`document.querySelectorAll('[data-namerow]').length`);
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => { r.data.views.product.rows[1].name = 'Changed by Claude again'; }, { writer: 'mcp' }), qid);
+await p6.waitForTimeout(300);
+check('versions: an empty row just added here survives a change Claude makes meanwhile, caret and all',
+  (await Q6(`document.querySelectorAll('[data-namerow]').length`)) === rowsNow &&
+  (await Q6(`document.activeElement && document.activeElement.dataset.namerow`)) === String(rowsNow - 1) &&
+  (await nameAt(1)) === 'Changed by Claude again');
+// and what is typed into it while yet another change lands, unannounced, is kept
+await p6.keyboard.type('Typed while Claude works');
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => { r.data.views.product.rows[2].name = 'Third change'; }, { silent: true }), qid);
+await p6.waitForTimeout(1500);
+check('versions: what is typed into the new row while another change lands is kept, with that change',
+  (await acct(`b.data.views.product.rows.some(r => r.name === 'Typed while Claude works')`)) === true &&
+  (await acct(`b.data.views.product.rows.some(r => r.name === 'Third change')`)) === true);
+await p6.keyboard.press('Escape'); await p6.waitForTimeout(200);
+
+// Claude adds a row above while the caret sits in a new, still empty row: the empty row
+// stays, and the row that slides into its old place is not touched (no library entry made)
+await p6.click('#rowAdd'); await p6.waitForTimeout(900);
+const libBefore6 = await Q6(`window.__fakeDb.libraries[0].items.length`);
+const rowsNow2 = await Q6(`document.querySelectorAll('[data-namerow]').length`);
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => {
+  r.data.views.product.rows.unshift({ id: 'r-top2', libId: null, name: 'Another first row', url: '', desc: '', area: '', accent: 'teal', box: false, cells: {} });
+  r.data.views.product.milestones.forEach((m) => { m.row++; m.endRow++; });
+}, { writer: 'mcp' }), qid);
+await p6.waitForTimeout(600);
+check('versions: a row added above the new empty row keeps it, caret and all, and leaves the others alone',
+  (await Q6(`document.querySelectorAll('[data-namerow]').length`)) === rowsNow2 + 1 &&
+  (await Q6(`document.activeElement && document.activeElement.dataset.namerow`)) === String(rowsNow2) &&
+  (await Q6(`window.__fakeDb.libraries[0].items.length`)) === libBefore6, String(await Q6(`document.activeElement && document.activeElement.dataset.namerow`)));
+await p6.keyboard.press('Escape'); await p6.waitForTimeout(300);
+check('versions: leaving the empty row still removes it, as before', (await Q6(`document.querySelectorAll('[data-namerow]').length`)) === rowsNow2);
+
+// a quarter deleted and put back elsewhere starts again at version 1: the page still takes it
+await p6.evaluate((id) => {
+  const d = JSON.parse(JSON.stringify(window.__fakeDb.boards.find((x) => x.id === id).data));
+  const o = window.__fakeDb.boards.find((x) => x.id === id).owner_id;
+  window.__fakeTouch('boards', { id }, () => 'delete', { silent: true });
+  d.name = 'Put back elsewhere';
+  window.__fakeTouch('boards', { id }, null, { insert: { owner_id: o, id, data: d }, silent: true });
+}, qid);
+await p6.evaluate(() => window.__fakeRejoin()); await p6.waitForTimeout(600);
+check('versions: a quarter put back at version 1 is still taken when the page catches up',
+  /Put back elsewhere/.test(await Q6(`document.getElementById('boardSel').selectedOptions[0].textContent`)));
+
+// Claude adds a quarter, then it is deleted elsewhere
+await p6.evaluate((o) => {
+  const d = JSON.parse(JSON.stringify(window.__fakeDb.boards[0].data));
+  d.id = 'b-from-claude'; d.name = 'Q2 2027'; d.createdAt = Date.now() + 1000;
+  window.__fakeTouch('boards', { id: 'b-from-claude' }, null, { insert: { owner_id: o, id: 'b-from-claude', data: d }, writer: 'mcp' });
+}, owner6);
+await p6.waitForTimeout(300);
+check('versions: a quarter added by Claude joins the list, and the editor says so',
+  (await Q6(`[...document.getElementById('boardSel').options].some(o => o.textContent.indexOf('Q2 2027') >= 0)`)) &&
+  /Claude added the quarter "Q2 2027"/.test(await toastText()) &&
+  (await Q6(`document.getElementById('boardSel').value`)) === qid, await toastText());
+await p6.evaluate(() => window.__fakeTouch('boards', { id: 'b-from-claude' }, () => 'delete'));
+await p6.waitForTimeout(300);
+check('versions: a quarter deleted elsewhere leaves the list',
+  !(await Q6(`[...document.getElementById('boardSel').options].some(o => o.textContent.indexOf('Q2 2027') >= 0)`)));
+
+// a quarter deleted elsewhere while it is being edited here comes back with the edit
+// (painted on a row known to be empty, so the click is sure to change something)
+const typedAt = await Q6(`[...document.querySelectorAll('[data-namerow]')].findIndex((e) => e.textContent === 'Typed while Claude works')`);
+await p6.click('.brush[data-brush="specs"]');
+await p6.click(`.cell[data-row="${typedAt}"][data-col="2"]`);
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, () => 'delete', { silent: true }), qid);
+await p6.waitForTimeout(1200);
+check('versions: an edit to a quarter deleted elsewhere brings it back instead of being lost',
+  (await acct(`b.data.views.product.rows.find((r) => r.name === 'Typed while Claude works').cells['2'][0]`)) === 'specs' && (await acct('b.version')) === 1);
+check('versions: the status says saved after all of that', (await Q6(`document.getElementById('sync').textContent`)) === 'saved');
+
+// ---- links Claude gives (?q=) and the dialog that explains the connector ----
+await p6.evaluate((o) => {
+  const d = JSON.parse(JSON.stringify(window.__fakeDb.boards[0].data));
+  d.id = 'b-deep'; d.name = 'Q3 2027'; d.createdAt = Date.now() - 100000;
+  window.__fakeTouch('boards', { id: 'b-deep' }, null, { insert: { owner_id: o, id: 'b-deep', data: d }, writer: 'mcp', silent: true });
+}, owner6);
+// an empty row the account still holds (a tab closed while one was being added) leaves
+// the account as soon as a page opens the quarter, so both number the rows the same way
+await p6.evaluate((id) => window.__fakeTouch('boards', { id }, (r) => {
+  r.data.views.product.rows.push({ id: 'r-left', libId: null, name: '', url: '', desc: '', area: '', accent: 'teal', box: false, cells: {} });
+}, { silent: true }), qid);
+await p6.goto(PAGE + '?q=b-deep'); await p6.waitForTimeout(1300);
+check('versions: an empty row left in the account is cleared out when the page opens',
+  (await p6.evaluate((id) => window.__fakeDb.boards.find((x) => x.id === id).data.views.product.rows.some((r) => r.id === 'r-left'), qid)) === false);
+check('claude: a link with ?q= opens that quarter once the account has loaded',
+  (await Q6(`document.getElementById('boardSel').value`)) === 'b-deep' && !/[?&]q=/.test(await Q6(`location.search`)));
+await p6.goto(PAGE + '?q=b-gone'); await p6.waitForTimeout(1300);
+check('claude: a link to a quarter that is not there says so and opens the editor anyway',
+  /not in this account/.test(await toastText()) && !/[?&]q=/.test(await Q6(`location.search`)), await toastText());
+await p6.click('#btnMore'); await p6.click('#mClaude'); await p6.waitForTimeout(200);
+check('claude: the menu explains how to connect, with the connector address',
+  !(await Q6(`document.getElementById('claudeSheet').hidden`)) &&
+  (await Q6(`document.getElementById('claudeUrl').value`)) === 'https://roadmap-snapshot-studio.vercel.app/api/mcp' &&
+  /\/oauth\/consent$/.test(await Q6(`document.getElementById('claudeApps').href`)));
+await p6.keyboard.press('Escape'); await p6.waitForTimeout(150);
+check('claude: Esc closes that dialog', await Q6(`document.getElementById('claudeSheet').hidden`));
+// a link Claude made (or withdrew) shows in the Share dialog, without a reload
+await p6.evaluate((o) => {
+  window.__fakeDb.shares.push({ token: '11111111-2222-4333-8444-555555555555', owner_id: o, board_id: document.getElementById('boardSel').value,
+    data: {}, theme: null, allow_comments: true, updated_at: new Date().toISOString() });
+  window.__fakeSave();
+}, owner6);
+await p6.click('#btnMore'); await p6.click('#mShare'); await p6.waitForTimeout(500);
+check('claude: a link Claude made shows in the Share dialog',
+  (await Q6(`(document.getElementById('shareUrl') || {}).value || ''`)).endsWith('?s=11111111-2222-4333-8444-555555555555'));
+await p6.keyboard.press('Escape'); await p6.waitForTimeout(150);
+await p6.evaluate(() => { window.__fakeDb.shares.length = 0; window.__fakeSave(); });
+await p6.click('#btnMore'); await p6.click('#mShare'); await p6.waitForTimeout(500);
+check('claude: and one Claude withdrew is gone from it', !(await Q6(`!!document.getElementById('shareUrl')`)));
+await p6.keyboard.press('Escape'); await p6.waitForTimeout(150);
+await ctx6.close();
+
 // ---------- 15. THE EDITOR THEME: LIGHT, DARK AND READABLE ----------
 /* Every visible label in the chrome, against the real surface behind it.
    Text must clear 4.5:1, large text 3:1 (WCAG AA). The slide is excluded:
@@ -1797,6 +1996,100 @@ check('comments: logging out takes the comments and the name away',
   (await Q5(`document.getElementById('btnComments').hidden`)) && !(await Q5(`document.body.classList.contains('has-cpanel')`)) &&
   (await Q5(`localStorage.getItem('roadmap-studio-v1:commenter')`)) === null && (await Q5(`document.querySelectorAll('.cbadge').length`)) === 0);
 await ctx5.close();
+
+// ---------- 17. THE PAGE THAT CONNECTS CLAUDE (OAuth consent) ----------
+if (process.env.SUPABASE_JS_PATH) {
+  const SB = 'https://znxgayrgcezwgajciyqv.supabase.co';
+  const CONSENT = PAGE.replace(/index\.html$/, '') + 'oauth/consent.html';
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const jwt = b64({ alg: 'ES256', typ: 'JWT' }) + '.' + b64({ sub: 'u-consent', email: 'ada@example.com', role: 'authenticated', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 }) + '.sig';
+  const user = { id: 'u-consent', email: 'ada@example.com', aud: 'authenticated', role: 'authenticated' };
+  const state = { grants: [{ client: { id: 'c-claude', name: 'Claude', uri: '', logo_uri: '' }, scopes: ['email'], granted_at: '2026-10-01T10:00:00Z' }], decided: null, revoked: null,
+    details: { authorization_id: 'req1', redirect_uri: 'https://claude.ai/api/mcp/auth_callback', client: { id: 'c-claude', name: 'Claude <img src=x onerror="window.__xss=1">', uri: '', logo_uri: '' }, user: { id: 'u-consent', email: 'ada@example.com' }, scope: 'email' } };
+  const ctx7 = await b.newContext({ viewport: { width: 1200, height: 900 } });
+  await ctx7.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js',
+    (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/javascript', 'access-control-allow-origin': '*' }, body: fs.readFileSync(process.env.SUPABASE_JS_PATH) }));
+  await ctx7.route('https://fonts.googleapis.com/**', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'text/css' }, body: '' }));
+  await ctx7.route('https://claude.ai/**', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'text/html' }, body: '<p>back at the app</p>' }));
+  await ctx7.route(SB + '/auth/v1/**', async (route) => {
+    const req = route.request(), u = new URL(req.url()), m = req.method();
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*', 'content-type': 'application/json' };
+    const send = (status, body) => route.fulfill({ status, headers: cors, body: body === undefined ? '' : JSON.stringify(body) });
+    if (m === 'OPTIONS') return send(204);
+    const authed = /Bearer .+\..+\..+/.test(req.headers()['authorization'] || '') && (req.headers()['authorization'] || '').indexOf(jwt) > 0;
+    if (u.pathname === '/auth/v1/token') {
+      const body = JSON.parse(req.postData() || '{}');
+      if (body.password !== 'right-password') return send(400, { code: 'invalid_credentials', error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
+      return send(200, { access_token: jwt, token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'r1', user });
+    }
+    if (u.pathname === '/auth/v1/user') return authed ? send(200, user) : send(401, { code: 'no_authorization', msg: 'no session' });
+    if (u.pathname === '/auth/v1/logout') return send(204);
+    if (!authed) return send(401, { msg: 'no session' });
+    if (u.pathname === '/auth/v1/user/oauth/grants') {
+      if (m === 'GET') return send(200, state.grants);
+      state.revoked = u.searchParams.get('client_id');
+      state.grants = state.grants.filter((g) => g.client.id !== state.revoked);
+      return send(204);
+    }
+    let x;
+    if ((x = /^\/auth\/v1\/oauth\/authorizations\/([^/]+)$/.exec(u.pathname))) {
+      if (x[1] === 'done') return send(200, { redirect_url: 'https://claude.ai/api/mcp/auth_callback?code=again' });
+      if (x[1] === 'evil') return send(200, { redirect_url: 'javascript:window.__evil=1' });
+      return x[1] === 'req1' ? send(200, state.details) : send(404, { msg: 'authorization not found' });
+    }
+    if ((x = /^\/auth\/v1\/oauth\/authorizations\/([^/]+)\/consent$/.exec(u.pathname))) {
+      state.decided = JSON.parse(req.postData() || '{}').action;
+      return send(200, { redirect_url: 'https://claude.ai/api/mcp/auth_callback?' + (state.decided === 'approve' ? 'code=abc&state=s1' : 'error=access_denied&state=s1') });
+    }
+    return send(404, { msg: 'not mocked: ' + u.pathname });
+  });
+  const p7 = await ctx7.newPage();
+  p7.on('pageerror', e => pageErrors.push('p7: ' + String(e.message)));
+  const Q7 = (s) => p7.evaluate(s);
+  const visible = (id) => Q7(`!document.getElementById('${id}').hidden`);
+
+  await p7.goto(CONSENT); await p7.waitForTimeout(800);
+  check('consent: the pinned supabase-js passes its integrity check', await Q7(`!!(window.supabase && window.supabase.createClient)`));
+  check('consent: opened without a request and logged out, it asks to log in to see the connected apps',
+    (await visible('vLogin')) && /connected to your Quartermap account/.test(await Q7(`document.getElementById('loginWhy').textContent`)));
+  await p7.fill('#email', 'ada@example.com'); await p7.fill('#password', 'wrong'); await p7.click('#loginBtn'); await p7.waitForTimeout(500);
+  check('consent: a wrong password gets a plain message', (await Q7(`document.getElementById('loginMsg').textContent`)) === 'Wrong email or password.');
+  await p7.fill('#password', 'right-password'); await p7.click('#loginBtn'); await p7.waitForTimeout(900);
+  check('consent: after logging in it lists the connected apps',
+    (await visible('vApps')) && /Claude/.test(await Q7(`document.getElementById('appsList').textContent`)) &&
+    (await Q7(`document.getElementById('appsUser').textContent`)) === 'ada@example.com');
+  await p7.click('#appsList button'); await p7.waitForTimeout(600);
+  check('consent: Disconnect revokes the app and says so',
+    state.revoked === 'c-claude' && (await Q7(`document.querySelectorAll('#appsList li').length`)) === 0 &&
+    /Claude is disconnected/.test(await Q7(`document.getElementById('appsMsg').textContent`)));
+
+  await p7.goto(CONSENT + '?authorization_id=req1'); await p7.waitForTimeout(900);
+  check('consent: a request shows who is asking, as plain text, and where the answer goes',
+    (await visible('vAsk')) &&
+    (await Q7(`document.getElementById('askTitle').textContent`)) === 'Allow Claude <img src=x onerror="window.__xss=1"> to use your Quartermap?' &&
+    (await Q7(`document.querySelectorAll('#card img').length`)) === 1 && !(await Q7(`window.__xss === 1`)) &&
+    /you go back to claude\.ai\./.test(await Q7(`document.getElementById('askBack').textContent`)));
+  await p7.click('#denyBtn'); await p7.waitForURL(/claude\.ai/, { timeout: 5000 }).catch(() => {});
+  check('consent: Cancel answers no and goes back to the app', state.decided === 'deny' && /error=access_denied/.test(p7.url()));
+  await p7.goto(CONSENT + '?authorization_id=req1'); await p7.waitForTimeout(900);
+  await p7.click('#allowBtn'); await p7.waitForURL(/claude\.ai/, { timeout: 5000 }).catch(() => {});
+  check('consent: Allow answers yes and goes back to the app with the code', state.decided === 'approve' && /code=abc&state=s1/.test(p7.url()));
+  await p7.goto(CONSENT + '?authorization_id=done'); await p7.waitForURL(/claude\.ai/, { timeout: 5000 }).catch(() => {});
+  check('consent: a request already allowed goes straight back', /code=again/.test(p7.url()));
+  await p7.goto(CONSENT + '?authorization_id=evil'); await p7.waitForTimeout(900);
+  check('consent: it never follows an address that is not a web page',
+    !(await Q7(`window.__evil === 1`)) && (await visible('vError')));
+  await p7.goto(CONSENT + '?authorization_id=missing'); await p7.waitForTimeout(900);
+  check('consent: an expired request says so', (await visible('vError')) && /expired or was already answered/.test(await Q7(`document.getElementById('errText').textContent`)));
+  await p7.goto(CONSENT + '?authorization_id=' + encodeURIComponent('<script>')); await p7.waitForTimeout(600);
+  check('consent: a damaged link is refused before anything is asked', (await visible('vError')) && /not complete/.test(await Q7(`document.getElementById('errText').textContent`)));
+  await p7.setContent('<iframe id="f" src="' + CONSENT + '?authorization_id=req1" width="600" height="600"></iframe>'); await p7.waitForTimeout(1200);
+  const framed = p7.frames().find((f) => f.url().indexOf('consent') >= 0);
+  check('consent: inside somebody else\'s page it shows nothing', !!framed && (await framed.evaluate(`document.body.textContent.trim()`)) === '');
+  await ctx7.close();
+} else {
+  console.log('(consent page checks skipped: set SUPABASE_JS_PATH to the supabase-js 2.117.2 UMD bundle)');
+}
 
 // ---------- 12. RESPONSIVE ----------
 await p.setViewportSize({ width: 620, height: 900 }); await p.waitForTimeout(600);

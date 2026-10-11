@@ -8,6 +8,12 @@
  * Flags a test can set on window: __fakeFail (every call fails as if offline),
  * __fakeNoShares (the shares table is missing), __fakeAnon (calls made through
  * a share link come from somebody without an account).
+ *
+ * Like the real database, boards and libraries carry a version that every
+ * update moves on by one, an insert over an existing row fails with 23505,
+ * and a share link's copy of its quarter follows the quarter. A test plays
+ * another writer (a second device, Claude) with window.__fakeTouch, and a
+ * connection that comes back with window.__fakeRejoin.
  */
 export const FAKE_SUPABASE = () => {
   // State lives in sessionStorage so a reload keeps the "account", as the real service would.
@@ -27,6 +33,18 @@ export const FAKE_SUPABASE = () => {
   // the database stamps a share on every write, the way the trigger does
   const stamp = (t, r) => { if (t === 'shares') r.updated_at = new Date().toISOString(); return r; };
   const clone = (x) => JSON.parse(JSON.stringify(x));
+  // the triggers: versions, and the copy behind a share link
+  const versioned = (t) => t === 'boards' || t === 'libraries';
+  const boardOf = (owner, id) => db.boards.filter(r => r.owner_id === owner && r.id === id)[0] || null;
+  const fillShare = (r) => { const b = boardOf(r.owner_id, r.board_id); if (b) r.data = clone(b.data); return r; };
+  const followShares = (b) => db.shares.forEach(s => {
+    if (s.owner_id === b.owner_id && s.board_id === b.id) { s.data = clone(b.data); stamp('shares', s); }
+  });
+  const updated = (t, r, before) => {
+    if (versioned(t)) r.version = (before.version || 1) + 1;
+    if (t === 'boards' && JSON.stringify(before.data) !== JSON.stringify(r.data)) followShares(r);
+    return stamp(t, r);
+  };
   // realtime: what the page listens to, and a way for a test to play an event into it
   const rt = [];
   window.__fakeEmit = (table, type, row) => {
@@ -39,6 +57,32 @@ export const FAKE_SUPABASE = () => {
       persist();
     }
     rt.filter(x => x.table === table).forEach(x => x.cb({ eventType: type, new: type === 'DELETE' ? {} : clone(row), old: type === 'DELETE' ? { id: row.id } : {} }));
+  };
+  // Another writer changes a row the way the real service would: the version
+  // moves on and realtime tells the page, unless opts.silent says the event
+  // was lost. change(row) edits it in place; change returning 'delete' drops
+  // it; a row that is not there yet is created from opts.insert.
+  window.__fakeTouch = (table, match, change, opts) => {
+    opts = opts || {};
+    const hit = (r) => Object.keys(match).every(k => r[k] === match[k]);
+    let r = db[table].filter(hit)[0], type = 'UPDATE';
+    if (!r && opts.insert) { r = Object.assign({ version: 1 }, clone(opts.insert)); db[table].push(r); type = 'INSERT'; }
+    if (!r) return null;
+    if (type === 'UPDATE') {
+      const before = clone(r);
+      if (change(r) === 'delete') {
+        db[table] = db[table].filter(x => x !== r);
+        if (table === 'boards') ['shares', 'comments'].forEach(t => { db[t] = db[t].filter(x => !(x.owner_id === r.owner_id && x.board_id === r.id)); });
+        persist();
+        if (!opts.silent) rt.filter(x => x.table === table).forEach(x => x.cb({ eventType: 'DELETE', new: {}, old: clone(r) }));
+        return null;
+      }
+      updated(table, r, before);
+    }
+    r.writer = opts.writer || 'elsewhere';
+    persist();
+    if (!opts.silent) rt.filter(x => x.table === table).forEach(x => x.cb({ eventType: type, new: clone(r), old: {} }));
+    return clone(r);
   };
   const shareOf = (token) => db.shares.filter(r => r.token === token)[0] || null;
   // Like the real service: order and range apply to a select or a set-returning
@@ -59,8 +103,17 @@ export const FAKE_SUPABASE = () => {
       if (window.__fakeNoShares && table === 'shares') return { data: null, error: { message: 'relation "shares" does not exist' } };
       if (op === 'select') return { data: shape(db[table].filter(match), ord, rng).map(clone), error: null };
       if (op === 'insert') {
-        const added = (Array.isArray(payload) ? payload : [payload]).map(row => {
-          const fresh = Object.assign({ id: uuid(), created_at: new Date().toISOString(), resolved: false }, clone(row));
+        const list = Array.isArray(payload) ? payload : [payload];
+        // a row that is already there: the primary key says no
+        if (table !== 'comments' && list.some(row => db[table].some(r => pk[table].every(k => r[k] === row[k])))) {
+          return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+        }
+        const added = list.map(row => {
+          const fresh = table === 'comments'
+            ? Object.assign({ id: uuid(), created_at: new Date().toISOString(), resolved: false }, clone(row))
+            : clone(row);
+          if (versioned(table)) fresh.version = 1;
+          if (table === 'shares') { if (!fresh.token) fresh.token = uuid(); if (fresh.allow_comments === undefined) fresh.allow_comments = true; fillShare(fresh); stamp(table, fresh); }
           db[table].push(fresh);
           return fresh;
         });
@@ -71,19 +124,23 @@ export const FAKE_SUPABASE = () => {
           const i = db[table].findIndex(r => pk[table].every(k => r[k] === row[k]));
           if (i < 0) {
             const fresh = clone(row);
+            if (versioned(table)) fresh.version = 1;
             if (table === 'shares' && !fresh.token) fresh.token = uuid();
             if (table === 'shares' && fresh.allow_comments === undefined) fresh.allow_comments = true;
+            if (table === 'shares') fillShare(fresh);
             db[table].push(stamp(table, fresh));
             return fresh;
           }
+          const before = clone(db[table][i]);
           Object.assign(db[table][i], clone(row));
-          return stamp(table, db[table][i]);
+          if (table === 'shares') fillShare(db[table][i]);
+          return updated(table, db[table][i], before);
         });
         persist(); return { data: ret ? touched.map(clone) : null, error: null };
       }
       if (op === 'update') {
         const touched = db[table].filter(match);
-        touched.forEach(r => { Object.assign(r, clone(payload)); stamp(table, r); });
+        touched.forEach(r => { const before = clone(r); Object.assign(r, clone(payload)); updated(table, r, before); });
         persist(); return { data: ret ? touched.map(clone) : null, error: null };
       }
       const dropped = db[table].filter(match).map(r => r.id);
@@ -100,7 +157,7 @@ export const FAKE_SUPABASE = () => {
       update(row) { op = 'update'; payload = row; return b; },
       delete() { op = 'delete'; return b; }, eq(k, v) { filters.push([k, v]); return b; },
       order(k) { ord.push(k); return b; }, range(a, z) { rng = [a, z]; return b; },
-      maybeSingle() { const r = run(); return Promise.resolve({ data: (r.data && r.data[0]) || null, error: null }); },
+      maybeSingle() { const r = run(); return Promise.resolve({ data: (r.data && r.data[0]) || null, error: r.error || null }); },
       then(res, rej) { return Promise.resolve(run()).then(res, rej); }
     };
     return b;
@@ -175,15 +232,21 @@ export const FAKE_SUPABASE = () => {
     };
     return b;
   };
+  const joined = [];
+  // the connection dropped and came back: every channel joins again
+  window.__fakeRejoin = () => joined.forEach(cb => cb('SUBSCRIBED'));
   const channel = () => {
     const ch = {
       bound: [],
       on(kind, opts, cb) { const x = { table: opts && opts.table, cb }; rt.push(x); ch.bound.push(x); return ch; },
-      subscribe() { return ch; }
+      subscribe(cb) { if (cb) { ch.status = cb; joined.push(cb); setTimeout(() => cb('SUBSCRIBED'), 0); } return ch; }
     };
     return ch;
   };
-  const removeChannel = (ch) => { (ch && ch.bound || []).forEach(x => { const i = rt.indexOf(x); if (i >= 0) rt.splice(i, 1); }); };
+  const removeChannel = (ch) => {
+    (ch && ch.bound || []).forEach(x => { const i = rt.indexOf(x); if (i >= 0) rt.splice(i, 1); });
+    const j = joined.indexOf(ch && ch.status); if (j >= 0) joined.splice(j, 1);
+  };
   const client = { auth, from: builder, rpc, channel, removeChannel };
   // a test that edits __fakeDb by hand calls __fakeSave so the change survives a reload
   window.__fakeDb = db; window.__fakeAuth = auth; window.__fakeSave = persist;

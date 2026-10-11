@@ -16,6 +16,9 @@ the design roadmap has Discovery in the same colour as the product roadmap and
 Experience Conception in the Specs colour, and no Delivery, which belongs to
 the product roadmap only.
 
+Claude can build and change the roadmaps too, through the Quartermap
+connector: see [Using it with Claude](#using-it-with-claude).
+
 ## Accounts and saving
 
 Every change is saved as you make it. Where it goes depends on whether you are
@@ -40,12 +43,29 @@ its own. If the
 account cannot be loaded (no network), the status reads `offline`, edits stay
 on the device and the load is retried.
 
+The same quarter can be changed in two places at once: two devices, or the
+editor and Claude. Every save names the version of the quarter it started
+from, and the database moves the version on with each save. When the quarter
+changed in the meantime, nothing is written over: the editor fetches the newer
+copy, puts the two together and saves the result. What only one side changed
+comes from that side; rows, sprints, go-live lines and library entries are
+matched by id, so one side can add a row while the other paints a cell; a row
+deleted on either side stays deleted; where both changed the same thing, the
+edit made at the keyboard wins. A note at the bottom says both sets of changes
+were kept. A change made elsewhere while the quarter is open and nobody is
+typing simply shows up, and the selected row and the caret stay on the row
+they were on. A page that missed live updates (a laptop asleep, a dropped
+connection) asks the account what changed when it comes back into view.
+
 The backend is a Supabase project (Postgres with row level security: each
 user reads and writes only their own rows) reached straight from the page with
-the publishable key. There is no server of our own. The tables are `profiles`
-(the slide look, the editor's light or dark in its own `ui_theme` column, the
-onboarding flag), `boards` (one row per quarter, the board as JSON) and
-`libraries` (one per user); the schema is in the project's migration history.
+the publishable key. The only code of ours that runs on a server is the Claude
+connector, which acts with the token of the person who connected it. The
+tables are `profiles` (the slide look, the editor's light or dark in its own
+`ui_theme` column, the onboarding flag), `boards` (one row per quarter, the
+board as JSON, with its `version`), `libraries` (one per user, versioned the
+same way), `shares`, `comments` and `board_history` (see below); the schema is
+in the project's migration history.
 `ui_theme` is a column of its own so that a save from a device that never
 picked a theme cannot clear the one another device chose.
 
@@ -79,9 +99,11 @@ made it whatever the reader's own settings are.
 *Stop sharing* in the same dialog withdraws it, and the link stops opening
 anything from that moment. Deleting the quarter withdraws it too.
 
-How it works: the shared copy is a row of its own, refreshed by the same save
-that writes the quarter. The token in the link is the only way to reach it,
-the table cannot be listed, and the copy carries nothing about who owns it.
+How it works: the shared copy is a row of its own. The database fills it from
+the quarter when the link is made and refreshes it on every save of the
+quarter, whoever saves it (the editor or Claude). The token in the link is the
+only way to reach it, the table cannot be listed, and the copy carries nothing
+about who owns it.
 
 ## Comments
 
@@ -133,6 +155,78 @@ so a long list is never cut short. A reader's page asks for them with every
 refresh of the slide while the panel is out, and every third refresh while it
 is closed. The owner gets them live, with a full check every 30 seconds while
 the panel is out and every two minutes while it is closed.
+
+## Using it with Claude
+
+Quartermap has a connector for Claude, so a roadmap can be built by asking:
+*create the Q1 2027 quarter with six two-week sprints from 4 January*, *add
+these initiatives with their phases*, *move the checkout go-live to the end of
+sprint 5*, *what did readers comment on?*. Claude changes the account it was
+connected to, and the editor shows each change as it lands.
+
+**Connecting it.** `•••` and *Use with Claude* shows the address:
+
+```
+https://roadmap-snapshot-studio.vercel.app/api/mcp
+```
+
+In Claude: Settings, Connectors, *Add custom connector*, name it Quartermap and
+paste the address, then *Connect*. A Quartermap page opens: log in with your
+Quartermap account and choose *Allow*. On a Team or Enterprise plan an owner of
+the organisation may have to add the connector first; each person then
+connects their own Quartermap account. The apps connected to an account are
+listed at `/oauth/consent` (linked from the same dialog), each with
+*Disconnect*.
+
+**What Claude can do** (20 tools): list the quarters and read one, with each
+roadmap as a table; create a quarter (from a start date, or as a copy of
+another) and rename it, set its note, legend, titles and colour bars; set its
+sprints; add, change, move and remove rows and their phases (whole sprints or
+halves); add, move and remove go-live lines; build or rework a whole quarter in
+one call (`apply_roadmap_plan`, with a dry run that saves nothing); undo its
+last change; read and edit the library; make or withdraw a share link; read the
+comments, reply (signed *name via Claude*) and resolve them; delete a quarter.
+
+**How it stays safe.**
+
+- The connection is OAuth 2.1 with Supabase Auth as the server: Claude never
+  sees the password, and the page at `/oauth/consent` says which app is asking
+  and where the answer goes before anyone chooses *Allow*. The token Claude
+  gets is checked by the connector and again by the database, whose row level
+  security keeps it to that one account.
+- Every change goes through the same rules as the editor (`lib/model.cjs` is
+  built from the page) and is refused, with the reason, if it would leave a
+  quarter the editor cannot draw. Links must be web addresses.
+- Every change names the version it started from, like the editor's saves:
+  when the quarter is being edited at the same moment, the change is worked out
+  again on the newer copy instead of writing over it.
+- Each change Claude saves is kept in `board_history` (the last 30 per
+  quarter), which is what *undo the last change* uses: it takes back that
+  change and keeps whatever was edited in the editor since. A change already
+  taken back by hand is not undone twice, and nothing older is touched.
+- A piece of a quarter's name is enough to read it; changing or deleting one
+  needs its whole name or its id, so a quarter that is gone never sends a
+  change to another one. A number always means a position (row 1 is the top
+  row), whatever the rows are called.
+- Comments reach Claude marked as text written by their authors (readers of a
+  share link need no account), to report and never to act on.
+
+**Links.** Claude answers with the quarter's address,
+`https://roadmap-snapshot-studio.vercel.app/?q=<quarter id>`, which opens the
+editor on that quarter once the account has loaded.
+
+**Setting it up (once, in the Supabase dashboard).** Authentication, OAuth
+Server: turn the OAuth 2.1 server on, set the authorization path to
+`/oauth/consent`, and allow dynamic client registration (Claude registers
+itself). The Site URL (Authentication, URL configuration) must be the
+production URL, since the authorization path is added to it.
+
+How it works: `api/mcp.js` is a Vercel function speaking MCP over Streamable
+HTTP, statelessly (each call stands on its own). A call without a valid token
+gets a 401 that points at `/.well-known/oauth-protected-resource`, which names
+Supabase Auth as the authorization server; that is how Claude finds where to
+send the person. The tools are in `lib/tools.js`, the changes they make in
+`lib/ops.js`, and the database access in `lib/store.js`.
 
 ## The look of the slide
 
@@ -340,12 +434,21 @@ blue in both themes, because the slide stays white.
 ## Repository layout
 
 ```
-src/roadmap-studio.html   source (page body, no skeleton)
-build.sh                  generates index.html from source (bash + awk, no dependencies)
-index.html                the page that is served, and opens from disk: build output
+src/roadmap-studio.html   source of the editor (page body, no skeleton)
+src/consent.html          source of the page that connects Claude (OAuth consent)
+build.sh                  builds the three outputs below (bash + awk, no dependencies)
+index.html                the editor that is served, and opens from disk: build output
+lib/model.cjs             the roadmap rules, copied from the page for the connector: build output
+oauth/consent.html        served at /oauth/consent: build output
+api/mcp.js                the Claude connector (a Vercel function)
+api/oauth-protected-resource.js   OAuth metadata for the connector
+lib/                      the connector: server.js (HTTP and MCP), tools.js, ops.js, store.js, auth.js
+package.json              the connector's dependencies (the editor needs none)
 favicon.svg               the site icon, plus favicon-32.png and apple-touch-icon.png
-vercel.json               static hosting: cache and security headers
+vercel.json               hosting: headers, and the OAuth metadata address
 test/review.mjs           functional review suite, driven in Chromium
+test/model.test.mjs       the roadmap rules (node --test)
+test/mcp.test.mjs         the connector end to end, against test/fake-db.mjs
 ```
 
 After every change to the source:
@@ -354,15 +457,23 @@ After every change to the source:
 ./build.sh
 ```
 
-`index.html` is generated: do not edit it by hand, changes go in
-`src/roadmap-studio.html`.
+`index.html`, `lib/model.cjs` and `oauth/consent.html` are generated: do not
+edit them by hand, changes go in `src/`.
 
 ## Review
 
 ```sh
-npm --prefix test install
-npm --prefix test test
+npm install && npm test                        # the rules and the connector, in node
+npm --prefix test install && npm --prefix test test   # the editor, in Chromium
 ```
+
+`npm test` runs `test/model.test.mjs` (sprint dates, row and go-live
+bookkeeping, the merge of two copies) and `test/mcp.test.mjs`: a real MCP
+client talks to the connector's handler, whose tools work on an in-memory
+database that behaves like the real one (versions, history, row level
+security, share copies). It builds a Q1 roadmap from nothing, edits phases,
+rows and go-live lines, plays the editor saving at the same moment, undoes,
+shares, answers comments, and checks that one account never reaches another.
 
 Opens `index.html` in Chromium and exercises every behaviour the tool promises:
 brushes, the eraser in all four ways, half sprints, undo per action, draggable
@@ -384,16 +495,20 @@ reload, which made the persistence check fail at random.
 
 Where the CDNs are unreachable, pass `H2C_PATH` and `JSPDF_PATH` pointing at
 local copies of html2canvas and jsPDF; `CHROMIUM` points at another binary and
-`PAGE_URL` at another build.
+`PAGE_URL` at another build. `SUPABASE_JS_PATH`, pointing at the supabase-js
+2.117.2 UMD bundle, turns on the checks of the consent page (it loads that
+exact file, and its integrity hash is checked); Supabase Auth is played by the
+test.
 
 ## Hosting
 
 Vercel project `roadmap-snapshot-studio`, linked to this repository: every push
 to the production branch (`claude/keen-ritchie-1wkx3v`) deploys automatically.
-The deploy is static. `index.html` is served as it is, with no build and no
-runtime, so run `./build.sh` and commit `index.html` along with the source
-change, or the previous page ships. `.vercelignore` keeps source, tests and
-documentation out.
+There is no build step on Vercel: `index.html` and `oauth/consent.html` are
+served as they are, so run `./build.sh` and commit the outputs along with the
+source change, or the previous page ships. The two functions in `api/` run on
+Node.js 24 with the dependencies of `package.json`. `.vercelignore` keeps
+source, tests and documentation out.
 
 The production URL is public: anyone with the link opens the tool. Data is
 only ever visible to the account that owns it, or to the browser it was typed
@@ -432,3 +547,16 @@ roadmap use `•••` and `Import a backup (JSON)`, then delete the example fr
   within about that. A tab in the background waits until it is looked at.
 - A shared quarter deleted while the editor is offline keeps its link working
   until that device is back online and the deletion reaches the account.
+- Claude changes the quarters, the library, links and comments, not the look
+  (fonts and phase colours) or the account.
+- The connector accepts any access token Supabase Auth issues for the account:
+  the one Claude got, but also a browser session's. Supabase does not mark a
+  token as meant for one service, so the two cannot be told apart; either one
+  already reaches the same data through the database directly, so this grants
+  nothing more. Disconnecting Claude stops it once its current token expires,
+  within the hour.
+- *Undo the last change* reaches back over the last 30 changes Claude made to a
+  quarter. Creating a quarter is not one of them: deleting it takes it back.
+- A quarter edited on a device while it was offline, then changed elsewhere
+  before that device came back, keeps the copy saved last when the device
+  logs in again; the merge applies to changes made while both are online.

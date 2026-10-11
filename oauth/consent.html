@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Connect Quartermap</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<!--
+  Where Supabase Auth sends someone who is connecting an app (Claude) to their
+  Quartermap account: /oauth/consent?authorization_id=... It shows who is
+  asking and what they will be able to do, and passes the answer back. Opened
+  without a request, it lists the apps connected to the account, each with a
+  button to disconnect it. Built from src/consent.html by build.sh.
+-->
+<style>
+:root{
+  --bg:#f4f6fa; --panel:#ffffff; --sunk:#edf0f5; --line:#d7dce6; --text:#0b1018; --muted:#454e61;
+  --accent:#2151ff; --accent-ink:#ffffff; --ring:rgba(33,81,255,.22); --danger:#c0281f; --ok:#0a7355;
+  --shadow:0 1px 2px rgba(13,20,38,.06),0 10px 26px -14px rgba(13,20,38,.28);
+  color-scheme:light;
+}
+:root[data-ui="dark"]{
+  --bg:#08090c; --panel:#101216; --sunk:#181b21; --line:#282c35; --text:#f3f4f7; --muted:#b5bbc7;
+  --accent:#8aa2ff; --accent-ink:#05091c; --ring:rgba(138,162,255,.30); --danger:#ff8f8f; --ok:#3ed9a6;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 12px 30px -16px rgba(0,0,0,.9);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;background:var(--bg);color:var(--text);font:15px/1.5 "Figtree",system-ui,sans-serif;
+  display:flex;align-items:flex-start;justify-content:center;padding:48px 16px}
+[hidden]{display:none!important}
+.card{width:100%;max-width:480px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:28px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;margin:0 0 20px}
+.brand img{width:26px;height:26px}
+h1{font-size:21px;line-height:1.3;margin:0 0 10px;font-weight:800;overflow-wrap:anywhere}
+p{margin:0 0 12px;color:var(--muted)}
+p.lead{color:var(--text)}
+ul.can{margin:4px 0 16px;padding:0;list-style:none}
+ul.can li{position:relative;padding:6px 0 6px 26px;color:var(--text)}
+ul.can li::before{content:"";position:absolute;left:4px;top:13px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.who{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;background:var(--sunk);border-radius:10px;padding:10px 12px;margin:0 0 16px;font-size:14px}
+.who b{overflow-wrap:anywhere}
+.back{font-size:14px}
+.back b{color:var(--text)}
+.actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+button,.btn{font:inherit;font-weight:700;border-radius:9px;padding:10px 18px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.link{border:0;background:none;padding:0;color:var(--accent);font-weight:600}
+button:disabled{opacity:.55;cursor:default}
+button:focus-visible,input:focus-visible,.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 4px}
+input{width:100%;font:inherit;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+.msg{min-height:22px;margin-top:12px;font-size:14px;color:var(--danger)}
+.msg.is-ok{color:var(--ok)}
+ul.apps{list-style:none;margin:8px 0 0;padding:0}
+ul.apps li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+ul.apps li:first-child{border-top:0}
+ul.apps .app-name{font-weight:700;overflow-wrap:anywhere}
+ul.apps .app-when{font-size:13px;color:var(--muted)}
+.small{font-size:13px}
+</style>
+<script>
+  /* The editor's light or dark choice, read before the first paint. */
+  (function () {
+    var m = null;
+    try { m = localStorage.getItem("roadmap-studio-v1:ui"); } catch (e) {}
+    if (m !== "light" && m !== "dark") m = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.setAttribute("data-ui", m);
+  })();
+</script>
+</head>
+<body>
+<main class="card" id="card" aria-live="polite">
+  <div class="brand"><img src="/favicon.svg" alt="">Quartermap</div>
+
+  <section id="vLoading">
+    <h1>One moment</h1>
+    <p>Checking the request…</p>
+  </section>
+
+  <section id="vLogin" hidden>
+    <h1 id="loginTitle">Log in to Quartermap</h1>
+    <p id="loginWhy">Log in with your Quartermap account to continue.</p>
+    <form id="loginForm" novalidate>
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <div class="actions"><button class="primary" type="submit" id="loginBtn">Log in</button></div>
+      <p class="small" style="margin-top:14px">No account, or forgot your password? <a href="/" target="_blank" rel="noopener">Open Quartermap</a> to create one or reset it, then come back here.</p>
+      <div class="msg" id="loginMsg" role="alert"></div>
+    </form>
+  </section>
+
+  <section id="vAsk" hidden>
+    <h1 id="askTitle">Allow this app to use your Quartermap?</h1>
+    <div class="who"><span>Logged in as <b id="askUser"></b></span><button class="link" type="button" id="askSwitch">Not you? Log out</button></div>
+    <p class="lead">If you allow it, <b id="askName"></b> can, in your name:</p>
+    <ul class="can">
+      <li>read your quarters, your library of initiatives and the comments on your slides;</li>
+      <li>create, change and delete quarters, rows, phases and go-live lines;</li>
+      <li>make and withdraw share links, and reply to comments.</li>
+    </ul>
+    <p>Its changes are saved to your account and show up in the editor right away. You can disconnect it at any time, here or in the app itself.</p>
+    <p class="back" id="askBack"></p>
+    <div class="actions">
+      <button class="primary" type="button" id="allowBtn">Allow</button>
+      <button type="button" id="denyBtn">Cancel</button>
+    </div>
+    <div class="msg" id="askMsg" role="alert"></div>
+  </section>
+
+  <section id="vDone" hidden>
+    <h1 id="doneTitle">Done</h1>
+    <p id="doneText"></p>
+  </section>
+
+  <section id="vApps" hidden>
+    <h1>Apps connected to your Quartermap</h1>
+    <div class="who"><span>Logged in as <b id="appsUser"></b></span><button class="link" type="button" id="appsSwitch">Log out</button></div>
+    <p id="appsIntro">These apps can read and change your roadmaps. Disconnect one and it stops working until you connect it again.</p>
+    <ul class="apps" id="appsList"></ul>
+    <div class="msg" id="appsMsg" role="alert"></div>
+    <div class="actions"><a class="btn" href="/">Back to Quartermap</a></div>
+  </section>
+
+  <section id="vError" hidden>
+    <h1 id="errTitle">This request cannot be used</h1>
+    <p id="errText"></p>
+    <div class="actions"><a class="btn" href="/">Open Quartermap</a></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"
+        integrity="sha384-WgXwGL6fUsYJWNaKJgVbrJKGRQwc1vieh2oy4kw9nXqpNDz3tdSsqEYUgeHD/NuF" crossorigin="anonymous"></script>
+<script>
+(function () {
+  "use strict";
+  var URL_ = "https://znxgayrgcezwgajciyqv.supabase.co";
+  var KEY = "sb_publishable_P3azBfYkarkNEhir5DRDZg_TVBWhYkc";
+  var $ = function (id) { return document.getElementById(id); };
+  var views = ["vLoading", "vLogin", "vAsk", "vDone", "vApps", "vError"];
+  var show = function (id) { views.forEach(function (v) { $(v).hidden = v !== id; }); };
+  var fail = function (title, text) { $("errTitle").textContent = title; $("errText").textContent = text; show("vError"); };
+
+  /* A page that decides what an account may do must not be shown inside
+     somebody else's page. The server says so too; this covers old browsers. */
+  if (window.top !== window.self) { document.body.textContent = ""; return; }
+
+  if (!window.supabase || !window.supabase.createClient) {
+    fail("Quartermap could not load", "A part of this page did not load. Check your connection and reload the page.");
+    return;
+  }
+  var sb = window.supabase.createClient(URL_, KEY);
+  var params = new URLSearchParams(location.search);
+  var requestId = params.get("authorization_id");
+  if (requestId !== null && !/^[A-Za-z0-9_-]{1,200}$/.test(requestId)) {
+    fail("This request cannot be used", "The link is not complete. Go back to Claude and connect Quartermap again.");
+    return;
+  }
+
+  /* Only ever leave for a web address. */
+  var leave = function (url) {
+    var u;
+    try { u = new URL(url); } catch (e) { u = null; }
+    if (!u || (u.protocol !== "https:" && u.protocol !== "http:")) {
+      fail("Something went wrong", "The app gave an address this page will not open. Go back to it and try again.");
+      return;
+    }
+    location.assign(u.href);
+  };
+  var friendly = function (err) {
+    var m = String((err && err.message) || err || "");
+    if (/invalid login credentials/i.test(m)) return "Wrong email or password.";
+    if (/email not confirmed/i.test(m)) return "Confirm your email first: open the email we sent you and click the link.";
+    if (/rate limit|too many/i.test(m)) return "Too many tries. Please wait a minute and try again.";
+    if (/fetch|network/i.test(m)) return "Quartermap could not be reached. Check your connection and try again.";
+    return "That did not work. Please try again.";
+  };
+
+  function askLogin(why) {
+    $("loginWhy").textContent = why;
+    show("vLogin");
+    setTimeout(function () { $("email").focus(); }, 0);
+  }
+  $("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = $("email").value.trim(), pass = $("password").value;
+    if (!email || !pass) { $("loginMsg").textContent = "Type your email and your password."; return; }
+    $("loginBtn").disabled = true; $("loginMsg").textContent = "";
+    sb.auth.signInWithPassword({ email: email, password: pass }).then(function (r) {
+      $("loginBtn").disabled = false;
+      if (r.error) { $("loginMsg").textContent = friendly(r.error); return; }
+      $("password").value = "";
+      start();
+    }).catch(function (err) { $("loginBtn").disabled = false; $("loginMsg").textContent = friendly(err); });
+  });
+  var logout = function () {
+    sb.auth.signOut({ scope: "local" }).then(start, start);
+  };
+  $("askSwitch").addEventListener("click", logout);
+  $("appsSwitch").addEventListener("click", logout);
+
+  function ask(details, user) {
+    var name = (details.client && details.client.name) || "An app";
+    $("askTitle").textContent = "Allow " + name + " to use your Quartermap?";
+    $("askName").textContent = name;
+    $("askUser").textContent = (details.user && details.user.email) || user.email || "";
+    var host = "";
+    try { host = new URL(details.redirect_uri).host; } catch (e) {}
+    $("askBack").textContent = "";
+    if (host) {
+      $("askBack").appendChild(document.createTextNode("Whatever you choose, you go back to "));
+      var b = document.createElement("b"); b.textContent = host; $("askBack").appendChild(b);
+      $("askBack").appendChild(document.createTextNode(". If that is not the app you were using, choose Cancel."));
+    }
+    show("vAsk");
+    $("allowBtn").focus();
+  }
+  function decide(allow) {
+    $("allowBtn").disabled = true; $("denyBtn").disabled = true; $("askMsg").textContent = "";
+    var call = allow ? sb.auth.oauth.approveAuthorization(requestId, { skipBrowserRedirect: true })
+                     : sb.auth.oauth.denyAuthorization(requestId, { skipBrowserRedirect: true });
+    call.then(function (r) {
+      if (r.error || !r.data || !r.data.redirect_url) {
+        $("allowBtn").disabled = false; $("denyBtn").disabled = false;
+        $("askMsg").textContent = r.error && /not found|expired|invalid/i.test(r.error.message || "")
+          ? "This request has expired. Go back to Claude and connect Quartermap again."
+          : friendly(r.error);
+        return;
+      }
+      $("doneTitle").textContent = allow ? "Connected" : "Not connected";
+      $("doneText").textContent = allow ? "Taking you back to the app…" : "Nothing was shared. Taking you back to the app…";
+      show("vDone");
+      leave(r.data.redirect_url);
+    }).catch(function (err) {
+      $("allowBtn").disabled = false; $("denyBtn").disabled = false;
+      $("askMsg").textContent = friendly(err);
+    });
+  }
+  $("allowBtn").addEventListener("click", function () { decide(true); });
+  $("denyBtn").addEventListener("click", function () { decide(false); });
+
+  function apps(user) {
+    $("appsUser").textContent = user.email || "";
+    $("appsMsg").textContent = ""; $("appsMsg").classList.remove("is-ok");
+    show("vApps");
+    var list = $("appsList");
+    list.textContent = "";
+    sb.auth.oauth.listGrants().then(function (r) {
+      if (r.error) { $("appsIntro").textContent = "The list of connected apps could not be loaded. Please try again later."; return; }
+      var grants = r.data || [];
+      if (!grants.length) { $("appsIntro").textContent = "No apps are connected to your Quartermap."; return; }
+      grants.forEach(function (g) {
+        var li = document.createElement("li"), left = document.createElement("div");
+        var n = document.createElement("div"); n.className = "app-name"; n.textContent = (g.client && g.client.name) || "An app";
+        var w = document.createElement("div"); w.className = "app-when";
+        var d = g.granted_at ? new Date(g.granted_at) : null;
+        w.textContent = d && !isNaN(d) ? "Connected on " + d.toLocaleDateString() : "Connected";
+        left.appendChild(n); left.appendChild(w);
+        var btn = document.createElement("button"); btn.type = "button"; btn.textContent = "Disconnect";
+        var clientId = g.client && g.client.id;
+        if (!clientId) btn.disabled = true;
+        btn.addEventListener("click", function () {
+          if (!clientId) return;
+          btn.disabled = true;
+          sb.auth.oauth.revokeGrant({ clientId: clientId }).then(function (x) {
+            if (x.error) { btn.disabled = false; $("appsMsg").textContent = friendly(x.error); return; }
+            li.remove();
+            $("appsMsg").textContent = n.textContent + " is disconnected.";
+            $("appsMsg").classList.add("is-ok");
+            if (!list.children.length) $("appsIntro").textContent = "No apps are connected to your Quartermap.";
+          }).catch(function (err) { btn.disabled = false; $("appsMsg").textContent = friendly(err); });
+        });
+        li.appendChild(left); li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }).catch(function () { $("appsIntro").textContent = "The list of connected apps could not be loaded. Please try again later."; });
+  }
+
+  function start() {
+    show("vLoading");
+    sb.auth.getUser().then(function (r) {
+      var user = r && r.data && r.data.user;
+      if (!user) {
+        askLogin(requestId
+          ? "An app wants to connect to your Quartermap account. Log in first, then you decide."
+          : "Log in to see the apps connected to your Quartermap account.");
+        return;
+      }
+      if (!requestId) { apps(user); return; }
+      sb.auth.oauth.getAuthorizationDetails(requestId).then(function (d) {
+        if (d.error || !d.data) {
+          fail("This request cannot be used", "It has expired or was already answered. Go back to Claude and connect Quartermap again.");
+          return;
+        }
+        /* Allowed before: Supabase sends the person straight back. */
+        if (!d.data.authorization_id && d.data.redirect_url) {
+          $("doneTitle").textContent = "Connected";
+          $("doneText").textContent = "You allowed this app before. Taking you back to it…";
+          show("vDone");
+          leave(d.data.redirect_url);
+          return;
+        }
+        ask(d.data, user);
+      }).catch(function () {
+        fail("Quartermap could not be reached", "Check your connection and reload this page.");
+      });
+    }).catch(function () {
+      fail("Quartermap could not be reached", "Check your connection and reload this page.");
+    });
+  }
+  start();
+})();
+</script>
+</body>
+</html>

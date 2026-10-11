@@ -29,7 +29,11 @@ jobs:
         run: ./build.sh
 
       - name: Fail if the committed build is stale
-        run: git diff --exit-code -- index.html
+        # git status, not git diff: an output missing from the commit shows up
+        # as untracked, which git diff would not report.
+        run: |
+          stale="$(git status --porcelain -- index.html lib/model.cjs oauth/consent.html)"
+          if [ -n "$stale" ]; then echo "$stale"; echo "Run ./build.sh and commit what it builds."; exit 1; fi
 
       - name: Stage the site
         run: |
